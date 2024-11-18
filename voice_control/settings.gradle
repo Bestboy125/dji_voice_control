@@ -1,0 +1,3 @@
+rootProject.name = "dji_voice_control"
+include ':app'
+include ':core'

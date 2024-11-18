@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "453631982381",
+    "project_id": "djivoice",
+    "storage_bucket": "djivoice.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:453631982381:android:ec49c53fdd5a3a08e371a4",
+        "android_client_info": {
+          "package_name": "com.dji.sdk.voice_control"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALC059mQ_fyf6LhNavu-cWfnjTc_bAOd8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

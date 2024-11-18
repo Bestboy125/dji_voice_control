@@ -1,0 +1,588 @@
+<resources>
+    <string name="sample_app_name">DJI语音飞行控制</string>
+    <string name="action_settings">Settings</string>
+
+    <string name="sdk_version">DJI SDK 版本: %1$s</string>
+    <string name="hint_firmware_upgrade_in_LDM">启动固件升级在LDM模式下</string>
+    <!-- Main activity UI string -->
+    <string name="connection_loose">状态: 没有产品连接</string>
+    <string name="connection_only_rc">状态: 只有遥控器连接</string>
+    <string name="model_not_available">Firmware version:N/A</string>
+    <string name="product_information">产品信息</string>
+    <string name="sdk_registration_message">SDK 注册失败. Please check the bundle ID and your network
+        connectivity. </string>
+    <string name="sdk_registration_success_message">SDK 注册成功.</string>
+    <string name="sdk_registration_doing_message">Registering, pls wait...</string>
+
+    <string name="activity_component_list">Component List</string>
+    <string name="start_payload">Start Payload</string>
+    <string name="start_payload_send_data">Send Data Activity</string>
+    <string name="payload_widget">Payload Widget</string>
+    <string name="start_payload_fail">Can not find the payload activity!</string>
+
+    <string name="success">成功</string>
+    <string name="login">登录</string>
+
+    <!-- Component list -->
+    <string name="component_listview_component">Component</string>
+    <string name="component_listview_camera">Camera</string>
+    <string name="component_listview_gimbal">Gimbal</string>
+    <string name="component_listview_flight_controller">Flight Controller</string>
+    <string name="component_listview_battery">Battery</string>
+    <string name="component_listview_airlink">Air Link</string>
+    <string name="component_listview_remote_controller">Remote Controller</string>
+    <string name="component_listview_mobile_remote_controller">Mobile Remote Controller</string>
+    <string name="component_listview_dual_remote_controller">Dual Remote Controller</string>
+    <string name="component_listview_mission_manager">Mission Manager (Deprecated)</string>
+    <string name="component_listview_timeline_mission_control">Timeline Mission Control</string>
+    <string name="component_listview_bluetooth">Bluetooth</string>
+    <string name="component_listview_access_locker">Access Locker</string>
+    <string name="component_listview_accessory_aggregation">Accessory Aggregation</string>
+    <string name="component_listview_audio_file_list_manager">Audio File List Manager</string>
+    <string name="component_listview_live_stream">Live Stream</string>
+    <string name="component_listview_lidar_view">Lidar</string>
+    <string name="component_listview_firmware_upgrade">Firmware Upgrade</string>
+    <string name="component_listview_utmiss">UTMISS</string>
+    <string name="component_listview_multiple_lens_camera">Multiple Lens Camera</string>
+    <string name="component_listview_radar">Radar</string>
+    <string name="component_listview_ldm">LDM</string>
+    <string name="component_listview_sdk_4_0">4.0 New Interfaces</string>
+    <string name="component_listview_waypoint_mission_operator">Waypoint Mission Operator</string>
+    <string name="component_listview_follow_me_mission_operator">Follow Me Mission Operator</string>
+    <string name="component_listview_keyed_interface">Keyed Interface Sample</string>
+
+    <string name="component_listview_sdk_4_1">4.1 New Interfaces</string>
+    <string name="component_listview_app_activation">App Activation and ADSB View</string>
+
+    <string name="component_listview_sdk_4_5">4.5 New Interfaces</string>
+    <string name="component_listview_sdk_4_6">4.6 New Interfaces</string>
+    <string name="component_listview_sdk_4_8">4.8 New Interfaces</string>
+    <string name="component_listview_sdk_4_9">4.9 New Interfaces</string>
+    <string name="component_listview_sdk_4_11">4.11 New Interfaces</string>
+    <string name="component_listview_sdk_4_12">4.12 New Interfaces</string>
+    <string name="component_listview_sdk_4_14">4.14 New Interfaces</string>
+    <string name="component_listview_sdk_4_15">4.15 New Interfaces</string>
+    <string name="component_listview_sdk_4_16">4.16 New Interfaces</string>
+    <string name="component_listview_waypointv2">WaypointV2 Mission Operator</string>
+    <string name="component_listview_flight_hub">Flight Hub</string>
+    <string name="component_listview_payload">Payload</string>
+    <string name="component_listview_redirect_to_djigo">Redirect to DJI Go</string>
+    <string name="component_listview_redirect_go4">DJI Go 4</string>
+    <string name="component_listview_redirect_go4_failure">Cannot redirect to DJI Go 4, Please check if DJI Go 4 has installed</string>
+    <string name="component_listview_redirect_go">DJI Go</string>
+    <string name="component_listview_redirect_go_failure">Cannot redirect to DJI Go, Please check if DJI Go has installed</string>
+
+    <string name="component_listview_key_manager">KeyManager</string>
+
+    <!-- KeyManager list-->
+    <string name="key_manager_listview_key_Interface">Key Manager View</string>
+    <string name="key_manager_component_spinner_title">Component</string>
+    <string name="key_manager_sub_component_spinner_title">Sub Component</string>
+    <string name="key_manager_key_interface_title">Key Interface</string>
+    <string name="key_manager_component_index_title">Component Index</string>
+    <string name="key_manager_get_value_desc">Get Value</string>
+    <string name="key_manager_set_value_desc">Set Value</string>
+    <string name="key_manager_listen_key_desc">Listen Key</string>
+
+
+    <!-- Camera list -->
+    <string name="camera_subtitle_general">General</string>
+    <string name="camera_listview_push_info">Push Info</string>
+    <string name="camera_listview_iso">Set/Get ISO</string>
+    <string name="camera_subtitle_shoot_photo">Shoot Photo</string>
+    <string name="camera_listview_shoot_single_photo">Shoot Single Photo</string>
+    <string name="camera_listview_shoot_super_resolutiob_photo">Shoot Super Resolution Photo</string>
+    <string name="camera_listview_shoot_interval_photo">Shoot Interval Photo</string>
+    <string name="camera_subtitle_record_video">Record Video</string>
+    <string name="camera_listview_record_video">Record Video</string>
+    <string name="camera_subtitle_playback">Playback</string>
+    <string name="camera_listview_playback_push_info">Playback Push Info</string>
+    <string name="camera_listview_playback_push_info_description">Playback State Information</string>
+    <string name="camera_listview_playback_command">Playback Commands</string>
+    <string name="camera_listview_playback_download">Playback Download</string>
+    <string name="camera_subtitle_media_download">Media Download</string>
+    <string name="camera_listview_download_media">Download Media</string>
+    <string name="camera_listview_media_playback">Media Manager</string>
+    <string name="moveToPosition">Skip Time</string>
+
+    <!-- Gimbal list -->
+    <string name="gimbal_subtitle_rotate_gimbal">Rotate Gimbal</string>
+    <string name="gimbal_listview_push_info">Push Info</string>
+    <string name="gimbal_listview_rotate_gimbal">Rotate With Speed</string>
+    <string name="gimbal_listview_gimbal_capability">Gimbal Capability</string>
+
+    <!-- Battery list -->
+    <string name="battery_subtitle">Battery Information</string>
+    <string name="battery_listview_push_info">Push Info</string>
+    <string name="battery_listview_set_get_discharge_day">Set/Get Discharge Day</string>
+
+    <!-- Remote controller list -->
+    <string name="remote_controller_subtitle">Remote Controller Information</string>
+    <string name="remote_controller_listview_push_info">Push Info</string>
+
+    <!-- Flight controller list -->
+    <string name="flight_controller_subtitle_general">General</string>
+    <string name="flight_controller_listview_compass_calibration">Compass Calibration</string>
+    <string name="flight_controller_listview_flight_limitation">Flight Limitation</string>
+    <string name="flight_controller_subtitle_orientation_mode">Orientation Mode</string>
+    <string name="flight_controller_listview_orientation_mode">Orientation Mode</string>
+    <string name="flight_controller_subtitle_virtual_stick">Virtual Stick</string>
+    <string name="flight_controller_listview_virtual_stick">Virtual Stick</string>
+    <string name="flight_controller_subtitle_intelligent_flight_assistant">Intelligent Flight Assistant</string>
+    <string name="flight_controller_listview_intelligent_flight_assistant">Intelligent Flight Assistant</string>
+    <string name="flight_controller_listview_networkRTK">Network RTK</string>
+
+
+
+    <!-- Airlink list -->
+    <string name="airlink_subtitle_wifi_airlink">WiFi Airlink</string>
+    <string name="airlink_listview_wifi_set_get_ssid">Set/Get WiFi SSID</string>
+    <string name="airlink_listview_wifi_reboot_wifi">Reboot WiFi</string>
+    <string name="airlink_subtitle_lb_airlink">Light Bridge Airlink</string>
+    <string name="airlink_listview_lb_set_get_channel">Set/Get LBAirlink Channel</string>
+    <string name="airlink_listview_ocusync_set_get_channel">Set/Get OcusyncAirlink Channel</string>
+    set_get_ocusync_airlink_channel_description
+
+    <!--*************** Camera string set ***************-->
+    <!-- Shoot Single Photo View -->
+    <string name="shoot_single_photo">Shoot Single Photo</string>
+    <string name="shoot_single_photo_descritpion">Shoot Single Photo</string>
+
+    <!-- Record Video View -->
+    <string name="record_video_start_record">Start Record</string>
+    <string name="record_video_stop_record">Stop Record</string>
+    <string name="record_video_initial_time">00:00:00</string>
+
+    <!-- Fetch Media View -->
+    <string name="fetch_media_view_description">Fetch Media</string>
+    <string name="fetch_media_view_fetch_thumbnail">Fetch Thumbnail</string>
+    <string name="fetch_media_view_fetch_preview">Fetch Preview</string>
+    <string name="fetch_media_view_fetch_media">FetchMedia</string>
+    <string name="not_support_mediadownload">This product does not support media download function.</string>
+    <string name="support_mediadownload">This product supports media download function.</string>
+    <string name="pull_up_load_more">Pull up to download more</string>
+    <string name="load_finish">No more files</string>
+    <string name="fetch_media_loading">Loading...</string>
+
+    <!-- Playback Download View -->
+    <string name="playback_download_description">In this mode, you could download the media file using the playback
+        mode. The pre-condition is that camera is in the multiple edit mode.
+    </string>
+    <string name="playback_download_select_0">1st Photo</string>
+    <string name="playback_download_select_1">2nd Photo</string>
+    <string name="playback_download_download">Download</string>
+    <string name="not_support_playback">This product does not support playback function.</string>
+    <string name="support_playback">This product supports playback function.</string>
+
+    <!--*************** Gimbal string set ***************-->
+    <!-- Move Gimbal In Speed -->
+    <string name="move_gimbal_in_speed_up">Up</string>
+    <string name="move_gimbal_in_speed_stop">Stop</string>
+    <string name="move_gimbal_in_speed_down">Down</string>
+    <string name="move_gimbal_in_speed_description">This view will show how to rotate the gimbal in speed. Please set up
+        a timer for keeping sending the rotateGimbalBySpeed with specific values and send null, null, null using
+        rotateGimbalInSpeed to the aircraft.
+    </string>
+
+    <!--*************** Flight controller string set ***************-->
+    <!-- Compass Calibration View -->
+    <string name="compass_calibration_start_calibration">Start Calibration</string>
+    <string name="compass_calibration_stop_calibration">Stop Calibration</string>
+    <string name="compass_calibration_description">This view is for calibration. The calibration process includes two
+        parts: horizontal calibration and vertical calibration
+    </string>
+
+    <string name="flight_limitation_set_height_limitation">Set Height Limitation</string>
+    <string name="flight_limitation_toggle_enable_radius_limitation">Limitation ON/OFF</string>
+    <string name="flight_limitation_set_radius_limitation">Set Radius Limitation</string>
+    <string name="flight_limitation_description">The height limitation is always on, the range of the flight limitation
+        is [20, 500]. The range of the radius flight limitation is [15, 500].
+    </string>
+
+    <!-- Orientation Mode View -->
+    <string name="orientation_mode_description">Current Orientation Mode is</string>
+    <string name="orientation_mode_home_lock">Home Lock</string>
+    <string name="orientation_mode_course_lock">Course Lock</string>
+    <string name="orientation_mode_aircraft_heading">Aircraft Heading</string>
+
+    <string name="intelligent_flight_assistant_description">This view is for Intelligent Flight Assistant.</string>
+
+    <!--*************** Airlink string set ***************-->
+
+    <!-- Set Get LB Airlink Channel View -->
+    <string name="set_get_lb_airlink_channel_description">This view will help you understand how to setLBAirlinkChannel.
+        Before send setLBAirlinkChannel, the mode of the LB should be in Manual mode. For the auto mode, it will be more
+        efficient for the remote control to choose the best channel
+    </string>
+
+    <!-- Set Get OcuSync Airlink Channel View -->
+    <string name="set_get_ocusync_airlink_channel_description">This view will help you understand how to setOcusyncAirlinkChannel.
+        Before send setOcusyncAirlinkChannel, the mode of the Ocusync should be in Manual mode. For the auto mode, it will be more
+        efficient for the remote control to choose the best channel
+    </string>
+
+    <!-- Set Get WiFi Airlink SSID View -->
+    <string name="set_get_wifi_airlink_ssid_description">This view will help you understand how to setWiFiAirlinkSSID.
+        After setting SSID, Password and frequency, please reboot the WiFi so that it would work immediately.
+    </string>
+
+    <!-- Reboot WiFi Airlink View -->
+    <string name="reboot_wifi_airlink_description">This view will help you understand how to use the rebootWiFiAirlink.
+        After setting SSID, Password and frequency, please reboot the WiFi so that it would work immediately.
+    </string>
+    <string name="reboot_wifi_airlink_reboot_wifi">Reboot WiFi</string>
+    <string name="reboot_wifi_airlink_hint">If you reboot the WiFi, the connection between product and mobile phone
+        device might lose.
+    </string>
+
+
+    <!-- media playback -->
+    <string name="video_playback_state_push_info">Video playback state</string>
+    <string name="Message_Waiting">Please wait...</string>
+    <string name="sync_file_title">Sync file</string>
+    <string name="sync_success">Sync file success</string>
+    <string name="playback_disconnected">Disconnected</string>
+
+    <!-- keyed interface-->
+    <string name="component_keyed_interface">key</string>
+    <string name="battery_title">Get battery level</string>
+    <string name="battery_value">%1$s %%</string>
+    <string name="camera_title">Switch Camera Mode</string>
+    <string name="camera_value">Current Mode: %1$s</string>
+    <string name="calibration_title">Start Gimbal Calibration</string>
+    <string name="calibration_value">Progress: %1$s %%</string>
+    <string name="storage_location_title">Switch Storage Location</string>
+    <string name="storage_location_value_internal">Internal Storage</string>
+    <string name="storage_location_value_sd">SD Card</string>
+    <string name="search_for_demo">Search for demo</string>
+
+    <!-- video feeder related interface-->
+    <string name="video_feeder_single_camera_product_title">*Inspire1/M100/P3/P4/Mavic... \n Only one live video is available"</string>
+    <string name="video_feeder_m600_lb2_title">*M600/LB2 products(with two cameras) \n with follow options:</string>
+    <string name="video_feeder_m210_two_camera_title">*M210 Series with two cameras:</string>
+    <string name="video_feeder_m300_camera_title">*M300 RTK</string>
+    <string name="product_with_multiple_gimbals">*Product with multiple gimbals:</string>
+    <string name="video_feeder_enable_single">\tEnable EXT(Single Mode)</string>
+    <string name="video_feeder_disable_single">\tDisable EXT(Dual Mode)</string>
+    <string name="video_feeder_lb_only">LB Only</string>
+    <string name="video_feeder_ext_only">EXT Only</string>
+    <string name="video_feeder_both_lb_ext">LB+EXT</string>
+    <string name="video_feeder_hdmi_only">HDMI Only</string>
+    <string name="video_feeder_av_only">AV Only</string>
+    <string name="video_feeder_both_hdmi_av">HDMI+AV</string>
+    <string name="video_feeder_right_fpv">Right+FPV</string>
+    <string name="video_feeder_left_fpv">Left+FPV</string>
+    <string name="video_feeder_left_right">Left+Right</string>
+    <string name="video_feeder_set_video_source">Set Video Source</string>
+    <string name="video_feeder_set_primary_priority">Set Primary Priority</string>
+    <string name="video_feeder_get_primary_priority">Get Primary Priority</string>
+    <string name="component_listview_video_feeder">Video Feeder View</string>
+    <string name="component_xt2_camera_view">XT2 Camera View</string>
+    <string name="camera_calibration">Camera Calibration</string>
+
+    <string name="popup_picker_finish">Finish</string>
+    <string name="popup_picker_trigger">Trigger</string>
+
+    <!-- FlightHubManager testing Activity -->
+    <string name="fh_get_authorization">Get Authorization</string>
+    <string name="fh_get_team_info">Get Team Info</string>
+    <string name="fh_bind_aircraft">Bind Current Aircraft</string>
+    <string name="fh_unbind_aircraft">Unbind Current Aircraft</string>
+    <string name="fh_set_upload_interval">Set Upload Interval</string>
+    <string name="fh_get_upload_interval">Get Upload Interval</string>
+    <string name="fh_start_upload_flight_data">Start Upload Flight Data</string>
+    <string name="fh_stop_upload_flight_data">Stop Upload Flight Data</string>
+    <string name="fh_get_online_devices">Get Online Devices</string>
+    <string name="fh_get_real_time_data">Get Real Time Flight Data</string>
+    <string name="fh_get_flight_statistics">Get Flight Statistics</string>
+    <string name="fh_get_stream_source">Get Stream Source</string>
+    <string name="fh_get_stream_destination">Get Stream Destination</string>
+    <string name="fh_check_live_stream_stability">Check Live Stream Stability</string>
+    <string name="fh_get_streaming_devices">Get Streaming Devices</string>
+    <string name="fh_get_flight_path">Get Flight Path</string>
+    <string name="fh_team_id">Team ID/Upload Interval</string>
+    <string name="fh_account">Account</string>
+
+
+    <!-- XT2 Camera View -->
+    <string name="mode_visual">Visual Mode</string>
+    <string name="mode_thermal">Thermal Mode</string>
+    <string name="mode_msx">MSX Mode</string>
+    <string name="mode_pip">Pip Mode</string>
+    <string name="mode_msx_level">Set MSX Level</string>
+    <string name="mode_pip_position">Set Pip position</string>
+    <string name="photo_shoot">Shoot Photo</string>
+    <string name="photo_count">Get Remaining Photo Count</string>
+    <string name="sdcard_present">Is SD Card Present</string>
+
+    <!-- Multi Lens Camera View -->
+    <string name="primary_camera">Primary Camera</string>
+    <string name="main_lens">Main Lens</string>
+    <string name="video_stream_source">Video Stream Source</string>
+    <string name="laser_enabled">Laser Enabled</string>
+    <string name="laser_information">Laser Information</string>
+    <string name="flat_camera_mode">Flat Camera Mode</string>
+    <string name="hybrid_zoom_spec">Hybrid Zoom Spec</string>
+    <string name="infrared_thermal_camera_shutter_enabled">Infrared Thermal Camera Shutter Enabled</string>
+
+    <!-- Accessory Aggregation View -->
+    <string name="enable_beacon">Enable Beacon</string>
+    <string name="disable_beacon">Disable Beacon</string>
+    <string name="enable_spotlight">Enable Spotlight</string>
+    <string name="disable_spotlight">Disable Spotlight</string>
+    <string name="play_mode_single">Single Onece</string>
+    <string name="play_mode_repeat">Repeat Single</string>
+    <string name="start_record">Start Record</string>
+    <string name="stop_record">Stop Record</string>
+    <string name="stop_playing">Stop Playing</string>
+    <string name="accessory_aggragation_state">Accessory Aggregation State:</string>
+    <string name="spot_light_state">Spot Light State:</string>
+    <string name="speaker_state">Speaker State:</string>
+    <string name="transmitting_state">Transmitting State:</string>
+    <string name="recording_state">Recording State:</string>
+    <string name="fetch_file_list">Fetch File List</string>
+    <string name="cancel_transmitting">Cancel Transmitting</string>
+    <string name="transmit_local_file">Transmit Local File</string>
+    <string name="component_listview_health_information">Device Health Information</string>
+
+    <!-- Followme Mission View -->
+    <string name="start_simulator">Start Simulator</string>
+    <string name="start_followme_mission">Start Followme Mission</string>
+    <string name="stop_followme_mission">Stop Followme Mission</string>
+    <string name="component_listview_follwome_mission_operator">Followme Mission Operator</string>
+    <string name="followme_mission_state"></string>
+
+    <!-- LookAt Mission View -->
+    <string name="look_at_mission">Look At Mission</string>
+    <string name="look_at_mission_info">Look At Mission Info</string>
+    <string name="add_pinpoint">Add PinPoint</string>
+    <string name="clear_pinpoint">Clear PinPoint</string>
+    <string name="do_look_at">Look At</string>
+    <string name="set_video_stream_source">Set Source</string>
+    <string name="laser_enable">Laser Enabled</string>
+    <string name="split_screen_display">Split Screen Display</string>
+
+    <string name="uas_view">UAS</string>
+
+
+    <string name="app_name">讯飞语音示例</string>
+    <!-- 请替换成在语音云官网申请的appid -->
+    <string name="app_id">12cecf5e</string>
+    <string name="example_explain">本示例为讯飞语音Android平台开发者提供语音听写、语法识别、语义理解和语音合成等代码样例，旨在让用户能够依据该示例快速开发出基于语音接口的应用程序。</string>
+    <string name="text_tts_source">
+        科大讯飞作为智能语音技术提供商，在智能语音技术领域有着长期的研究积累，并在中文语音合成、语音识别、口语评测等多项技术上拥有技术成果。科大讯飞是我国以语音技术为产业化方向的“国家863计划产业化基地”.....
+    </string>
+    <string name="text_tts_source_en">iFLYTEK is a national key software enterprise dedicated to the research of intelligent speech and language technologies, development of software and chip products, provision of speech information services, and integration of E-government systems. The intelligent speech technology of iFLYTEK, the core technology of the company, represents the top level in the world.</string>
+    <string name="text_isr_abnf_hint">\t上传内容为：\n\t#ABNF 1.0 gb2312;\n\tlanguage zh-CN;\n\tmode voice;\n\troot $main;\n\t$main = $place1 到$place2 ;\n\t$place1 = 北京 | 武汉 | 南京 | 天津 | 东京;\n\t$place2 = 上海 | 合肥;</string>
+    <string name="text_understand_hint">\t您可以说：\n\t今天的天气怎么样?\n\t北京到上海的火车?\n\t来首歌吧?\n\n\t更多语义请登录：\n\thttp://aiui.xfyun.cn/ \n\t配置您的专属语义吧!</string>
+    <!-- 听写 -->
+    <string name="text_begin">请开始说话…</string>
+    <string name="text_begin_recognizer">开始音频流识别</string>
+    <string name="text_begin_ise">开始音频流评测</string>
+    <string name="text_upload_userwords">上传用户词表</string>
+    <string name="text_upload_success">上传成功</string>
+    <string name="text_userword_empty">词表下载失败或内容为空</string>
+    <string name="text_download_success">下载成功</string>
+    <string name="pref_key_iat_show">iat_show</string>
+    <string name="pref_title_iat_show">显示听写界面</string>
+    <string name="text_show_contacts">上传词表显示</string>
+    <string name="text_show_iat_result">听写结果显示</string>
+
+    <string name="pref_key_translate">translate</string>
+    <string name="pref_title_translate">翻译</string>
+
+    <string name="face_model_delete">人脸模型删除</string>
+
+    <string name="title_face_idf">人脸1:N检索示例</string>
+    <string name="title_vocal_idf">声纹1:N检索示例</string>
+
+
+    <!-- 合成 -->
+    <string-array name="engine_entries">
+        <item>本地合成</item>
+        <item>在线合成</item>
+    </string-array>
+    <string-array name="engine_values">
+        <item>local</item>
+        <item>cloud</item>
+    </string-array>
+    <string-array name="voicer_cloud_entries">
+        <item>小燕—女青、中英、普通话</item>
+        <item>小宇—男青、中英、普通话</item>
+        <item>凯瑟琳—女青、英</item>
+        <item>亨利—男青、英</item>
+        <item>玛丽—女青、英</item>
+        <item>小研—女青、中英、普通话</item>
+        <item>小琪—女青、中英、普通话</item>
+        <item>小峰—男青、中英、普通话</item>
+        <item>小梅—女青、中英、粤语</item>
+        <item>小莉—女青、中英、台湾普通话</item>
+        <item>小蓉—女青、中、四川话</item>
+        <item>小芸—女青、中、东北话</item>
+        <item>小坤—男青、中、河南话</item>
+        <item>小强—男青、中、湖南话</item>
+        <item>小莹—女青、中、陕西话</item>
+        <item>小新—男童、中、普通话</item>
+        <item>楠楠—女童、中、普通话</item>
+        <item>老孙—男老、中、普通话</item>
+    </string-array>
+    <string-array name="voicer_cloud_values">
+        <item>xiaoyan</item>
+        <item>xiaoyu</item>
+        <item>catherine</item>
+        <item>henry</item>
+        <item>vimary</item>
+        <item>vixy</item>
+        <item>xiaoqi</item>
+        <item>vixf</item>
+        <item>xiaomei</item>
+        <item>xiaolin</item>
+        <item>xiaorong</item>
+        <item>xiaoqian</item>
+        <item>xiaokun</item>
+        <item>xiaoqiang</item>
+        <item>vixying</item>
+        <item>xiaoxin</item>
+        <item>nannan</item>
+        <item>vils</item>
+    </string-array>
+    <string-array name="emot_entries">
+        <item>正常</item>
+        <item>高兴</item>
+        <item>悲伤</item>
+        <item>生气</item>
+    </string-array>
+    <string-array name="emot_values">
+        <item>neutral</item>
+        <item>happy</item>
+        <item>sad</item>
+        <item>angry</item>
+    </string-array>
+    <string-array name="stream_entries">
+        <item>通话</item>
+        <item>系统</item>
+        <item>铃声</item>
+        <item>音乐</item>
+        <item>闹铃</item>
+        <item>通知</item>
+    </string-array>
+    <string-array name="stream_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </string-array>
+    <string name="tts_toast_format" formatted="false">缓冲进度为%d%%，播放进度为%d%%</string>
+    <!-- 语言 -->
+    <string-array name="language_entries">
+        <item>普通话</item>
+        <item>粤语</item>
+        <item>英语</item>
+    </string-array>
+    <string-array name="language_values">
+        <item>mandarin</item>
+        <item>cantonese</item>
+        <item>en_us</item>
+    </string-array>
+    <!-- 语音评测 -->
+    <string name="text_en_word">"[word]\napple\nbanana\norange"</string>
+    <string name="text_en_sentence">"The quick brown fox jumps over the lazy dog."</string>
+    <string name="text_en_chapter">"It is never too old to learn, A good beginning makes a good ending."</string>
+    <string name="text_en_simple_expression">"W2Nob2ljZV0KMS4gV2hhdCBzaG91bGQgSSBkbyB3aXRoIHRoZSB0b3BpYz8KMi4gSG93IGNhbiBJIGRlYWwgd2l0aCB0aGUgdG9waWM/CjMuIFdoYXQgY2FuIEkgZG8gd2l0aCB0aGUgdG9waWM/CjQuIFdoYXQgc2hvdWxkIEkgZG8gd2l0aCB0aGlzIHN1YmplY3Q/CjUuIEhvdyBjYW4gSSBkZWFsIHdpdGggdGhpcyBzdWJqZWN0Pwo2LiBXaGF0IGNhbiBJIGRvIHdpdGggdGhpcyBzdWJqZWN0Pwo3LiBXaGF0IHNob3VsZCBJIGRvIHdpdGggdGhpcyB0aXRsZT8KOC4gSG93IGNhbiBJIGRlYWwgd2l0aCB0aGlzIHRpdGxlPwo5LiBXaGF0IGNhbiBJIGRvIHdpdGggdGhpcyB0aXRsZT8KMTAuIFdoYXQgc2hvdWxkIEkgbWFuYWdlIHRoaXMgdGl0bGU/CjExLiBIb3cgY2FuIEkgbWFuYWdlIHRoaXMgdGl0bGU/CjEyLiBXaGF0IGNhbiBJIG1hbmFnZSB0aGlzIHRpdGxlPwoxMy4gV2hhdCBzaG91bGQgSSBtYW5hZ2UgdGhpcyBzdWJqZWN0PwoxNC4gSG93IGNhbiBJIG1hbmFnZSB0aGlzIHN1YmplY3Q/CjE1LiBXaGF0IHNob3VsZCBJIG1hbmFnZSB0aGlzIHRvcGljPwoxNi4gSG93IGNhbiBJIG1hbmFnZSB0aGlzIHRvcGljPwoxNy4gV2hhdCBjYW4gSSBtYW5hZ2UgdGhpcyB0b3BpYz8KMTguIEhvdyBzaG91bGQgSSBkZWFsIHdpdGggdGhpcyB0b3BpYz8KMTkuIEhvdyBzaG91bGQgSSBkZWFsIHdpdGggdGhpcyB0aXRsZT8KMjAuIEhvdyBzaG91bGQgSSBkZWFsIHdpdGggdGhpcyBzdWJqZWN0Pwpba2V5d29yZHNdCndoYXQgZG8gdG9waWMgfCBob3cgZGVhbCB0b3BpYyB8IHdoYXQgZG8gc3ViamVjdCB8IGhvdyBkZWFsIHN1YmplY3QgfCB3aGF0IGRvIHRpdGxlIHwgaG93IGRlYWwgdGl0bGUgfCB3aGF0IG1hbmFnZSB0aXRsZSB8IGhvdyBtYW5hZ2UgdGl0bGUgfCB3aGF0IG1hbmFnZSBzdWJqZWN0IHwgaG93IG1hbmFnZSBzdWJqZWN0IHwgd2hhdCBtYW5hZ2UgdG9waWMgfCBob3cgbWFuYWdlIHRvcGljCltzY3JpcHRdClc6IENvbmdyYXR1bGF0aW9ucywgVG9tISBZb3UgZ2F2ZSBhIHdvbmRlcmZ1bCBzcGVlY2ggeWVzdGVyZGF5IG1vcm5pbmcuCk06IFRoYW5rIHlvdSBNYXJ5LgpXOiBJIHdpbGwgZ2l2ZSBhIHNwZWVjaCBuZXh0IFdlZG5lc2RheSBpbiBteSBFbmdsaXNoIGNsYXNzLCBidXQgSSBhbSBub3QgZnVsbHkgcHJlcGFyZWQgeWV0LiBDYW4geW91IGdpdmUgbWUgc29tZSBhZHZpY2U/Ck06IFN1cmUuIFdoYXQncyB5b3VyIHRvcGljPwpXOiBXZWxsLCBJIGFtIGFsd2F5cyBjb25jZXJuZWQgYWJvdXQgZW52aXJvbm1lbnRhbCBpc3N1ZXMsIHNvIG15IHRvcGljIGlzIEVudmlyb25tZW50YWwgUHJvdGVjdGlvbi4KTTogVGhpcyBpcyBhIGdvb2QgdG9waWMsIGJ1dCBpdCBpcyB0b28gYmlnLgpbcXVlc3Rpb25dCuaIkeivpeWmguS9leWkhOeQhui/meS4qumimOebru+8nwpbbWFjYW5zd2VyXQpZb3UgaGF2ZSB0byBuYXJyb3cgZG93biB5b3VyIHRvcGljLiBGb3IgZXhhbXBsZSwgeW91IG1heSB0YWxrIGFib3V0IHdoYXQgY29sbGVnZSBzdHVkZW50cyBjYW4gZG8gdG8gcHJvdGVjdCBvdXIgZW52aXJvbm1lbnQuIEFmdGVyIHRoYXQsIHlvdSBuZWVkIHRvIGRvIHNvbWUgcmVzZWFyY2ggdG8gY29sbGVjdCByZWxldmFudCBpbmZvcm1hdGlvbiBhcyBtdWNoIGFzIHBvc3NpYmxlLiBUaGVuLCB5b3Ugc2hvdWxkIG9yZ2FuaXplIHlvdXIgYXJndW1lbnRzIHdlbGwuIExvZ2ljYWwgb3JnYW5pemF0aW9uIGlzIHZlcnkgaW1wb3J0YW50Lg=="</string>
+    <string name="text_en_read_choice">"W2Nob2ljZV0KMS4gU25ha2VzLgoyLiBDaGlsZHJlbi4KMy4gQ2F0cy4KW2tleXdvcmRzXQpjYXRzCltxdWVzdGlvbl0KV2hhdCBkaWQgdGhlIHdvbWFuIGRpc2xpa2U/"</string>
+    <string name="text_en_topic">"W3RvcGljXQoxLiBUaGUgR29vc2UgVGhpZWYKMS4xLiAgVG9tIHdlbnQgdG8gcHJpbWFyeSBzY2hvb2wgaW4gdGhlIGNvdW50cnlzaWRlLiBOZWFyIGhpcyBjbGFzc3Jvb20sIHRoZXJlIHdhcyBhIHNtYWxsIHBvbmQgd2hlcmUgdHdvIGdlZXNlIHdlcmUgcmFpc2VkLiBTdHVkZW50cyB3ZXJlIGFsbCBmb25kIG9mIHRoZW0uIE9uZSBkYXksIHdoZW4gVG9tIHBhc3NlZCB0aGUgc2Nob29sIGtpdGNoZW4sIGhlIGhlYXJkIHRoZSBjb29rcyB0YWxraW5nIGFib3V0IGtpbGxpbmcgdGhlIGdlZXNlIGZvciB0aGUgdGVhY2hlcnMnIENocmlzdG1hcyBkaW5uZXIuIFRvbSBnb3QgYW5ncnksIGFuZCBzYWlkIHRvIGhpbXNlbGYsICJJIHdvbid0IGxldCB0aGVtIGJlIGVhdGVuISIgVGhhdCBuaWdodCwgVG9tIHdvcmtlZCBvdXQgYSBwbGFuLiBIZSB3YXMgZ29pbmcgdG8gaGlkZSB0aGVtIHNvbWV3aGVyZSBmYXIgYXdheSBmcm9tIHRoZSBzY2hvb2wuIFRoZSBuZXh0IG1vcm5pbmcsIFRvbSB3ZW50IHRvIHNjaG9vbCBpbiBoaXMgZmF0aGVyJ3MgYmlnIGNvYXQuIER1cmluZyB0aGUgYnJlYWssIGhlIHJ1c2hlZCB0byB0aGUgcG9uZC4gV2l0aG91dCBhbnlvbmUgYXJvdW5kLCBoZSBjYXVnaHQgdGhlIGdlZXNlIGFuZCBwdXNoZWQgdGhlbSBpbnNpZGUgdGhlIGNvYXQuIEhvd2V2ZXIsIHRoZSBnZWVzZSB3ZXJlIGxhcmdlciB0aGFuIGhlIGhhZCB0aG91Z2h0LCBhbmQgdGhleSB0cmllZCB2ZXJ5IGhhcmQgdG8gZnJlZSB0aGVtc2VsdmVzIGZyb20gdGhlIGNvYXQuIFRoZSBiaWcgbm9pc2UgY2F1Z2h0IHRoZSBub3RpY2Ugb2YgdGhlIGhlYWQgdGVhY2hlciBhbmQgdGhlIHN0dWRlbnRzLCBhbmQgdGhleSBhbGwgcmFuIHRvIHRoZSBwb25kLiBUaGUgaGVhZCB0ZWFjaGVyIGFza2VkIGZvciBhbiBleHBsYW5hdGlvbi4gTG9va2luZyBhdCB0aGUgdGVhY2hlciB3aXRoIGZlYXIsIFRvbSB0b2xkIHRoZSBzdG9yeSBhbmQgc2FpZCwgIkl0IGlzIHVuZmFpciB0byB0aGVtLiBXZSBhbGwgbG92ZSB0aGVtISIgVGhlIGhlYWQgdGVhY2hlciBzbWlsZWQgYW5kIHByb21pc2VkIG5vdCB0byBoYXZlIHRoZW0ga2lsbGVkIGZvciB0aGUgQ2hyaXN0bWFzIGRpbm5lci4KW2tleXBvaW50XQoxLiBUb20gd2VudCB0byBwcmltYXJ5IHNjaG9vbCBpbiB0aGUgY291bnRyeXNpZGUuIE5lYXIgaGlzIGNsYXNzcm9vbSwgdGhlcmUgd2FzIGEgc21hbGwgcG9uZCB3aGVyZSB0d28gZ2Vlc2Ugd2VyZSByYWlzZWQuCjIuIFN0dWRlbnRzIHdlcmUgYWxsIGZvbmQgb2YgdGhlbS4KMy4gT25lIGRheSwgd2hlbiBUb20gcGFzc2VkIHRoZSBzY2hvb2wga2l0Y2hlbiwgaGUgaGVhcmQgdGhlIGNvb2tzIHRhbGtpbmcgYWJvdXQga2lsbGluZyB0aGUgZ2Vlc2UgZm9yIHRoZSB0ZWFjaGVycycgQ2hyaXN0bWFzIGRpbm5lci4KNC4gVG9tIGdvdCBhbmdyeSwgYW5kIHNhaWQgdG8gaGltc2VsZiwgIkkgd29uJ3QgbGV0IHRoZW0gYmUgZWF0ZW4hIiBUaGF0IG5pZ2h0LCBUb20gd29ya2VkIG91dCBhIHBsYW4uIEhlIHdhcyBnb2luZyB0byBoaWRlIHRoZW0gc29tZXdoZXJlIGZhciBhd2F5IGZyb20gdGhlIHNjaG9vbC4KNS4gVGhlIG5leHQgbW9ybmluZywgVG9tIHdlbnQgdG8gc2Nob29sIGluIGhpcyBmYXRoZXIncyBiaWcgY29hdC4gRHVyaW5nIHRoZSBicmVhaywgaGUgcnVzaGVkIHRvIHRoZSBwb25kLiBXaXRob3V0IGFueW9uZSBhcm91bmQsIGhlIGNhdWdodCB0aGUgZ2Vlc2UgYW5kIHB1c2hlZCB0aGVtIGluc2lkZSB0aGUgY29hdC4KNi4gSG93ZXZlciwgdGhlIGdlZXNlIHdlcmUgbGFyZ2VyIHRoYW4gaGUgaGFkIHRob3VnaHQsIGFuZCB0aGV5IHRyaWVkIHZlcnkgaGFyZCB0byBmcmVlIHRoZW1zZWx2ZXMgZnJvbSB0aGUgY29hdC4gVGhlIGJpZyBub2lzZSBjYXVnaHQgdGhlIG5vdGljZSBvZiB0aGUgaGVhZCB0ZWFjaGVyIGFuZCB0aGUgc3R1ZGVudHMsCjcuIFRoZXkgYWxsIHJhbiB0byB0aGUgcG9uZC4KOC4gVGhlIGhlYWQgdGVhY2hlciBhc2tlZCBmb3IgYW4gZXhwbGFuYXRpb24uCjkuICBMb29raW5nIGF0IHRoZSB0ZWFjaGVyIHdpdGggZmVhciwgVG9tIHRvbGQgdGhlIHN0b3J5IGFuZCBzYWlkLCAiSXQgaXMgdW5mYWlyIHRvIHRoZW0uIFdlIGFsbCBsb3ZlIHRoZW0hIgoxMC4gVGhlIGhlYWQgdGVhY2hlciBzbWlsZWQgYW5kIHByb21pc2VkIG5vdCB0byBoYXZlIHRoZW0ga2lsbGVkIGZvciB0aGUgQ2hyaXN0bWFzIGRpbm5lci4="</string>
+    <string name="text_en_retell">"W3RvcGljXQoxLiBUaGUgR29vc2UgVGhpZWYKMS4xLiAgVG9tIHdlbnQgdG8gcHJpbWFyeSBzY2hvb2wgaW4gdGhlIGNvdW50cnlzaWRlLiBOZWFyIGhpcyBjbGFzc3Jvb20sIHRoZXJlIHdhcyBhIHNtYWxsIHBvbmQgd2hlcmUgdHdvIGdlZXNlIHdlcmUgcmFpc2VkLiBTdHVkZW50cyB3ZXJlIGFsbCBmb25kIG9mIHRoZW0uIE9uZSBkYXksIHdoZW4gVG9tIHBhc3NlZCB0aGUgc2Nob29sIGtpdGNoZW4sIGhlIGhlYXJkIHRoZSBjb29rcyB0YWxraW5nIGFib3V0IGtpbGxpbmcgdGhlIGdlZXNlIGZvciB0aGUgdGVhY2hlcnMnIENocmlzdG1hcyBkaW5uZXIuIFRvbSBnb3QgYW5ncnksIGFuZCBzYWlkIHRvIGhpbXNlbGYsICJJIHdvbid0IGxldCB0aGVtIGJlIGVhdGVuISIgVGhhdCBuaWdodCwgVG9tIHdvcmtlZCBvdXQgYSBwbGFuLiBIZSB3YXMgZ29pbmcgdG8gaGlkZSB0aGVtIHNvbWV3aGVyZSBmYXIgYXdheSBmcm9tIHRoZSBzY2hvb2wuIFRoZSBuZXh0IG1vcm5pbmcsIFRvbSB3ZW50IHRvIHNjaG9vbCBpbiBoaXMgZmF0aGVyJ3MgYmlnIGNvYXQuIER1cmluZyB0aGUgYnJlYWssIGhlIHJ1c2hlZCB0byB0aGUgcG9uZC4gV2l0aG91dCBhbnlvbmUgYXJvdW5kLCBoZSBjYXVnaHQgdGhlIGdlZXNlIGFuZCBwdXNoZWQgdGhlbSBpbnNpZGUgdGhlIGNvYXQuIEhvd2V2ZXIsIHRoZSBnZWVzZSB3ZXJlIGxhcmdlciB0aGFuIGhlIGhhZCB0aG91Z2h0LCBhbmQgdGhleSB0cmllZCB2ZXJ5IGhhcmQgdG8gZnJlZSB0aGVtc2VsdmVzIGZyb20gdGhlIGNvYXQuIFRoZSBiaWcgbm9pc2UgY2F1Z2h0IHRoZSBub3RpY2Ugb2YgdGhlIGhlYWQgdGVhY2hlciBhbmQgdGhlIHN0dWRlbnRzLCBhbmQgdGhleSBhbGwgcmFuIHRvIHRoZSBwb25kLiBUaGUgaGVhZCB0ZWFjaGVyIGFza2VkIGZvciBhbiBleHBsYW5hdGlvbi4gTG9va2luZyBhdCB0aGUgdGVhY2hlciB3aXRoIGZlYXIsIFRvbSB0b2xkIHRoZSBzdG9yeSBhbmQgc2FpZCwgIkl0IGlzIHVuZmFpciB0byB0aGVtLiBXZSBhbGwgbG92ZSB0aGVtISIgVGhlIGhlYWQgdGVhY2hlciBzbWlsZWQgYW5kIHByb21pc2VkIG5vdCB0byBoYXZlIHRoZW0ga2lsbGVkIGZvciB0aGUgQ2hyaXN0bWFzIGRpbm5lci4KW2tleXBvaW50XQoxLiBUb20gd2VudCB0byBwcmltYXJ5IHNjaG9vbCBpbiB0aGUgY291bnRyeXNpZGUuIE5lYXIgaGlzIGNsYXNzcm9vbSwgdGhlcmUgd2FzIGEgc21hbGwgcG9uZCB3aGVyZSB0d28gZ2Vlc2Ugd2VyZSByYWlzZWQuCjIuIFN0dWRlbnRzIHdlcmUgYWxsIGZvbmQgb2YgdGhlbS4KMy4gT25lIGRheSwgd2hlbiBUb20gcGFzc2VkIHRoZSBzY2hvb2wga2l0Y2hlbiwgaGUgaGVhcmQgdGhlIGNvb2tzIHRhbGtpbmcgYWJvdXQga2lsbGluZyB0aGUgZ2Vlc2UgZm9yIHRoZSB0ZWFjaGVycycgQ2hyaXN0bWFzIGRpbm5lci4KNC4gVG9tIGdvdCBhbmdyeSwgYW5kIHNhaWQgdG8gaGltc2VsZiwgIkkgd29uJ3QgbGV0IHRoZW0gYmUgZWF0ZW4hIiBUaGF0IG5pZ2h0LCBUb20gd29ya2VkIG91dCBhIHBsYW4uIEhlIHdhcyBnb2luZyB0byBoaWRlIHRoZW0gc29tZXdoZXJlIGZhciBhd2F5IGZyb20gdGhlIHNjaG9vbC4KNS4gVGhlIG5leHQgbW9ybmluZywgVG9tIHdlbnQgdG8gc2Nob29sIGluIGhpcyBmYXRoZXIncyBiaWcgY29hdC4gRHVyaW5nIHRoZSBicmVhaywgaGUgcnVzaGVkIHRvIHRoZSBwb25kLiBXaXRob3V0IGFueW9uZSBhcm91bmQsIGhlIGNhdWdodCB0aGUgZ2Vlc2UgYW5kIHB1c2hlZCB0aGVtIGluc2lkZSB0aGUgY29hdC4KNi4gSG93ZXZlciwgdGhlIGdlZXNlIHdlcmUgbGFyZ2VyIHRoYW4gaGUgaGFkIHRob3VnaHQsIGFuZCB0aGV5IHRyaWVkIHZlcnkgaGFyZCB0byBmcmVlIHRoZW1zZWx2ZXMgZnJvbSB0aGUgY29hdC4gVGhlIGJpZyBub2lzZSBjYXVnaHQgdGhlIG5vdGljZSBvZiB0aGUgaGVhZCB0ZWFjaGVyIGFuZCB0aGUgc3R1ZGVudHMsCjcuIFRoZXkgYWxsIHJhbiB0byB0aGUgcG9uZC4KOC4gVGhlIGhlYWQgdGVhY2hlciBhc2tlZCBmb3IgYW4gZXhwbGFuYXRpb24uCjkuICBMb29raW5nIGF0IHRoZSB0ZWFjaGVyIHdpdGggZmVhciwgVG9tIHRvbGQgdGhlIHN0b3J5IGFuZCBzYWlkLCAiSXQgaXMgdW5mYWlyIHRvIHRoZW0uIFdlIGFsbCBsb3ZlIHRoZW0hIgoxMC4gVGhlIGhlYWQgdGVhY2hlciBzbWlsZWQgYW5kIHByb21pc2VkIG5vdCB0byBoYXZlIHRoZW0ga2lsbGVkIGZvciB0aGUgQ2hyaXN0bWFzIGRpbm5lci4="</string>
+    <string name="text_en_picture_talk">"W3RvcGljXQoxLiBUaHJvdyBMaXR0ZXIKMS4xLiBNYXJ5IGFuZCBoZXIgY2xhc3NtYXRlcyB3ZW50IG91dGluZyBsYXN0IHdlZWtlbmQuIFNvbWVvbmUgd2FzIGZseWluZyBraXRlcywgc29tZSBwZW9wbGUgd2VyZSBoYXZpbmcgc25hY2tzLiBUaGVyZSB3ZXJlIGxpdHRlcnMgb24gdGhlIHJvYWQuIE1hcnkgcGlja2VkIHVwIHRoZSB3YXN0ZSBib3R0bGVzIGFuZCBwYXBlciB0aGUgcHV0IHRoZW0gaW4gdGhlIGR1c3RiaW4uIFRoZSB0ZWFjaGVyIHByYWlzZWQgTWFyeSBmb3IgaGVyIGdvb2QgZGVlZC4KMS4yLiBMYXN0IHdlZWtlbmQsIE1hcnkgd2VudCB0byB0aGUgcGFyayB3aXRoIGhlciBjbGFzc21hdGVzLiBUaGV5IGhhZCBhIHBpY25pYyBpbiB0aGUgcGFyay4gU29tZSBwZW9wbGUgZmxldyBraXRlcyB0aGVyZS4gVGhleSBoYWQgZ3JlYXQgZnVuIHRoZXJlLiBNYXJ5IHNhdyBzb21lIHJ1YmJpc2ggb24gdGhlIHJvYWQuIFNoZSBwaWNrZWQgdXAgdGhlIHJ1YmJpc2ggYW5kIHRocmV3IGl0IGludG8gdGhlIGR1c3RiaW4uIFRoZSB0ZWFjaGVyIHByYWlzZWQgTWFyeS4KMS4zLiBMYXN0IFNhdHVyZGF5LCBNYXJ5J3MgY2xhc3Mgd2VudCB0byB0aGUgcGFyay4gVGhleSBicm91Z2h0IHNvbWUgZm9vZCBhbmQgaGFkIGEgcGljbmljIG9uIHRoZSBncmFzcy4gQWZ0ZXIgdGhhdCwgdGhleSBmbGV3IGtpdGVzIHRoZXJlLiBTdWRkZW5seSwgTWFyeSBmb3VuZCB0aGF0IHRoZXJlIHdhcyBzb21lIHJ1YmJpc2ggb24gdGhlIHJvYWQuIFNoZSB0aGVuIHBpY2tlZCB1cCB0aGUgcnViYmlzaCBhbmQgdGhyZXcgaXQgaW50byB0aGUgZHVzdGJpbi4gTWFyeSdzIHRlYWNoZXIgc2F3IHRoaXMuIFNoZSBzYWlkICJXZWxsIGRvbmUiIHRvIE1hcnkuIE1hcnkgd2FzIHZlcnkgaGFwcHkuCjEuNC4gTWFyeSB3ZW50IHRvIHRoZSBwYXJrIHdpdGggaGVyIGZyaWVuZCBsYXN0IHdlZWtlbmQuIFRoZXkgaGFkIGEgcGljbmljIHRoZXJlLCB3aGlsZSBzb21lIHBlb3BsZSB3ZXJlIGZseWluZyBraXRlcy4gTWFyeSdzIGZyaWVuZCB3YW50ZWQgdG8gZmx5IGEga2l0ZSB0b28uIFNvIHNoZSB0aHJldyB3YXN0ZSBib3R0bGVzIGFuZCBwYXBlciBvbiB0aGUgZ3JvdW5kIGFuZCByYW4gYXdheS4gTWFyeSBzYXcgdGhpcyBhbmQgcGlja2VkIHVwIHRoZSBydWJiaXNoLiBUaGVuIHNoZSB0aHJldyBpdCBpbnRvIHRoZSBnYXJiYWdlIGNhbi4gQSB3b21hbiBub3RpY2VkIHdoYXQgTWFyeSBoYWQgZG9uZS4gU2hlIHByYWlzZWQgTWFyeSBmb3IgaGVyIGdvb2QgYmVoYXZpb3IuCjEuNS4gTWFyeSB3ZW50IHRvIHRoZSBwYXJrIHRvIGhhdmUgYSBwaWNuaWMgd2l0aCBoZXIgZnJpZW5kIGxhc3QgU3VuZGF5LiBUaGV5IGJyb3VnaHQgc29tZSBqdWljZSBhbmQgYnJlYWQgYXMgbHVuY2guIEFmdGVyIGx1bmNoLCB0aGV5IGpvaW5lZCBvdGhlciBwZW9wbGUgdG8gZmx5IGtpdGVzLiBNYXJ5IHNhdyBzb21lIHdhc3RlIGJvdHRsZXMgYW5kIHBhcGVyIG9uIHRoZSBncm91bmQuIFNvbWVvbmUgdGhyZXcgdGhlbSBhd2F5IGFmdGVyIGhhdmluZyBhIHBpY25pYy4gTWFyeSBjbGVhbmVkIHRoZSByb2FkLCBwdXR0aW5nIHRoZSBnYXJiYWdlIGludG8gYSBnYXJiYWdlIGNhbi4gQSBsYWR5IHNhdyB0aGlzIGFuZCBwcmFpc2VkIE1hcnkgZm9yIHdoYXQgc2hlIGhhZCBkb25lLgoxLjYuIExhc3Qgd2Vla2VuZCwgTWFyeSBhbmQgaGVyIGNsYXNzbWF0ZXMgd2VudCB0byB0aGUgcGFyay4gU29tZSBvZiB0aGVtIGZsZXcga2l0ZXMsIGFuZCBzb21lIG9mIHRoZW0gaGFkIGZvb2Qgb24gdGhlIGdyYXNzLiBNYXJ5IGJyb3VnaHQgc29tZSBqdWljZSwgYnJlYWQgYW5kIGJpc2N1aXRzIHRvIHNoYXJlIHdpdGggaGVyIGZyaWVuZC4gQWZ0ZXIgdGhleSBmaW5pc2hlZCBlYXRpbmcsIGhlciBmcmllbmQgd2VudCB0byBmbHkgYSBraXRlLiBNYXJ5IGdhdGhlcmVkIHRoZWlyIHdhc3RlIGJvdHRsZXMgYW5kIHBhcGVyIGFuZCB3YXMgYWJvdXQgdG8gdGhyZXcgdGhlbSBpbnRvIHRoZSBkdXN0YmluLiBTdWRkZW5seSwgc2hlIHNhdyBzb21lIGdhcmJhZ2Ugb24gdGhlIGdyb3VuZC4gU2hlIHBpY2tlZCB1cCB0aGUgZ2FyYmFnZSwgYW5kIHRocmV3IGl0IGF3YXkgd2l0aCB0aGVpciB3YXN0ZSBib3R0bGVzIGFuZCBwYXBlci4gSGVyIGdvb2QgYmVoYXZpb3Igd2FzIG5vdGljZWQgYnkgdGhlIG1hbmFnZXIgb2YgdGhlIHBhcmsuIFRoZSBtYW5hZ2VyIHByYWlzZWQgaGVyLgoxLjcuIExhc3Qgd2Vla2VuZCwgTWFyeSB3ZW50IG91dGluZyB3aXRoIGhlciBjbGFzc21hdGVzLiBNYXJ5IGFuZCBoZXIgZnJpZW5kIHdlcmUgaGF2aW5nIGRyaW5rcyBhbmQgc29tZSBicmVhZC4gT3RoZXJzIHdlcmUgZmx5aW5nIGtpdGVzIG9yIHBsYXlpbmcgZ2FtZXMuIEFmdGVyIGEgd2hpbGUsIHRoZXJlIHdlcmUgbGl0dGVycyBvbiB0aGUgZ3JvdW5kLiBNYXJ5IHNhdyB0aGVzZSBhbmQgc3RhcnRlZCB0byBwaWNrIHVwIGFsbCB0aGUgd2FzdGUgcGFwZXIgYW5kIGJvdHRsZXMuIFNoZSBwdXQgdGhlbSBpbnRvIHRoZSBkdXN0YmluLiBNYXJ5J3MgdGVhY2hlciBwcmFpc2VkIGhlciBmb3Igd2hhdCBzaGUgaGFkIGRvbmUuCjEuOC4gTWFyeSB3ZW50IGZvciBhbiBvdXRpbmcgd2l0aCBoZXIgY2xhc3NtYXRlcyBsYXN0IHdlZWtlbmQuIFNvbWUgcGVvcGxlIHBsYXllZCBnYW1lcyBhbmQgc29tZSBwZW9wbGUgd2VudCB0byBmbHkga2l0ZXMuIE1hcnkgYW5kIExpbHkgd2VyZSBoYXZpbmcgc29tZSBzbmFja3MuIFdoZW4gdGhleSB3ZXJlIGFib3V0IHRvIHBsYXksIE1hcnkgbm90aWNlZCB0aGF0IHRoZXJlIHdlcmUgbGl0dGVycyBhcm91bmQgdGhlbS4gU28gc2hlIHBpY2tlZCB1cCB0aGUgd2FzdGUgYm90dGxlcyBhbmQgcGFwZXIgYW5kIHRocmV3IHRoZW0gaW4gdGhlIGR1c3RiaW4uIEp1c3QgdGhlbiwgaGVyIHRlYWNoZXIgc2F3IGl0IGFuZCBwcmFpc2VkIE1hcnkgZm9yIHdoYXQgc2hlIGRpZC4KMS45LiBUaGUgc2Nob29sIGhlbGQgYW4gb3V0aW5nIGxhc3Qgd2Vla2VuZC4gTWFyeSBhbmQgaGVyIGNsYXNzbWF0ZXMgaGFkIGZ1biB0aGVyZS4gU29tZSBwZW9wbGUgd2VyZSBwbGF5aW5nIGdhbWVzIHdoaWxlIHNvbWUgd2VyZSBmbHlpbmcga2l0ZXMuIE1hcnkgYW5kIG9uZSBvZiBoZXIgY2xhc3NtYXRlcyB3ZXJlIGhhdmluZyBzb21lIHNuYWNrcy4gVGhlbiwgTWFyeSBmb3VuZCB0aGF0IHRoZXJlIHdlcmUgc29tZSB3YXN0ZSBwYXBlciBhbmQgYm90dGxlcyBvbiB0aGUgZ3JvdW5kLiBTbyBzaGUgdGhyZXcgYWxsIG9mIHRoZW0gaW50byB0aGUgZHVzdGJpbi4gQXQgbGFzdCwgdGhlIGdyb3VuZCBiZWNhbWUgY2xlYW4gYW5kIE1hcnkgd2FzIHByYWlzZWQgYnkgaGVyIHRlYWNoZXIuCjEuMTAuIE1hcnkgYW5kIGhlciBjbGFzc21hdGVzIHdlbnQgZm9yIGFuIG91dGluZyBsYXN0IHdlZWtlbmQuIFRoZXkgd2VyZSB2ZXJ5IGhhcHB5LiBTb21lb25lIHdhcyBmbHlpbmcga2l0ZXMsIHNvbWUgd2VyZSBoYXZpbmcgZm9vZC4gQWZ0ZXIgaGF2aW5nIGx1bmNoLCB0aGV5IHdlbnQgb24gcGxheWluZyBnYW1lcy4gTWFyeSBub3RpY2VkIHRoYXQgdGhlcmUgd2VyZSBzb21lIGxpdHRlcnMgb24gdGhlIGdyb3VuZC4gU28gc2hlIHBpY2tlZCB1cCBhbGwgdGhlIGxpdHRlcnMgYW5kIHRoZW4gcHV0IHRoZW0gaW4gdGhlIGR1c3RiaW4uIE1hcnkncyBnb29kIGRlZWQgd2FzIHNhdyBieSBoZXIgdGVhY2hlci4gVGhlIHRlYWNoZXIgcHJhaXNlZCBNYXJ5IGFuZCBmZWx0IHByb3VkIG9mIHdoYXQgc2hlIGhhZCBkb25lLgoxLjExLiBMYXN0IFNhdHVyZGF5LCBNYXJ5J3MgdGVhY2hlciB0b29rIGhlciBjbGFzcyB0byBhbiBvdXRpbmcuIFRoZSB3aG9sZSBjbGFzcyB3ZXJlIHZlcnkgaGFwcHkgdGhlbi4gU29tZSBwZW9wbGUgd2VyZSBmbHlpbmcga2l0ZXMgd2hpbGUgc29tZSB3ZXJlIHBsYXlpbmcgZ2FtZXMuIEF0IGx1bmNoIHRpbWUsIHRoZXkgaGFkIGZvb2QgYW5kIGRyYW5rIGp1aWNlIHRvZ2V0aGVyLiBBZnRlciB0aGF0LCB0aGVyZSB3ZXJlIHNvbWUgd2FzdGUgYm90dGxlcyBhbmQgcGFwZXIgb24gdGhlIHJvYWQuIE1hcnkgc3RhcnRlZCB0byBwaWNrIHRoZW0gdXAgYW5kIHRocmV3IHRoZW0gaW50byB0aGUgZHVzdGJpbi4gSGVyIHRlYWNoZXIgc2F3IGl0IGFuZCBzcG9rZSBoaWdobHkgb2Ygd2hhdCBNYXJ5IGhhZCBkb25lLiBNYXJ5IGZlbHQgdmVyeSBwcm91ZCBvZiBoZXJzZWxmLgoxLjEyLiBMYXN0IHdlZWtlbmQgTWFyeSBhbmQgaGVyIGNsYXNzbWF0ZXMgd2VudCBvdXRpbmcgYW5kIGhhZCBhIHBpY25pYy4gU29tZSBwZW9wbGUgd2VyZSBmbHlpbmcga2l0ZXMsIHNvbWUgcGVvcGxlIHdlcmUgaGF2aW5nIHNuYWNrcy4gU3VkZGVubHksIHRoZXkgZm91bmQgdGhlcmUgd2FzIGEgbG90IG9mIGxpdHRlciBvbiB0aGUgcm9hZC4gTWFyeSBwaWNrZWQgdXAgdGhlIHdhc3RlIGJvdHRsZXMgYW5kIHBhcGVyIHRoZSBwdXQgdGhlbSBpbiB0aGUgZHVzdGJpbi4gVGhlIHRlYWNoZXIgcHJhaXNlZCBNYXJ5IGZvciBoZXIgZ29vZCBiZWhhdmlvci4KMS4xMy4gTGFzdCB3ZWVrZW5kIE1hcnkgd2VudCB0byB0aGUgcGFyayB3aXRoIFNvbWUgZnJpZW5kcy4gU29tZSBvZiB0aGVtIHdlcmUgZmx5aW5nIGtpdGVzLiBTb21lIGZyaWVuZHMgd2VyZSBlYXRpbmcgZm9vZC4gU3VkZGVubHksIHRoZXkgc2F3IHRoZXJlIHdhcyBzb21lIHJ1YmJpc2ggb24gdGhlIHJvYWQuIE1hcnkgcGlja2VkIHVwIHRoZSBydWJiaXNoIGFuZCBwdXQgaXQgaW50byB0aGUgZ2FyYmFnZS4gVGhlIHRlYWNoZXIgc2FpZCBNYXJ5IHdhcyBnb29kLgoxLjE0LiAgTGFzdCB3ZWVrZW5kIE1hcnkgd2VudCB0byB0aGUgcGFyay4gU29tZSBjbGFzc21hdGVzIHdlcmUgZmx5aW5nIGtpdGVzLCBzb21lIGNsYXNzbWF0ZSB3ZXJlIGVhdGluZyBmb29kLiBTdWRkZW5seSwgdGhleSBzYXcgdGhlcmUgd2FzIGEgbG90IG9mIHJ1YmJpc2ggb24gdGhlIHJvYWQuIE1hcnkgcGlja2VkIHVwIHRoZSBydWJiaXNoIGFuZCBwdXQgaXQgaW50byB0aGUgZHVzdGJpbi4gVGhlIHRlYWNoZXIgc2FpZCBNYXJ5IHdhcyBhIGdvb2QgZ2lybC4KMS4xNS4gIExhc3Qgd2Vla2VuZCBNYXJ5IGhhZCBhIHBpY25pYyB3aXRoIGhlciBjb3VzaW5zIGluIHRoZSBwYXJrLiBTb21lIHdlcmUgZmx5aW5nIGtpdGVzLCBzb21lIHdlcmUgZWF0aW5nIGZvb2QuIFRoZXkgc2F3IHRoZXJlIHdhcyBzb21lIGxpdHRlciBvbiB0aGUgcm9hZC4gTWFyeSBwaWNrZWQgdXAgdGhlIGxpdHRlciBhbmQgdGhyZXcgaXQgaW50byB0aGUgZHVzdGJpbi4gSGVyIG1vdGhlciBzYWlkIE1hcnkgd2FzIGdvb2QuCjEuMTYuICBMYXN0IHdlZWtlbmQgTWFyeSBoYWQgYSBwaWNuaWMgd2l0aCBoZXIgY291c2lucyBpbiB0aGUgcGFyay4gU29tZSBmbGV3IGtpdGVzLCBzb21lIGF0ZSBmb29kLiBTdWRkZW5seSwgdGhleSBzYXcgc29tZW9uZSBkcm9wcGVkIGEgbG90IG9mIGxpdHRlciBvbiB0aGUgcm9hZC4gTWFyeSBwaWNrZWQgdXAgdGhlIGxpdHRlciBhbmQgdGhyZXcgaXQgaW50byB0aGUgZHVzdGJpbi4gSGVyIG1vdGhlciBzYWlkIE1hcnkgZGlkIGEgZ29vZCBqb2IuCjEuMTcuICBMYXN0IHdlZWtlbmQsIE1hcnkgd2VudCB0byB0aGUgcGFyayBmb3IgYSBwaWNuaWMgd2l0aCBoZXIgZnJpZW5kLiBUaGV5IGJyb3VnaHQgYSBsb3Qgb2YgZm9vZCBhbmQgZW5qb3llZCBpdCB2ZXJ5IG11Y2guIExpbHkgd2VudCB0byBmbHkga2l0ZSBidXQgc2hlIGxlZnQgbWFueSBydWJiaXNoIG9uIHRoZSBncm91bmQuIE1hcnJ5IGNsZWFuZWQgaXQgYW5kIHB1dCBpdCBpbnRvIHRoZSBydWJiaXNoIGNhbi4gVGhlIHRlYWNoZXIgc2F3IGl0IGFuZCBzaGUgc2FpZCB0byBNYXJyeSwgInlvdSBhcmUgYSBnb29kIGdpcmwuIiBXaGF0IGEgZ29vZCBnaXJsIQ=="</string>
+    <string name="text_en_oral_translation">"W3RvcGljXQoxLiBCcml0aXNoIFBlb3BsZQoxLjEuICBCcml0aXNoIHBlb3BsZSB1c3VhbGx5IHNheSAiaGVsbG8iIG9yICJuaWNlIHRvIG1lZXQgeW91IiBhbmQgc2hha2UgeW91ciBoYW5kIHdoZW4gdGhleSBtZWV0IHlvdSBmb3IgdGhlIGZpcnN0IHRpbWUuIFRoZXkgYmVoYXZlIHBvbGl0ZWx5IGluIHB1YmxpYy4gVGhleSB0aGluayBpdCdzIHJ1ZGUgdG8gcHVzaCBpbiBiZWZvcmUgb3RoZXJzLiBUaGV5IGFsd2F5cyBxdWV1ZS4gVGhleSBhcmUgdmVyeSBwb2xpdGUgYXQgaG9tZSBhcyB3ZWxsLiBXaGVuIGluIFJvbWUsIGRvIGFzIHRoZSBSb21hbnMgZG8uIFdoZW4gd2UgYXJlIGluIGEgc3RyYW5nZSBwbGFjZSwgd2Ugc2hvdWxkIGRvIGFzIHRoZSBsb2NhbCBwZW9wbGUgZG8uCjEuMi4gRm9yIHRoZSBmaXJzdCBtZWV0aW5nLCB0aGUgRW5nbGlzaCB3aWxsIHVzdWFsbHkgc2F5ICJoZWxsbyIgb3IgIm5pY2UgdG8gbWVldCB5b3UiIGFuZCBzaGFrZSBoYW5kcyB3aXRoIHlvdS4gSW4gdGhlIHB1YmxpYyBwbGFjZXMsIHRoZXkgYmVoYXZlIHRoZW1zZWx2ZXMgd2VsbO+8myB0aGV5IHRoaW5rIHRoYXQganVtcGluZyBpbiB0aGUgbGluZSBpcyBhIHJ1ZGUgYmVoYXZpb3IsIHNvIHRoZXkgYWx3YXlzIGxpbmUgdXAuIFRoZXkgYXJlIG9mdGVuIHZlcnkgcG9saXRlIGF0IGhvbWUuIFdoZW4gd2UgYXJlIGluIGEgc3RyYW5nZSBwbGFjZSwgZG8gaW4gUm9tZSBhcyBSb21lIGRvZXMuIFdlIHNob3VsZCBiZWhhdmUgd2VsbCBhcyBsb2NhbCBwZW9wbGUuCjEuMy4gV2hlbiB0aGV5IG1lZXQgZm9yIHRoZSBmaXJzdCB0aW1lLCB0aGUgQnJpdGlzaCB1c3VhbGx5IHNheSAiaGVsbG8iIG9yICJuaWNlIHRvIG1lZXQgeW91IiwgYW5kIHNoYWtlIGhhbmRzIHdpdGggZWFjaCBvdGhlci4gSW4gcHVibGljLCB0aGV5IGJlaGF2ZSB0aGVtc2VsdmVzIGFwcHJvcHJpYXRlbHkuIFRoZXkgdGhpbmsgaXQgaXMgaW1wb2xpdGUgdG8ganVtcCB0aGUgcXVldWUsIGFuZCB0aGV5IGFsd2F5cyB3YWl0IGluIGxpbmUgcGF0aWVudGx5IGZvciB0aGVpciB0dXJucy4gVGhleSBhcmUgYWxzbyB2ZXJ5IHBvbGl0ZSBhdCBob21lLiBBcyB0aGUgc2F5aW5nIGdvZXMsICJ3aGVuIGluIFJvbWUsIGRvIGFzIHRoZSBSb21hbnMgZG8iLiBXaGVuIHdlIGFyZSBpbiBhIHN0cmFuZ2UgcGxhY2UsIHdlIHNob3VsZCBhY3QgYXMgdGhlIGxvY2FscyBkby4KMS40LiBXaGVuIGZpcnN0IG1lZXQsIEVuZ2xpc2ggYXJlIGxpa2VseSB0byBzYXkgImhlbGxvIiBvciAibmljZSB0byBtZWV0IHlvdSIgYW5kIHNoYWtlIGhhbmRzIHdpdGggeW91LiBUaGV5IGJlaGF2ZSB3ZWxsIGluIHB1YmxpYy4gVGhleSB1c3VhbGx5IGxpbmUgdXAgYmVjYXVzZSB0aGV5IHRoaW5rIHF1ZXVlIGp1bXBpbmcgaXMgdmVyeSBpbXBvbGl0ZS4gQW5kIHRoZXkgYXJlIGFsc28gdmVyeSBwb2xpdGUgYXQgaG9tZS4gVGhlcmUgaXMgYW4gb2xkIHNheWluZyAiRG8gaW4gUm9tZSBhcyBSb21lIGRvZXMiLiBTbyB3aGVuIHdlIGFyZSBpbiBhIG5ldyBwbGFjZSwgd2Ugc2hvdWxkIGJlaGF2ZSBvdXJzZWx2ZXMgYXMgdGhlIGxvY2FscyBkby4KMS41LiBXaGVuIG1lZXRpbmcgZm9yIHRoZSBmaXJzdCB0aW1lLCBFbmdsaXNobWVuIHVzdWFsbHkgc2F5ICJoZWxsbyIgb3IgIm5pY2UgdG8gbWVldCB5b3UiIHdpdGggYSBoYW5kc2hha2UuIFRoZXkgYmVoYXZlIHRoZW1zZWx2ZXMgd2VsbCBpbiBwdWJsaWMgcGxhY2VzLiBUaGV5IHJlZ2FyZCBqdW1waW5nIGEgcXVldWUgYXMgb25lIG9mIHRoZSBydWRlIGJlaGF2aW9yLCBzbyB0aGV5IGFsd2F5cyBxdWV1ZSB1cC4gVGhleSBhcmUgYWxzbyB2ZXJ5IHBvbGl0ZSBhdCBob21lLiBXaGVuIGluIFJvbWUsIGRvIGFzIHRoZSBSb21hbnMgZG8uIFdoZW4gd2UgYXJlIGluIGEgc3RyYW5nZSBwbGFjZSwgd2Ugc2hvdWxkIGJlaGF2aW9yIGp1c3QgbGlrZSB0aGUgbG9jYWwgcGVvcGxlLgoxLjYuIEZvciB0aGUgZmlyc3QgbWVldGluZywgRW5nbGlzaCBwZW9wbGUgdXN1YWxseSBzYXkgIkhlbGxvIiBvciAiTmljZSB0byBtZWV0IHlvdSIgYW5kIHNoYWtlIGhhbmRzIHdpdGggeW91LiBJbiB0aGUgcHVibGljIHBsYWNlLCB0aGV5IGFsc28gYWN0IHZlcnkgZGVjZW50bHkuIEluIHRoZWlyIHZpZXdzLCBpdCBpcyB2ZXJ5IGltcG9saXRlIHRvIGN1dCBpbiBsaW5lLiBUaGV5IGhhdmUgZm9ybWVkIGEgaGFiaXQgdG8gd2FpdCBpbiBhIHF1ZXVlLiBBdCBob21lLCB0aGV5IGFyZSBhbHNvIHZlcnkgcG9saXRlLiBXaGVuIGluIGEgc3RyYW5nZSBwbGFjZSwgd2Ugc2hvdWxkIGRvIGluIFJvbWUgYXMgdGhlIFJvbWFucyBkby4gTW9yZW92ZXIsIGl0IGlzIGFsc28gcG9saXRlIHRoYXQgd2UgYmVoYXZlIGxpa2UgdGhlIGxvY2FsIHBlb3BsZS4KMS43LiBJbiBmaXJzdCBtZWV0aW5nLCB0aGUgRW5nbGlzaCBvZnRlbiBzYXkgImhpIiBvciAibmljZSB0byBtZWV0IHlvdSEiIGFuZCB0aGVuIHNoYWtlIGhhbmRzIHdpdGggeW91LiBJbiBwdWJsaWMgb2NjYXNpb25zLCB0aGV5IGJlaGF2ZSBtYW5uZXJseS4gVGhleSB0aGluayBqdW1waW5nIGEgcXVldWUgaXMgaW1wb2xpdGUgYW5kIHRoZXkgYWx3YXlzIGxpbmUgdXAuIEFsc28sIHRoZXkgYXJlIHBvbGl0ZSBhdCBob21lLiBXaGVuIGluIFJvbWUgZG8gYXMgdGhlIFJvbWFucyBkby4gV2hlbiB3ZSBhcmUgaW4gYSBzdHJhbmdlIGxhbmQsIHdlIHNob3VsZCBiZWhhdmUgbGlrZSB0aGUgbmF0aXZlcy4KW3ZvY2FidWxhcnldCmJlaGF2aW9yIC9iIGloICdoaCBleSB2IHkgYXgvCnVuY291cnRlb3VzIC8sYWggbiAnayBlciB0IGlyIHMv"</string>
+
+    <string name="text_cn_syllable">"知，痴，是"</string>
+    <string name="text_cn_word">"磁铁，率领，脆弱，动手，古筝"</string>
+    <string name="text_cn_sentence">"一座座雪峰插入云霄，峰顶银光闪闪，大大小小的湖泊，像颗颗宝石镶嵌在彩带般的沟谷中。"</string>
+    <string name="text_cn_chapter">"床前明月光，疑是地上霜。举头望明月，低头思故乡。"</string>
+    <string-array name="ise_language_entries">
+        <item>英语</item>
+        <item>汉语</item>
+    </string-array>
+    <string-array name="ise_language_values">
+        <item>en_us</item>
+        <item>zh_cn</item>
+    </string-array>
+
+
+    <string-array name="category_entries">
+        <item>单字</item>
+        <item>词语</item>
+        <item>句子</item>
+        <item>篇章朗读</item>
+        <item>英文情景反应</item>
+        <item>英文选择题</item>
+        <item>英文自由题</item>
+        <item>英文复述题</item>
+        <item>英文看图说话</item>
+        <item>英文口头翻译</item>
+    </string-array>
+
+    <string-array name="category_values">
+        <item>read_syllable</item>
+        <item>read_word</item>
+        <item>read_sentence</item>
+        <item>read_chapter</item>
+        <item>simple_expression</item>
+        <item>read_choice</item>
+        <item>topic</item>
+        <item>retell</item>
+        <item>picture_talk</item>
+        <item>oral_translation</item>
+    </string-array>
+    <string-array name="result_level_entries">
+        <item>plain</item>
+        <item>complete</item>
+    </string-array>
+    <!-- 标点符号 -->
+    <string-array name="punc_entries">
+        <item>有标点</item>
+        <item>无标点</item>
+    </string-array>
+    <string-array name="punc_values">
+        <item>1</item>
+        <item>0</item>
+    </string-array>
+    <string-array name="dwa_entries">
+        <item>开启</item>
+        <item>关闭</item>
+    </string-array>
+    <string-array name="iat_language_entries">
+        <item>中文</item>
+        <item>英语</item>
+        <item>日语</item>
+        <item>俄语</item>
+        <item>西班牙语</item>
+        <item>法语</item>
+        <item>韩语</item>
+    </string-array>
+    <string-array name="iat_language_value">
+        <item>zh_cn</item>
+        <item>en_us</item>
+        <item>ja_jp</item>
+        <item>ru-ru</item>
+        <item>es_es</item>
+        <item>fr_fr</item>
+        <item>ko_kr</item>
+    </string-array>
+
+
+    <!-- 语言 -->
+    <string-array name="machine_entries">
+        <item>鲁谷</item>
+        <item>广州</item>
+        <item>森华</item>
+    </string-array>
+    <string-array name="machine_values">
+        <item>http://bj.voicecloud.cn/msp.do</item>
+        <item>http://gz.voicecloud.cn/msp.do</item>
+        <item>http://dx.xf-yun.com/msp.do</item>
+    </string-array>
+
+</resources>

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/main_title_rl"
+        android:layout_width="fill_parent"
+        android:layout_height="40dp"
+        android:background="@color/black_overlay" >
+
+        <ImageButton
+            android:id="@+id/ReturnBtn"
+            android:contentDescription="Enter How Much Cookies You Want"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_alignParentLeft="true"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="5dp"
+            android:adjustViewBounds="true"
+            android:background="@android:color/transparent"
+            android:onClick="onReturn"
+            android:scaleType="centerInside"
+            android:src="@drawable/selector_back_button" />
+
+        <TextView
+            android:id="@+id/ConnectStatusTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="飞行模拟"
+            android:textColor="@android:color/white"
+            android:textSize="19sp" />
+    </RelativeLayout>
+
+    <TextView
+        android:layout_marginTop="70dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:text="模拟未开始"
+        android:id="@+id/textview_simulator"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="开始虚拟摇杆"
+        style="@style/common_button"
+        android:id="@+id/btn_enable_virtual_stick"
+        android:layout_marginLeft="5dp"
+        android:layout_alignTop="@+id/btn_start_simulator"
+        android:layout_alignStart="@+id/directionJoystickLeft"
+        android:layout_marginTop="0dp" />
+
+    <Button
+        android:text="FPV"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/fpv_btn"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true" />
+
+    <EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:inputType="textPersonName"
+        android:text=""
+        android:hint="Command Input"
+        android:ems="10"
+        android:layout_marginBottom="11dp"
+        android:id="@+id/cmd_input"
+        android:layout_above="@+id/directionJoystickLeft"
+        android:layout_alignStart="@+id/btn_disable_virtual_stick" />
+
+    <Button
+        android:text="Sub"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/sub_btn"
+        android:layout_alignBottom="@+id/cmd_input"
+        android:layout_alignEnd="@+id/directionJoystickRight" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="关闭虚拟摇杆"
+        style="@style/common_button"
+        android:id="@+id/btn_disable_virtual_stick"
+        android:layout_below="@+id/btn_enable_virtual_stick"
+        android:layout_alignStart="@+id/btn_enable_virtual_stick"
+        android:layout_marginLeft="0dp"
+        android:layout_alignEnd="@+id/btn_enable_virtual_stick" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="起飞"
+        style="@style/common_button"
+        android:id="@+id/btn_take_off"
+        android:layout_alignTop="@+id/btn_disable_virtual_stick"
+        android:layout_alignStart="@+id/btn_start_simulator"
+        android:layout_marginTop="0dp"
+        android:layout_alignEnd="@+id/btn_start_simulator" />
+
+    <ToggleButton
+        android:id="@+id/btn_start_simulator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Start Simulator"
+        android:textOff="开始模拟"
+        android:textOn="停止模拟"
+        style="@style/common_button"
+        android:layout_below="@+id/textview_simulator"
+        android:layout_toEndOf="@+id/btn_enable_virtual_stick"
+        android:layout_marginTop="107dp"
+        android:layout_marginLeft="10dp" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="着陆"
+        style="@style/common_button"
+        android:id="@+id/btn_land"
+        android:layout_alignTop="@+id/btn_take_off"
+        android:layout_marginTop="0dp"
+        android:layout_alignEnd="@+id/directionJoystickRight"
+        android:layout_toEndOf="@+id/btn_take_off"
+        android:layout_marginLeft="10dp" />
+
+    <Button
+        android:id="@+id/btn_speak"
+        style="@style/common_button"
+        android:layout_width="184dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textview_simulator"
+        android:layout_marginLeft="10dp"
+        android:layout_marginTop="107dp"
+        android:layout_toEndOf="@+id/btn_start_simulator"
+        android:text="语音控制" />
+
+
+    <com.dji.sdk.voice_control.internal.controller.OnScreenJoystick
+        android:id="@+id/directionJoystickLeft"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="10dp"
+        android:layout_marginLeft="10dp"
+        android:background="@mipmap/joystick_bg"/>
+
+    <com.dji.sdk.voice_control.internal.controller.OnScreenJoystick
+        android:id="@+id/directionJoystickRight"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="10dp"
+        android:layout_marginRight="10dp"
+        android:background="@mipmap/joystick_bg"/>
+
+
+</RelativeLayout>
