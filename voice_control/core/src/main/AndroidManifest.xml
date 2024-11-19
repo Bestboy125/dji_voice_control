@@ -9,4 +9,18 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+
+    <application>
+        <meta-data
+            android:name="com.baidu.speech.APP_ID"
+            android:value="116287286"/>
+
+        <meta-data
+            android:name="com.baidu.speech.API_KEY"
+            android:value="KTEZQyKexMhVIDGESJw3YMOO"/>
+
+        <meta-data
+            android:name="com.baidu.speech.SECRET_KEY"
+            android:value="R2DDUdWLp3Q4i5QrXrDZJkGGN57tFCE0"/>
+    </application>
 </manifest>

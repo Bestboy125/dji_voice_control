@@ -1,7 +1,7 @@
 package com.dji.sdk.voice_control.internal.controller.voice_control;
 
 import android.app.Activity;
-import android.app.DialogFragment;
+//import android.app.DialogFragment;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,6 +10,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.DialogFragment;
 
 import com.dji.sdk.voice_control.R;
 /**
@@ -59,7 +60,7 @@ public class CommandConfirmationDialogFragment extends DialogFragment implements
     }
 
     public void show(FragmentManager manager, String myDialogFragment) {
-
+        super.show(manager, myDialogFragment);
     }
 
     interface Communicator{

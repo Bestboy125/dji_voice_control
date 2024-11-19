@@ -14,15 +14,15 @@ import java.util.Map;
 public class AuthUtil {
     public static   String   getAk(){
         //todo 填入apiKey
-        return "请填入您的apiKey";
+        return "KTEZQyKexMhVIDGESJw3YMOO";
     }
     public static   String   getSk(){
         //todo 填入secretKey
-        return  "请填入您的secretKey";
+        return  "R2DDUdWLp3Q4i5QrXrDZJkGGN57tFCE0";
     }
     public static   String getAppId(){
         //todo 填入appId
-        return  "请填入您的appId";
+        return  "116287286";
     }
 
     public static Map<String, Object> getParam(){

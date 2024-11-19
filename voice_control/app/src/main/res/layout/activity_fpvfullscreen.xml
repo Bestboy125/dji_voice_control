@@ -231,5 +231,29 @@
         android:text="点击设置小语种,当前语种：中文(普通话)"
         android:textSize="20sp" />
 
+    <Button
+        android:id="@+id/btn_baidu_stop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/btn_stop"
+        android:layout_above="@id/stop_btn"
+        android:text="百度语音停止" />
+
+    <Button
+        android:id="@+id/btn_baidu_start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/btn_baidu_stop"
+        android:text="百度语音开始" />
+
+    <EditText
+        android:id="@+id/edit_baidu_result"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/languageText"
+        android:ems="10"
+        android:inputType="text"
+        android:text="" />
+
 
 </RelativeLayout>

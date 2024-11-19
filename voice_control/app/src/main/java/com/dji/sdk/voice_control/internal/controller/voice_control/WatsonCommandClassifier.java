@@ -49,42 +49,53 @@ public class WatsonCommandClassifier {
         String object_detect_class_string = null;
 
         String commandInText = TextUtils.join(" ", tokenedCommand); //连接字符串
-        if (tokenedCommand != null) {
-            ExecutorService executor = Executors.newCachedThreadPool();
-            Callable<String> task0 = new ExactProcessCallableService(tokenedCommand); //寻找数字字符串
-            Callable<String> task1 = new NLPCallableService(nlpService, command_classfier_id, commandInText); //一般命令分类，起飞，停止
-            Callable<String> task2 = new NLPCallableService(nlpService, direction_classfier_id, commandInText); //方向命令分类，向左，向右
-            Callable<String> task3 = new NLUCallableService(commandInText); //
-            Callable<String> task4 = new NLPCallableService(nlpService, object_detect_classfier_id, commandInText); //对象命令检测：汽车，树
-
-            //获取分类结果
-            Future<String> future0 = executor.submit(task0);
-            Future<String> future1 = executor.submit(task1);
-            Future<String> future2 = executor.submit(task2);
-            Future<String> future3 = executor.submit(task3);
-            Future<String> future4 = executor.submit(task4);
-            executor.shutdown();
-            //存储命令分类结果
-            try {
-                unit = future0.get();
-                command = future1.get();
-                direction = future2.get();
-                map_search_string = future3.get();
-                object_detect_class_string = future4.get();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            }
-
-            if (map_search_string.equals("")){
-                this.google_map_search_string = commandInText;
-            }else{
-                this.google_map_search_string = map_search_string;
-            }
-        }
+//        if (tokenedCommand != null) {
+//            ExecutorService executor = Executors.newCachedThreadPool();
+////            Callable<String> task0 = new ExactProcessCallableService(tokenedCommand); //寻找数字字符串
+////            Callable<String> task1 = new NLPCallableService(nlpService, command_classfier_id, commandInText); //一般命令分类，起飞，停止
+////            Callable<String> task2 = new NLPCallableService(nlpService, direction_classfier_id, commandInText); //方向命令分类，向左，向右
+////            Callable<String> task3 = new NLUCallableService(commandInText); //
+////            Callable<String> task4 = new NLPCallableService(nlpService, object_detect_classfier_id, commandInText); //对象命令检测：汽车，树
+//
+//            // Tasks using ChatGPT API
+//            Callable<String> task0 = () -> callChatGPTAPI("Extract numeric string", commandInText);
+//            Callable<String> task1 = () -> callChatGPTAPI("Classify general command", commandInText);
+//            Callable<String> task2 = () -> callChatGPTAPI("Classify direction", commandInText);
+//            Callable<String> task3 = () -> callChatGPTAPI("Extract map search string", commandInText);
+//            Callable<String> task4 = () -> callChatGPTAPI("Detect object", commandInText);
+//
+//            // Execute tasks
+//            Future<String> future0 = executor.submit(task0);
+//            Future<String> future1 = executor.submit(task1);
+//            Future<String> future2 = executor.submit(task2);
+//            Future<String> future3 = executor.submit(task3);
+//            Future<String> future4 = executor.submit(task4);
+//
+//            executor.shutdown();
+//            //存储命令分类结果
+//            try {
+//                unit = future0.get();
+//                command = future1.get();
+//                direction = future2.get();
+//                map_search_string = future3.get();
+//                object_detect_class_string = future4.get();
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            } catch (ExecutionException e) {
+//                e.printStackTrace();
+//            }
+//        }
 
         // parse into decimal encoded string 对命令进行编码展示
+        // Split the input string based on commas
+        String[] parts = commandInText.split(",");
+
+        // Assign values based on the expected order
+        command = parts.length > 0 ? parts[0].trim() : "stop";
+        direction = parts.length > 1 ? parts[1].trim() : null;
+        unit = parts.length > 2 ? parts[2].trim() : null;
+        object_detect_class_string = parts.length > 3 ? parts[3].trim() : null;
+
         ArrayList<Integer> result = encode_string(command, direction, unit, object_detect_class_string);
         int switch_num = result.remove(result.size()-1);
 
@@ -126,6 +137,11 @@ public class WatsonCommandClassifier {
     public String getCommand(){
         return this.command_direction;
     }
+
+//    private String callChatGPTAPI(String task, String input) {
+//        // Simulate API call to ChatGPT (this should be replaced with real API implementation)
+//        return "Simulated response for task: " + task + " with input: " + input;
+//    }
 
     public ArrayList<Integer> getEncodedString(){
         return this.encoded_string;
