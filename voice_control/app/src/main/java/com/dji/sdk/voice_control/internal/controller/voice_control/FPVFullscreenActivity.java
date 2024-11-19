@@ -239,8 +239,8 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
                 ViewGroup.LayoutParams.MATCH_PARENT);
         addContentView(content, rlParam);
         // set up 科大讯飞
-//        SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
-//        mIat = SpeechRecognizer.createRecognizer(this, mInitListener);
+        SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
+        mIat = SpeechRecognizer.createRecognizer(this, mInitListener);
 
         //初始化 百度语音
         initUI();
@@ -647,102 +647,6 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
         });
     }
 
-//    private void locateTrackBtnListener() {
-//        mBtnLoacte.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                if (mMapLocate_flag) {
-//                    mMapLocate_flag = false;
-//                    mBtnLoacte.setBackgroundResource(R.drawable.locateuser);
-//                } else {
-//                    mMapLocate_flag = true;
-//                    mBtnLoacte.setBackgroundResource(R.drawable.locatedrone);
-//                }
-//            }
-//        });
-//
-//        mBtnTracking.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                if (mMapTracking_flag) {
-//                    mMapTracking_flag = false;
-//                    mBtnTracking.setBackgroundResource(R.drawable.pause);
-//                } else {
-//                    mMapTracking_flag = true;
-//                    mBtnTracking.setBackgroundResource(R.drawable.refresh);
-//                }
-//            }
-//        });
-//    }
-//
-//    private void showHideBtnListener() {
-//        mBtnShow.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                if (mBtnDummyMap_flag) {
-//                    mMapView.setVisibility(View.VISIBLE);
-//                } else {
-//                    fpvTexture.setVisibility(View.VISIBLE);
-//                }
-//                mBtnShow.setVisibility(View.GONE);
-//                mBtnHide.setVisibility(View.VISIBLE);
-//                mBtnDummyMap.setVisibility(View.VISIBLE);
-//            }
-//        });
-//
-//        mBtnHide.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                if (mBtnDummyMap_flag) {
-//                    mMapView.setVisibility(View.GONE);
-//                } else {
-//                    fpvTexture.setVisibility(View.GONE);
-//                }
-//                mBtnShow.setVisibility(View.VISIBLE);
-//                mBtnHide.setVisibility(View.GONE);
-//                mBtnDummyMap.setVisibility(View.GONE);
-//            }
-//        });
-//    }
-//
-//    private void mapBtnListener() {
-//        mBtnDummyMap.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                ViewGroup.LayoutParams mapParams = mMapView.getLayoutParams();
-//                ViewGroup.LayoutParams fpvParams = fpvTexture.getLayoutParams();
-//                if (mBtnDummyMap_flag) {
-//                    mapParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
-//                    mapParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
-//                    mMapView.setLayoutParams(mapParams);
-//                    fpvParams.height = dpToPix(108);
-//                    fpvParams.width = dpToPix(192);
-//                    sendViewToBack(mMapView);
-//                    fpvTexture.bringToFront();
-//                    mBtnLoacte.setVisibility(View.VISIBLE);
-//                    mBtnTracking.setVisibility(View.VISIBLE);
-//                    mBtnDummyMap_flag = false;
-//                } else {
-//                    mapParams.height = dpToPix(108);
-//                    mapParams.width = dpToPix(192);
-//                    mMapView.setLayoutParams(mapParams);
-//                    fpvParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
-//                    fpvParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
-//                    sendViewToBack(fpvTexture);
-//                    mMapView.bringToFront();
-//                    mBtnLoacte.setVisibility(View.GONE);
-//                    mBtnTracking.setVisibility(View.GONE);
-//                    if (!mMapLocate_flag) {
-//                        mBtnLoacte.performClick();
-//                    }
-//                    if (!mMapTracking_flag) {
-//                        mBtnTracking.performClick();
-//                    }
-//                    mBtnDummyMap_flag = true;
-//                }
-//            }
-//        });
-//    }
 
     private int dpToPix(int dps) {
         final float scale = mContext.getResources().getDisplayMetrics().density;
