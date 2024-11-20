@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.voice_control.FPVFullscreenActivity;
+import com.dji.sdk.voice_control.internal.controller.voice_control.VoiceControlActivity;
 
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
@@ -88,6 +89,7 @@ public class ControlActivity extends Activity implements View.OnClickListener {
     private Button mBtnTakeOff;
     private Button mBtnLand;
     private Button mBtnFPV;
+    private Button mBtnSpeak;
 
     private TextView mTextView;
     //虚拟摇杆
@@ -485,6 +487,7 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         mBtnLand = (Button) findViewById(R.id.btn_land);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
         mBtnFPV = (Button) findViewById(R.id.fpv_btn);
+        mBtnSpeak = (Button) findViewById(R.id.btn_speak);
         mTextView = (TextView) findViewById(R.id.textview_simulator);
         mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
         mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
@@ -495,6 +498,8 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         mBtnTakeOff.setOnClickListener(this);
         mBtnLand.setOnClickListener(this);
         mBtnFPV.setOnClickListener(this);
+        mBtnSpeak.setOnClickListener(this);
+
 
         mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -673,7 +678,8 @@ public class ControlActivity extends Activity implements View.OnClickListener {
                 break;
 
             case R.id.btn_speak:
-
+                Intent intent1 = new Intent(v.getContext(), VoiceControlActivity.class);
+                v.getContext().startActivity(intent1);
                 break;
 
             case R.id.fpv_btn:

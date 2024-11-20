@@ -21,22 +21,22 @@ android {
         multiDexEnabled true
         versionCode 1
         ndk {
-            // On x86 devices that run Android API 23 or above, if the application is targeted with API 23 or
-            // above, FFmpeg lib might lead to runtime crashes or warnings.
-            abiFilters 'armeabi-v7a','arm64-v8a'
-        }
+                    // On x86 devices that run Android API 23 or above, if the application is targeted with API 23 or
+                    // above, FFmpeg lib might lead to runtime crashes or warnings.
+                    abiFilters 'armeabi-v7a','arm64-v8a'
+                }
     }
 
     //需要直接使用appbundle的话，需要强制配置shrinkResources为false
     buildTypes {
         release {
             shrinkResources false
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         debug {
             shrinkResources false
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
@@ -154,9 +154,10 @@ dependencies {
     configurations {
         all*.exclude module: 'httpclient'
     }
-    implementation project(':core')
-    implementation project(':uiasr')
-    implementation project(':uidialog')
     }
+}
+
+dependencies {
+    implementation files('libs\\Msc.jar')
 }
 apply plugin: 'com.google.gms.google-services'

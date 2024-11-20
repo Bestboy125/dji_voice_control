@@ -120,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onNewIntent(@NonNull Intent intent) {
+        super.onNewIntent(intent);
         String action = intent.getAction();
         if (UsbManager.ACTION_USB_ACCESSORY_ATTACHED.equals(action)) {
             Intent attachedIntent = new Intent();

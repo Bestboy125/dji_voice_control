@@ -14,6 +14,9 @@
 -dontwarn okhttp3.**
 -dontwarn retrofit2.**
 
+-keep class com.baidu.speech.**{*;}
+-keep class com.iflytek.cloud.**{*;}
+
 -keepclassmembers enum * {
     public static <methods>;
 }

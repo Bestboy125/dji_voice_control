@@ -207,7 +207,7 @@ public class RARFragment extends Fragment {
                         // Reset string command_text input to null
                         mStrIntention = null;
                         // Change button back ground color
-                        input.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_focused);
+//                        input.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_focused);
                         // Init MicrophoneInputStream and start watson speec-to-text websocket
                         capture = new MicrophoneInputStream(true);
                         new Thread(new Runnable() {
@@ -223,7 +223,7 @@ public class RARFragment extends Fragment {
                         break;
                     case MotionEvent.ACTION_UP:
                         // Change button back ground color
-                        input.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_normal);
+//                        input.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_normal);
                         // Close MicrophoneInputStream
                         try {
                             capture.close();

@@ -2,7 +2,6 @@ package com.dji.sdk.voice_control.internal.controller.voice_control;
 import android.os.Looper;
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -11,24 +10,14 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
-import android.location.Location;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Bundle;
-import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Bundle;
-import android.os.Message;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.View;
-import android.view.View.OnClickListener;
-import android.view.Window;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -41,22 +30,13 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.TextureView;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.RelativeLayout;
-import android.widget.TextView;
-import android.widget.Toast;
 
-import com.baidu.aip.asrwakeup3.core.recog.MyRecognizer;
-import com.baidu.aip.asrwakeup3.core.recog.listener.IRecogListener;
-import com.baidu.aip.asrwakeup3.core.recog.listener.MessageStatusRecogListener;
-import com.baidu.aip.asrwakeup3.core.util.AuthUtil;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.Utils;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
@@ -64,7 +44,6 @@ import com.dji.sdk.voice_control.internal.controller.flightcontrol.MyVirtualStic
 
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
 //import com.google.firebase.database.DatabaseReference;
 //import com.google.firebase.database.FirebaseDatabase;
 
@@ -78,37 +57,20 @@ import com.ibm.watson.developer_cloud.speech_to_text.v1.websocket.RecognizeCallb
 
 //讯飞语音识别
 import com.iflytek.cloud.RecognizerResult;
-import com.iflytek.cloud.SpeechUtility;
 import com.iflytek.cloud.ErrorCode;
 import com.iflytek.cloud.InitListener;
-import com.iflytek.cloud.LexiconListener;
 import com.iflytek.cloud.RecognizerListener;
-import com.iflytek.cloud.RecognizerResult;
-//import com.iflytek.cloud.SpeechConstant;
+import com.iflytek.cloud.SpeechConstant;
 import com.iflytek.cloud.SpeechError;
 import com.iflytek.cloud.SpeechRecognizer;
 import com.iflytek.cloud.ui.RecognizerDialog;
 import com.iflytek.cloud.ui.RecognizerDialogListener;
 import com.dji.sdk.voice_control.internal.setting.IatSettings;
-import com.dji.sdk.voice_control.internal.utils.FucUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
-
-//百度语音识别
-import com.baidu.speech.EventListener;
-import com.baidu.speech.EventManager;
-import com.baidu.speech.EventManagerFactory;
-import com.baidu.speech.asr.SpeechConstant;
-import com.baidu.aip.asrwakeup3.core.mini.AutoCheck;
-import com.baidu.aip.asrwakeup3.core.recog.MyRecognizer;
-import com.baidu.aip.asrwakeup3.core.recog.listener.IRecogListener;
-import com.baidu.aip.asrwakeup3.core.recog.listener.MessageStatusRecogListener;
-import com.baidu.aip.asrwakeup3.uiasr.activity.ActivityUiRecog;
-import com.baidu.aip.asrwakeup3.uiasr.params.OfflineRecogParams;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -139,7 +101,7 @@ import com.dji.sdk.voice_control.R;
  * FPV main control UI
  *
  */
-public class FPVFullscreenActivity extends FragmentActivity implements CommandConfirmationDialogFragment.Communicator, EventListener{
+public class FPVFullscreenActivity extends FragmentActivity implements CommandConfirmationDialogFragment.Communicator{
     //静态字符串 TAG 标签， 这个活动的标签
     public static final String TAG = FPVFullscreenActivity.class.getName();
 
@@ -172,7 +134,7 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
 
 
     // IBM watson varaibles
-    private WatsonCommandClassifier cc1;
+    private CommandClassifier cc1;
     private SpeechToText speechService;
     private MicrophoneInputStream capture;
     private String mStrIntention;
@@ -185,8 +147,8 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
     private RecognizerDialog mIatDialog;
     // 用HashMap存储听写结果
     private HashMap<String, String> mIatResults = new LinkedHashMap<>();
-    // 引擎类型
-//    private String mEngineType = SpeechConstant.TYPE_CLOUD;
+    //引擎类型
+    private String mEngineType = SpeechConstant.TYPE_CLOUD;
     private String[] languageEntries;
     private String[] languageValues;
     private String language = "zh_cn";
@@ -194,14 +156,6 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
     private String resultType = "json";
     private StringBuffer buffer = new StringBuffer();
 
-    //百度
-    protected EditText txtbaiduResult;//识别结果
-    protected Button startbaiduBtn;//开始识别，持续一定时间不说话会自动停止，需要再次打开
-    protected Button stopbaiduBtn;//停止识别,立即停止，直接输出已经识别的内容
-    private EventManager asr;//语音识别核心库
-    protected MyRecognizer myRecognizer;
-    protected Handler handler;
-    protected boolean enableOffline;
 
     // APP的UI和视图
     private EditText mResultText;
@@ -292,7 +246,7 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
 //
         // set up Watson
         speechService = initSpeechToTextService();
-        cc1 = new WatsonCommandClassifier();
+        cc1 = new CommandClassifier();
 
 //        // 初始化听写Dialog，如果只使用有UI听写功能，无需创建SpeechRecognizer
 //        // 使用UI听写功能，请根据sdk文件目录下的notice.txt,放置布局文件和图片资源
@@ -355,164 +309,11 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
         Log.e(TAG, "onDestroy");
 //        unregisterReceiver(mReceiver);
         MyVirtualStickExecutor.destroyInstance();
-        myRecognizer.release();
 
         Log.i(TAG, "onDestory");
         super.onDestroy();
     }
 
-    /**
-     * android 6.0 以上需要动态申请权限
-     */
-    private void initPermission() {
-        String permissions[] = {Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.ACCESS_NETWORK_STATE,
-                Manifest.permission.INTERNET,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-        };
-
-        ArrayList<String> toApplyList = new ArrayList<String>();
-
-        for (String perm : permissions) {
-            if (PackageManager.PERMISSION_GRANTED != ContextCompat.checkSelfPermission(this, perm)) {
-                toApplyList.add(perm);
-                //进入到这里代表没有权限
-            }
-        }
-        String tmpList[] = new String[toApplyList.size()];
-        if (!toApplyList.isEmpty()) {
-            ActivityCompat.requestPermissions(this, toApplyList.toArray(tmpList), 123);
-        }
-
-    }
-
-    /**
-     * 自定义输出事件类 EventListener 回调方法
-     */
-    @Override
-    public void onEvent(String name, String params, byte[] data, int offset, int length) {
-
-        if (name.equals(SpeechConstant.CALLBACK_EVENT_ASR_PARTIAL)) {
-            // 识别相关的结果都在这里
-            if (params == null || params.isEmpty()) {
-                return;
-            }
-            if (params.contains("\"final_result\"")) {
-                // 一句话的最终识别结果
-                String regrex = "\\[(.*?),";  //使用正则表达式抽取我们需要的内容
-                Pattern pattern = Pattern.compile(regrex);
-                Matcher matcher = pattern.matcher(params);
-                if (matcher.find()) {
-                    int a  = matcher.group(0).indexOf("[");
-                    int b  = matcher.group(0).indexOf(",");
-                    txtbaiduResult.setText(matcher.group(0).substring(a+2,b-3));
-                }
-            }
-        }
-
-    }
-
-    protected Map<String, Object> fetchParams() {
-        Map<String, Object> params = new Map<String, Object>() {
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public boolean isEmpty() {
-                return false;
-            }
-
-            @Override
-            public boolean containsKey(@Nullable Object o) {
-                return false;
-            }
-
-            @Override
-            public boolean containsValue(@Nullable Object o) {
-                return false;
-            }
-
-            @Nullable
-            @Override
-            public Object get(@Nullable Object o) {
-                return null;
-            }
-
-            @Nullable
-            @Override
-            public Object put(String s, Object o) {
-                return null;
-            }
-
-            @Nullable
-            @Override
-            public Object remove(@Nullable Object o) {
-                return null;
-            }
-
-            @Override
-            public void putAll(@NonNull Map<? extends String, ?> map) {
-
-            }
-
-            @Override
-            public void clear() {
-
-            }
-
-            @NonNull
-            @Override
-            public Set<String> keySet() {
-                return Collections.emptySet();
-            }
-
-            @NonNull
-            @Override
-            public Collection<Object> values() {
-                return Collections.emptyList();
-            }
-
-            @NonNull
-            @Override
-            public Set<Entry<String, Object>> entrySet() {
-                return Collections.emptySet();
-            }
-        };
-        params.put(SpeechConstant.APP_ID, AuthUtil.getAppId()); // 添加appId
-        params.put(SpeechConstant.APP_KEY, AuthUtil.getAk()); // 添加apiKey
-        params.put(SpeechConstant.SECRET, AuthUtil.getSk()); // 添加secretKey
-        //  集成时不需要上面的代码，只需要params参数。
-        return params;
-    }
-
-    /**
-     * 初始化控件
-     */
-    private void initView() {
-        txtbaiduResult = (EditText) findViewById(R.id.edit_baidu_result);
-        startbaiduBtn = (Button) findViewById(R.id.btn_baidu_start);
-        stopbaiduBtn = (Button) findViewById(R.id.btn_baidu_stop);
-
-        startbaiduBtn.setOnClickListener(new View.OnClickListener() {//点击开始按钮
-            @Override
-            public void onClick(View v) {
-                // DEMO集成步骤2.1 拼接识别参数： 此处params可以打印出来，直接写到你的代码里去，最终的json一致即可。
-                final Map<String, Object> params = fetchParams();
-                // params 也可以根据文档此处手动修改，参数会以json的格式在界面和logcat日志中打印
-                Log.i(TAG, "设置的start输入参数：" + params);
-                // DEMO集成步骤2.2 开始识别
-                myRecognizer.start(params);
-            }
-        });
-        stopbaiduBtn.setOnClickListener(new View.OnClickListener() {//点击停止按钮
-            @Override
-            public void onClick(View v) {
-                myRecognizer.stop();
-            }
-        });
-    }
 
     private void stopBtnListener() {
         mBtnStop.setOnClickListener(new View.OnClickListener() {
@@ -717,51 +518,6 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
         mToast.show();
     }
 
-//    /**
-//     * 参数设置
-//     *
-//     * @return
-//     */
-//    public void setParam() {
-//        // 清空参数
-//        mIat.setParameter(SpeechConstant.PARAMS, null);
-//        // 设置听写引擎
-//        mIat.setParameter(SpeechConstant.ENGINE_TYPE, mEngineType);
-//        // 设置返回结果格式
-//        mIat.setParameter(SpeechConstant.RESULT_TYPE, resultType);
-//
-//        if (language.equals("zh_cn")) {
-//            String lag = mSharedPreferences.getString("iat_language_preference",
-//                    "mandarin");
-//            // 设置语言
-//            Log.e(TAG, "language = " + language);
-//            mIat.setParameter(SpeechConstant.LANGUAGE, "zh_cn");
-//            // 设置语言区域
-//            mIat.setParameter(SpeechConstant.ACCENT, lag);
-//        } else {
-//            mIat.setParameter(SpeechConstant.LANGUAGE, language);
-//        }
-//        Log.e(TAG, "last language:" + mIat.getParameter(SpeechConstant.LANGUAGE));
-//
-//        //此处用于设置dialog中不显示错误码信息
-//        //mIat.setParameter("view_tips_plain","false");
-//
-//        // 设置语音前端点:静音超时时间，即用户多长时间不说话则当做超时处理
-//        mIat.setParameter(SpeechConstant.VAD_BOS, mSharedPreferences.getString("iat_vadbos_preference", "4000"));
-//
-//        // 设置语音后端点:后端点静音检测时间，即用户停止说话多长时间内即认为不再输入， 自动停止录音
-//        mIat.setParameter(SpeechConstant.VAD_EOS, mSharedPreferences.getString("iat_vadeos_preference", "1000"));
-//
-//        // 设置标点符号,设置为"0"返回结果无标点,设置为"1"返回结果有标点
-//        mIat.setParameter(SpeechConstant.ASR_PTT, mSharedPreferences.getString("iat_punc_preference", "1"));
-//
-//        // 设置音频保存路径，保存音频格式支持pcm、wav.
-//        mIat.setParameter(SpeechConstant.AUDIO_FORMAT, "wav");
-//        mIat.setParameter(SpeechConstant.ASR_AUDIO_PATH,
-//                getExternalFilesDir("msc").getAbsolutePath() + "/iat.wav");
-//    }
-
-
     private void initUI(){
 
         mTxtCmmand = (EditText) findViewById(R.id.command_text);
@@ -837,34 +593,10 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
                 startActivity(intents);
             }
         });
-
-        findViewById(R.id.languageText).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setLanguage(v);
-            }
-        });
-    }
-
-
-    private int dpToPix(int dps) {
-        final float scale = mContext.getResources().getDisplayMetrics().density;
-        return (int) (dps * scale + 0.5f);
-    }
-
-    private static void sendViewToBack(final View child) {
-        final ViewGroup parent = (ViewGroup) child.getParent();
-        if (null != parent) {
-            parent.removeView(child);
-            parent.addView(child, 0);
-        }
     }
 
     int ret = 0; // 函数调用返回值
 
-    private void iat_setListener(){
-
-    }
 
     @SuppressLint("ClickableViewAccessibility")
     private void voiceInputListener() {
@@ -876,7 +608,7 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
                         // Reset string command_text input to null
                         mStrIntention = null;
                         // Change button back ground color
-                        mTxtCmmand.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_focused);
+//                        mTxtCmmand.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_focused);
                         // Init MicrophoneInputStream and start watson speec-to-text websocket
                         capture = new MicrophoneInputStream(true);
                         new Thread(new Runnable() {
@@ -892,7 +624,7 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
                         break;
                     case MotionEvent.ACTION_UP:
                         // Change button back ground color
-                        mTxtCmmand.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_normal);
+//                        mTxtCmmand.setBackgroundResource(R.drawable.common_google_signin_btn_text_dark_normal);
                         // Close MicrophoneInputStream
                         try {
                             capture.close();
@@ -982,9 +714,6 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
             }
         });
     }
-
-    //    private double initAltitude = 0;
-//    private boolean altiFlag = true;
 
     private void initDrone() {
         mCI.initFlightController();
@@ -1304,6 +1033,7 @@ public class FPVFullscreenActivity extends FragmentActivity implements CommandCo
     /**
      * END of Confirmation box
      */
+
     /**
      * 执行虚拟摇杆控制器
      */

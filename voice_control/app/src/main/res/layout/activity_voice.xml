@@ -1,10 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/main_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingLeft="10dp"
+    android:paddingRight="10dp">
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="400dp"
+        android:layout_marginBottom="2dp"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/iat_recognize"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="开始"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/iat_stop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="停止"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/iat_cancel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="取消"
+            android:textSize="20sp" />
+    </LinearLayout>
 
     <TextView
         android:background="@color/view_bg"
@@ -33,14 +68,6 @@
         android:layout_marginStart="2dp"
         android:layout_marginBottom="555dp"
         android:background="@drawable/stop" />
-
-    <ImageButton
-        android:id="@+id/image_iat_set"
-        android:layout_width="35dp"
-        android:layout_height="35dp"
-        android:layout_alignParentRight="true"
-        android:layout_centerVertical="true"
-        android:background="@drawable/main_setting_btn_np" />
 
     <EditText
         android:id="@+id/command_text"
@@ -182,77 +209,6 @@
         android:layout_toStartOf="@+id/RR_Button"
         android:visibility="gone"
         android:id="@+id/testBtn" />
-
-    <LinearLayout
-        android:layout_width="391dp"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/languageText"
-        android:layout_alignParentEnd="true"
-        android:layout_marginTop="10dp"
-        android:layout_marginEnd="20dp"
-        android:layout_marginBottom="2dp"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/iat_recognize"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="开始"
-            android:textSize="20sp" />
-
-        <Button
-            android:id="@+id/iat_stop"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="停止"
-            android:textSize="20sp" />
-
-        <Button
-            android:id="@+id/iat_cancel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="取消"
-            android:textSize="20sp" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/languageText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/stop_btn"
-        android:layout_centerInParent="true"
-        android:layout_marginLeft="14dp"
-        android:layout_marginTop="10dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:text="点击设置小语种,当前语种：中文(普通话)"
-        android:textSize="20sp" />
-
-    <Button
-        android:id="@+id/btn_baidu_stop"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_above="@id/stop_btn"
-        android:text="百度语音停止" />
-
-    <Button
-        android:id="@+id/btn_baidu_start"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_above="@id/btn_baidu_stop"
-        android:text="百度语音开始" />
-
-    <EditText
-        android:id="@+id/edit_baidu_result"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_above="@id/languageText"
-        android:ems="10"
-        android:inputType="text"
-        android:text="" />
 
 
 </RelativeLayout>

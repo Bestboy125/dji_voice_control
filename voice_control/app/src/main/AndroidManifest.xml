@@ -108,6 +108,9 @@
             android:configChanges="orientation|screenSize"
             android:screenOrientation="portrait"
             tools:ignore="DiscouragedApi" />
+        <activity
+            android:name="com.dji.sdk.voice_control.internal.controller.voice_control.VoiceControlActivity"
+            android:configChanges="orientation|screenSize"/>
 
         <activity
             android:name="com.dji.sdk.voice_control.demo.payload.PayloadActivity"
