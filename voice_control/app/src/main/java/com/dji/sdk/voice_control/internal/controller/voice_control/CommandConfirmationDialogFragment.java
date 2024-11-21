@@ -63,7 +63,7 @@ public class CommandConfirmationDialogFragment extends DialogFragment implements
         super.show(manager, myDialogFragment);
     }
 
-    interface Communicator{
+    public interface Communicator{
         View onCreateView(LayoutInflater inflater, ViewGroup container,
                           Bundle savedInstanceState);
 

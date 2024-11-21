@@ -14,6 +14,7 @@ import androidx.multidex.MultiDex;
 import java.util.Objects;
 
 import dji.sdk.base.BaseProduct;
+import dji.sdk.camera.Camera;
 import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.products.Aircraft;
 import dji.sdk.products.HandHeld;
@@ -60,6 +61,17 @@ public class DJISampleApplication extends Application {
             return null;
         }
         return (Aircraft) getProductInstance();
+    }
+
+    public static synchronized Camera getCameraInstance() {
+        if (getProductInstance() == null) return null;
+        Camera camera = null;
+        if (getProductInstance() instanceof Aircraft){
+            camera = ((Aircraft) getProductInstance()).getCamera();
+        } else if (getProductInstance() instanceof HandHeld) {
+            camera = ((HandHeld) getProductInstance()).getCamera();
+        }
+        return camera;
     }
 
     public static synchronized FlightController getFlightController(){

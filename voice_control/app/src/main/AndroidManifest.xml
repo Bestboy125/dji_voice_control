@@ -113,6 +113,14 @@
             android:configChanges="orientation|screenSize"/>
 
         <activity
+            android:name="com.dji.sdk.voice_control.internal.controller.VideoActivity"
+            android:configChanges="orientation|screenSize"/>
+
+        <activity
+            android:name="com.dji.sdk.voice_control.internal.controller.DownloadActivity"
+            android:configChanges="orientation|screenSize"/>
+
+        <activity
             android:name="com.dji.sdk.voice_control.demo.payload.PayloadActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="landscape"/>

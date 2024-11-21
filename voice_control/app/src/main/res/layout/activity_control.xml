@@ -141,6 +141,30 @@
         android:text="语音控制" />
 
 
+    <Button
+        android:id="@+id/btn_photo"
+        style="@style/common_button"
+        android:layout_width="184dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textview_simulator"
+        android:layout_marginStart="-105dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginTop="258dp"
+        android:layout_toEndOf="@+id/btn_start_simulator"
+        android:text="拍照和录像" />
+
+    <Button
+        android:id="@+id/btn_to_download"
+        style="@style/common_button"
+        android:layout_width="131dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textview_simulator"
+        android:layout_marginStart="-76dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginTop="326dp"
+        android:layout_toEndOf="@+id/btn_start_simulator"
+        android:text="下载" />
+
     <com.dji.sdk.voice_control.internal.controller.OnScreenJoystick
         android:id="@+id/directionJoystickLeft"
         android:layout_width="130dp"

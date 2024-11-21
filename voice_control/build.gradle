@@ -19,9 +19,24 @@ buildscript {
 
 allprojects {
     repositories {
+        configurations.all {
+            resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+                def requested = details.requested
+                if (requested.group == 'com.google.android.gms') {
+                    details.useVersion '11.8.0'
+                }
+                if (requested.group == 'com.google.firebase') {
+                    details.useVersion '11.8.0'
+                }
+            }
+        }
+        //end
         google()
         mavenCentral()
         maven { url "https://jitpack.io" }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://repo.huaweicloud.com/repository/maven' }
     }
 }
 

@@ -100,9 +100,19 @@ dependencies {
          * Both will greatly reducing the size of the APK.
          */
         exclude module: 'library-anti-distortion'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
         //exclude module: 'fly-safe-database'
     })
     compileOnly 'com.dji:dji-sdk-provided:4.18'
+    implementation ('com.dji:dji-uxsdk:4.16', {
+        /**
+         * Uncomment the following line to exclude amap from the app.
+         * Note that Google Play Store does not allow APKs that include this library.
+         */
+        // exclude group: 'com.amap.api'
+        exclude module: 'dji-sdk'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+    })
 
     implementation 'androidx.appcompat:appcompat:1.0.0'
     implementation 'androidx.core:core:1.0.0'

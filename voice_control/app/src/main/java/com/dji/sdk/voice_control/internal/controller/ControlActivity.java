@@ -6,32 +6,59 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
+import android.location.Address;
+import android.location.Geocoder;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 
+import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringTokenizer;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.dji.sdk.voice_control.R;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
+import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
+import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.voice_control.FPVFullscreenActivity;
+import com.dji.sdk.voice_control.internal.controller.voice_control.PlaceListFragment;
 import com.dji.sdk.voice_control.internal.controller.voice_control.VoiceControlActivity;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.ibm.watson.developer_cloud.android.library.audio.utils.ContentType;
+import com.ibm.watson.developer_cloud.speech_to_text.v1.SpeechToText;
+import com.ibm.watson.developer_cloud.speech_to_text.v1.model.RecognizeOptions;
+import com.ibm.watson.developer_cloud.speech_to_text.v1.model.SpeechResults;
+import com.ibm.watson.developer_cloud.speech_to_text.v1.websocket.RecognizeCallback;
 
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
@@ -54,7 +81,7 @@ import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 
-public class ControlActivity extends Activity implements View.OnClickListener {
+public class ControlActivity extends AppCompatActivity implements View.OnClickListener,CommandConfirmationDialogFragment.Communicator {
     //日志
     private static final String TAG = MainActivity.class.getName();
     //权限列表
@@ -90,6 +117,11 @@ public class ControlActivity extends Activity implements View.OnClickListener {
     private Button mBtnLand;
     private Button mBtnFPV;
     private Button mBtnSpeak;
+    private Button mBtnSub;
+    private EditText mCMD;
+    private CommandClassifier cc1;
+    private Button mBtnPhoto;
+    private Button mBtnDownload;
 
     private TextView mTextView;
     //虚拟摇杆
@@ -103,10 +135,40 @@ public class ControlActivity extends Activity implements View.OnClickListener {
     private float mRoll;
     private float mYaw;
     private float mThrottle;
+    private String mStrIntention;
     //消息控制器
     private Handler mHandler;
     private DJISDKManager.SDKManagerCallback mDJISDKManagerCallback;
     public static final String FLAG_CONNECTION_CHANGE = "com_dji_simulatorDemo_connection_change";
+
+    //region 飞行控制的数据结构
+    //该活动的实例
+    private Context mContext;
+
+    //命令行交互
+    private CommandInterpreter mCI;
+
+    // Map
+    private View mMapView;
+    private LatLng mDroneLocation = new LatLng(0, 0);
+    private float mDroneHeading = 0;
+    private Marker mDroneMarker = null;
+    private LatLng mUserLocation = new LatLng(0, 0);
+    //定位
+    private Button mBtnLoacte;
+    private boolean mMapLocate_flag = true;
+    //追踪
+    private Button mBtnTracking;
+    private boolean mMapTracking_flag = true;
+
+    private PlaceListFragment mPlaceListFragment;
+
+    //private TextView mDistance; 存储飞机数据
+    private double mAltitudeData;
+    private double mvs;
+    private double mhs;
+    private double mdistToHome;
+    //endregion
 
     //初始化布局，请求权限
     @Override
@@ -204,6 +266,12 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         setContentView(R.layout.activity_control);
 
         initUI();
+
+        cc1 = new CommandClassifier();
+
+        // 初始化控制器
+        mCI = CommandInterpreter.getUniqueInstance(mContext);
+        initFlightController();
 
 //        // Register the broadcast receiver for receiving the device connection's changes.
 //        IntentFilter filter = new IntentFilter();
@@ -489,6 +557,10 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         mBtnFPV = (Button) findViewById(R.id.fpv_btn);
         mBtnSpeak = (Button) findViewById(R.id.btn_speak);
         mTextView = (TextView) findViewById(R.id.textview_simulator);
+        mBtnSub = (Button) findViewById(R.id.sub_btn);
+        mCMD = (EditText) findViewById(R.id.cmd_input);
+        mBtnPhoto = (Button) findViewById(R.id.btn_photo);
+        mBtnDownload = (Button) findViewById(R.id.btn_to_download);
         mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
         mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
         mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
@@ -499,7 +571,9 @@ public class ControlActivity extends Activity implements View.OnClickListener {
         mBtnLand.setOnClickListener(this);
         mBtnFPV.setOnClickListener(this);
         mBtnSpeak.setOnClickListener(this);
-
+        mBtnSub.setOnClickListener(this);
+        mBtnPhoto.setOnClickListener(this);
+        mBtnDownload.setOnClickListener(this);
 
         mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -687,6 +761,28 @@ public class ControlActivity extends Activity implements View.OnClickListener {
                 v.getContext().startActivity(intent);
                 break;
 
+            case R.id.sub_btn:
+                mStrIntention = mCMD.getText().toString();
+                // Tokenize command_in_text
+                StringTokenizer st = new StringTokenizer(mStrIntention);
+                ArrayList<String> tokenedCommand = new ArrayList<>();
+                while (st.hasMoreTokens()) {
+                    tokenedCommand.add(st.nextToken());
+                }
+                // Replace mavic similar words
+//                    tokenedCommand = findMavicSimilar(tokenedCommand);
+                // Change arraylist to string
+                mStrIntention = TextUtils.join(" ", tokenedCommand);
+                // Execute NLC
+                ClassificationTask cft = new ClassificationTask();
+                cft.execute(tokenedCommand);
+            case R.id.btn_photo:
+                Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
+                v.getContext().startActivity(intent2);
+            case R.id.btn_to_download:
+                Intent intent3 = new Intent(v.getContext(), DownloadActivity.class);
+                v.getContext().startActivity(intent3);
+
             default:
                 break;
         }
@@ -708,5 +804,249 @@ public class ControlActivity extends Activity implements View.OnClickListener {
             }
         }
     }
+
+
+    //region watson文字分类
+    /**
+     * Initialize Watson Service
+     * 初始化watson service
+     */
+    private SpeechToText initSpeechToTextService() {
+        SpeechToText service = new SpeechToText();
+        String username = "23c90b4b-23ee-43cc-b0e9-97f36a0c0cfc";
+        String password = "X5zb8Ub0WKsH";
+        service.setUsernameAndPassword(username, password);
+        service.setEndPoint("https://stream.watsonplatform.net/speech-to-text/api");
+        return service;
+    }
+
+    /**
+     * Recognize Options 识别选项
+     */
+    private RecognizeOptions getRecognizeOptions() {
+        return new RecognizeOptions.Builder()
+                .continuous(true)
+                .contentType(ContentType.OPUS.toString())
+                .model("en-US_BroadbandModel")
+                .interimResults(true)
+                .customizationId("bf8c3a80-fba6-11e6-a1e7-a139b48a88e5")
+                .inactivityTimeout(3000)
+                .smartFormatting(true)
+                .build();
+    }
+
+    /**
+     * Classification Service 声音分类服务
+     */
+
+    public class ClassificationTask {
+
+        private final ExecutorService executorService;
+        private final Handler mainHandler;
+
+        public ClassificationTask() {
+            this.executorService = Executors.newSingleThreadExecutor();
+            this.mainHandler = new Handler(Looper.getMainLooper());
+        }
+
+        public void execute(ArrayList params) {
+            String result = doInBackground(params);
+            // Post result back to main thread
+        }
+
+        private String doInBackground(ArrayList... params) {
+            String result = null;
+            if (params[0].size() != 0) {
+                // call WatsonCommandClassifier to classify into 利用分类器进行命令的编码
+                cc1.classify(params[0]);
+                // show execution confirmation dialog fragment 确定窗口 并执行回调函数，如果确定，那么就进行任务执行
+                showDialog(findViewById(android.R.id.content));
+
+                result = "Did classify";
+            } else {
+                result = "Not classify";
+            }
+            return result;
+        }
+
+        private void onPostExecute(String result) {
+            // Handle the result on the main thread (if needed)
+            // For example, update UI or log the result
+            System.out.println(result);
+        }
+
+        // Clean up resources when no longer needed
+        public void shutdown() {
+            executorService.shutdown();
+        }
+    }
+
+    /**
+     * Prepare Encoded String
+     * 预处理命令编码
+     */
+    private ArrayList<Integer> mEncodedStr;
+
+    private void preCheck(ArrayList<Integer> encoded_string, String google_map_string) {
+        // Get first and see if it is adnvacce mission
+        if (encoded_string.get(0) == 107) {
+            searchPlace(google_map_string);
+        } else {
+            callExecution(encoded_string);
+        }
+    }
+
+    private void writeRecogRecord(boolean pos, String s2tStr, String encodedStr, String classifiedStr) {
+        String group = "neg";
+        if (pos) {
+            group = "pos";
+        }
+//        String key = mDBRecog.child(group).push().getKey();
+//        mDBRecog.child(group).child(key).child("s2tStr").setValue(s2tStr);
+//        mDBRecog.child(group).child(key).child("classifiedStr").setValue(classifiedStr);
+//        mDBRecog.child(group).child(key).child("encodedStr").setValue(encodedStr);
+    }
+    /**
+     * END of Prepare Encoded String
+     */
+
+    /**
+     * Confirmation box
+     */
+    // 显示命令确认窗口
+    public void showDialog(View v) {
+        // create FragmentManager and CommandConfirmationDialogFragment
+        FragmentManager manager = getSupportFragmentManager();
+        CommandConfirmationDialogFragment myDialogFragment = new CommandConfirmationDialogFragment();
+        // send encoded_string and command into pop up window
+        Bundle bundle = new Bundle();
+
+        bundle.putString("encoded_string", cc1.getEncodedString().toString());
+        bundle.putString("command", cc1.getCommand());
+        myDialogFragment.setArguments(bundle);
+        // show pop up window
+        myDialogFragment.show(manager, "MyDialogFragment");
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.activity_control, container, false);
+    }
+
+    @Override
+    public void onDialogMessage(boolean message) {
+        if (message) {
+            writeRecogRecord(true, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
+//            showFpvToast("Start executing command");
+            preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString()); // Start execution 开始执行操作
+        } else {
+            writeRecogRecord(false, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
+            showcontrolToast("Command cancelled");
+        }
+    }
+
+
+    //endregion
+
+    //region 飞行控制
+    /**
+     * 执行虚拟摇杆控制器
+     */
+    private void callExecution(ArrayList<Integer> encoded_string) {
+        mEncodedStr = encoded_string;
+        boolean success = false;
+        if (mCI != null) {
+            mCI.initFlightController();
+        }
+        if (mCI.mFlightController != null) {
+            mCI.executeCmd(mEncodedStr);
+            success = true;
+        }
+        if (success) {
+            showcontrolToast("Instruction Sent");
+        } else {
+            showcontrolToast("Flight Control Error");
+        }
+    }
+
+    /**
+     * Search for place and sort the result by distance to the drone
+     */
+    private List<Address> addressList = null;
+    private LatLng[] locList;
+    private boolean addressList_flag = true;
+
+    public void searchPlace(String locationName) {
+        Geocoder mGeocoder = new Geocoder(mContext);
+        int maxResults = 20;
+        double lowerLeftLatitude = mDroneLocation.latitude - 0.05;
+        double lowerLeftLongitude = mDroneLocation.longitude - 0.05;
+        double upperRightLatitude = mDroneLocation.latitude + 0.05;
+        double upperRightLongitude = mDroneLocation.longitude + 0.05;
+//        double lowerLeftLatitude = mUserLocation.latitude - 0.05;
+//        double lowerLeftLongitude = mUserLocation.longitude - 0.05;
+//        double upperRightLatitude = mUserLocation.latitude + 0.05;
+//        double upperRightLongitude = mUserLocation.longitude + 0.05;
+        try {
+            addressList = mGeocoder.getFromLocationName(locationName, maxResults, lowerLeftLatitude, lowerLeftLongitude, upperRightLatitude, upperRightLongitude);
+        } catch (IOException e) {
+            Log.e(TAG, e.toString());
+            addressList_flag = false;
+        }
+        if (addressList_flag && addressList.size() != 0) {
+            Bundle args = new Bundle();
+            String[] places = new String[addressList.size()];
+            double[] dist = new double[addressList.size()];
+            LatLng[] cdArray = new LatLng[addressList.size()];
+            for (int i = 0; i < addressList.size(); i++) {
+                String sb = "";
+                for (int k = 0; k < addressList.get(i).getMaxAddressLineIndex(); k++) {
+                    sb += addressList.get(i).getAddressLine(k);
+                    sb += "; ";
+                }
+                double lat = addressList.get(i).getLatitude();
+                double lon = addressList.get(i).getLongitude();
+                LatLng currentCd = new LatLng(lat, lon);
+                double distance = Utils.calcDistance(mDroneLocation.latitude, mDroneLocation.longitude, lat, lon);
+                sb += new DecimalFormat("####").format(distance) + "m";
+                places[i] = sb;
+                dist[i] = distance;
+                cdArray[i] = currentCd;
+                for (int j = i - 1; j >= 0; j--) {
+                    if (dist[j + 1] < dist[j]) {
+                        double t1 = dist[j];
+                        String t2 = places[j];
+                        LatLng t3 = cdArray[j];
+                        dist[j] = dist[j + 1];
+                        places[j] = places[j + 1];
+                        cdArray[j] = cdArray[j + 1];
+                        dist[j + 1] = t1;
+                        places[j + 1] = t2;
+                        cdArray[j + 1] = t3;
+                    }
+                }
+            }
+            locList = cdArray;
+            args.putStringArray("places", places);
+            mPlaceListFragment = new PlaceListFragment();
+            mPlaceListFragment.setArguments(args);
+            Log.e(TAG, mPlaceListFragment.getArguments().toString());
+            getSupportFragmentManager().beginTransaction().add(R.id.main_layout, mPlaceListFragment).commit();
+        } else {
+            showcontrolToast("No result available");
+            Log.e(TAG, "No result available");
+            addressList_flag = true;
+        }
+    }
+    //endregion
+
+    public void showcontrolToast(final String msg) {
+        this.runOnUiThread(new Runnable() {
+            public void run() {
+                Toast.makeText(mContext.getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
 
 }

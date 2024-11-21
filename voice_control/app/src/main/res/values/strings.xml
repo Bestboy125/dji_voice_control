@@ -4,6 +4,7 @@
 
     <string name="sdk_version">DJI SDK 版本: %1$s</string>
     <string name="hint_firmware_upgrade_in_LDM">启动固件升级在LDM模式下</string>
+    <string name="push_info">Push Info</string>
     <!-- Main activity UI string -->
     <string name="connection_loose">状态: 没有产品连接</string>
     <string name="connection_only_rc">状态: 只有遥控器连接</string>
@@ -13,6 +14,7 @@
         connectivity. </string>
     <string name="sdk_registration_success_message">SDK 注册成功.</string>
     <string name="sdk_registration_doing_message">Registering, pls wait...</string>
+    <string name="disconnected">Disconnected</string>
 
     <string name="activity_component_list">Component List</string>
     <string name="start_payload">Start Payload</string>
