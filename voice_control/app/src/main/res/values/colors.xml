@@ -16,4 +16,6 @@
     <color name="view_bg">#121111</color>
     <color name="text_whi">#cad5f9</color>
     <color name="list_backgroud_color">#2fb3cb</color>
+    <color name="button_normal">#50808080</color>
+    <color name="button_press">#5086BFFF</color>
 </resources>

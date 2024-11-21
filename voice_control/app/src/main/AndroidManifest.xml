@@ -78,6 +78,9 @@
             android:value="01cdae86a6e8c36dbd8d0955"/>
         <!-- Required for receiving accessory attachment events.
             This is necessary for product when connecting over USB. -->
+        <meta-data
+            android:name="com.amap.api.v2.apikey"
+            android:value="569c33d154ff50d882b86a8dcd1b1dcb"/>
 
         <activity
             android:name="com.dji.sdk.voice_control.internal.controller.MainActivity"
@@ -118,6 +121,10 @@
 
         <activity
             android:name="com.dji.sdk.voice_control.internal.controller.DownloadActivity"
+            android:configChanges="orientation|screenSize"/>
+
+        <activity
+            android:name="com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity"
             android:configChanges="orientation|screenSize"/>
 
         <activity

@@ -161,6 +161,10 @@ dependencies {
     implementation files('libs\\Msc.jar')
     implementation 'commons-codec:commons-codec:1.10'
     implementation 'com.github.smart-fun:XmlToJson:1.5.3'
+
+    implementation 'com.amap.api:map2d:latest.integration'
+    implementation 'com.amap.api:search:latest.integration'
+
     configurations {
         all*.exclude module: 'httpclient'
     }

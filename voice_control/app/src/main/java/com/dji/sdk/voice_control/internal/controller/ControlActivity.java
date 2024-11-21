@@ -52,6 +52,7 @@ import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfir
 import com.dji.sdk.voice_control.internal.controller.voice_control.FPVFullscreenActivity;
 import com.dji.sdk.voice_control.internal.controller.voice_control.PlaceListFragment;
 import com.dji.sdk.voice_control.internal.controller.voice_control.VoiceControlActivity;
+import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.ibm.watson.developer_cloud.android.library.audio.utils.ContentType;
@@ -122,6 +123,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private CommandClassifier cc1;
     private Button mBtnPhoto;
     private Button mBtnDownload;
+    private Button mBtnWaypoint;
 
     private TextView mTextView;
     //虚拟摇杆
@@ -561,6 +563,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mCMD = (EditText) findViewById(R.id.cmd_input);
         mBtnPhoto = (Button) findViewById(R.id.btn_photo);
         mBtnDownload = (Button) findViewById(R.id.btn_to_download);
+        mBtnWaypoint = (Button) findViewById(R.id.btn_waypoint);
         mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
         mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
         mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
@@ -574,6 +577,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mBtnSub.setOnClickListener(this);
         mBtnPhoto.setOnClickListener(this);
         mBtnDownload.setOnClickListener(this);
+        mBtnWaypoint.setOnClickListener(this);
 
         mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -782,6 +786,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             case R.id.btn_to_download:
                 Intent intent3 = new Intent(v.getContext(), DownloadActivity.class);
                 v.getContext().startActivity(intent3);
+            case R.id.btn_waypoint:
+                Intent intent4 = new Intent(v.getContext(), Waypoint2Activity.class);
+                v.getContext().startActivity(intent4);
 
             default:
                 break;

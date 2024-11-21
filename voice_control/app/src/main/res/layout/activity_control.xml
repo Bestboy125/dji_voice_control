@@ -165,6 +165,18 @@
         android:layout_toEndOf="@+id/btn_start_simulator"
         android:text="下载" />
 
+    <Button
+        android:id="@+id/btn_waypoint"
+        style="@style/common_button"
+        android:layout_width="131dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/textview_simulator"
+        android:layout_marginStart="-76dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginTop="387dp"
+        android:layout_toEndOf="@+id/btn_start_simulator"
+        android:text="航点" />
+
     <com.dji.sdk.voice_control.internal.controller.OnScreenJoystick
         android:id="@+id/directionJoystickLeft"
         android:layout_width="130dp"

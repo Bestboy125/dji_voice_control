@@ -104,6 +104,9 @@ public class VideoActivity extends Activity implements SurfaceTextureListener,On
             });
 
         }
+        else{
+
+        }
 
     }
 
