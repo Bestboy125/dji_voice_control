@@ -1,13 +1,10 @@
 package com.dji.sdk.voice_control.internal.controller;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.DialogInterface;
-import android.content.SharedPreferences;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.AsyncTask;
@@ -31,7 +28,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 
 import java.io.IOException;
@@ -49,7 +45,6 @@ import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
-import com.dji.sdk.voice_control.internal.controller.voice_control.FPVFullscreenActivity;
 import com.dji.sdk.voice_control.internal.controller.voice_control.PlaceListFragment;
 import com.dji.sdk.voice_control.internal.controller.voice_control.VoiceControlActivity;
 import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
@@ -58,8 +53,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.ibm.watson.developer_cloud.android.library.audio.utils.ContentType;
 import com.ibm.watson.developer_cloud.speech_to_text.v1.SpeechToText;
 import com.ibm.watson.developer_cloud.speech_to_text.v1.model.RecognizeOptions;
-import com.ibm.watson.developer_cloud.speech_to_text.v1.model.SpeechResults;
-import com.ibm.watson.developer_cloud.speech_to_text.v1.websocket.RecognizeCallback;
+import com.iflytek.cloud.SpeechConstant;
 
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
@@ -116,7 +110,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private ToggleButton mBtnSimulator;
     private Button mBtnTakeOff;
     private Button mBtnLand;
-    private Button mBtnFPV;
     private Button mBtnSpeak;
     private Button mBtnSub;
     private EditText mCMD;
@@ -124,6 +117,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private Button mBtnPhoto;
     private Button mBtnDownload;
     private Button mBtnWaypoint;
+    private Button mBtnLanguage;
+    private boolean languageType;
+    private String language="en_us";
 
     private TextView mTextView;
     //虚拟摇杆
@@ -268,7 +264,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         setContentView(R.layout.activity_control);
 
         initUI();
-
+        lanBtnListener();
         cc1 = new CommandClassifier();
 
         // 初始化控制器
@@ -452,6 +448,23 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     //更新状态，初始化飞控，登录账户
+    private void lanBtnListener() {
+        mBtnLanguage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (languageType) {
+                    languageType = false;
+                    language = "zh_cn";
+                    mBtnLanguage.setText("中文");
+                } else {
+                    languageType = true;
+                    language = "en_us";
+                    mBtnLanguage.setText("英文");
+                }
+            }
+        });
+    }
+
     @Override
     public void onResume() {
         Log.e(TAG, "onResume");
@@ -556,7 +569,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mBtnTakeOff = (Button) findViewById(R.id.btn_take_off);
         mBtnLand = (Button) findViewById(R.id.btn_land);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
-        mBtnFPV = (Button) findViewById(R.id.fpv_btn);
         mBtnSpeak = (Button) findViewById(R.id.btn_speak);
         mTextView = (TextView) findViewById(R.id.textview_simulator);
         mBtnSub = (Button) findViewById(R.id.sub_btn);
@@ -564,6 +576,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mBtnPhoto = (Button) findViewById(R.id.btn_photo);
         mBtnDownload = (Button) findViewById(R.id.btn_to_download);
         mBtnWaypoint = (Button) findViewById(R.id.btn_waypoint);
+        mBtnLanguage = (Button) findViewById(R.id.sub_lan);
         mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
         mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
         mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
@@ -572,7 +585,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mBtnDisableVirtualStick.setOnClickListener(this);
         mBtnTakeOff.setOnClickListener(this);
         mBtnLand.setOnClickListener(this);
-        mBtnFPV.setOnClickListener(this);
         mBtnSpeak.setOnClickListener(this);
         mBtnSub.setOnClickListener(this);
         mBtnPhoto.setOnClickListener(this);
@@ -760,11 +772,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 v.getContext().startActivity(intent1);
                 break;
 
-            case R.id.fpv_btn:
-                Intent intent = new Intent(v.getContext(), FPVFullscreenActivity.class);
-                v.getContext().startActivity(intent);
-                break;
-
             case R.id.sub_btn:
                 mStrIntention = mCMD.getText().toString();
                 // Tokenize command_in_text
@@ -780,15 +787,19 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 // Execute NLC
                 ClassificationTask cft = new ClassificationTask();
                 cft.execute(tokenedCommand);
+                break;
             case R.id.btn_photo:
                 Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
                 v.getContext().startActivity(intent2);
+                break;
             case R.id.btn_to_download:
                 Intent intent3 = new Intent(v.getContext(), DownloadActivity.class);
                 v.getContext().startActivity(intent3);
+                break;
             case R.id.btn_waypoint:
                 Intent intent4 = new Intent(v.getContext(), Waypoint2Activity.class);
                 v.getContext().startActivity(intent4);
+                break;
 
             default:
                 break;
@@ -865,7 +876,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             String result = null;
             if (params[0].size() != 0) {
                 // call WatsonCommandClassifier to classify into 利用分类器进行命令的编码
-                cc1.classify(params[0]);
+                cc1.classify(params[0],language);
                 // show execution confirmation dialog fragment 确定窗口 并执行回调函数，如果确定，那么就进行任务执行
                 showDialog(findViewById(android.R.id.content));
 
@@ -932,7 +943,10 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         bundle.putString("command", cc1.getCommand());
         myDialogFragment.setArguments(bundle);
         // show pop up window
-        myDialogFragment.show(manager, "MyDialogFragment");
+        Log.d(TAG, "Showing dialog...");
+        if (manager.findFragmentByTag("MyDialogFragment") == null) {
+            runOnUiThread(() -> myDialogFragment.show(manager, "MyDialogFragment"));
+        }
     }
 
     @Override

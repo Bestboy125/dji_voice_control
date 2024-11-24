@@ -153,7 +153,7 @@ public class Waypoint1Activity extends FragmentActivity implements View.OnClickL
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_waypoint1);
+        setContentView(R.layout.activity_waypoint);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(DJISampleApplication.FLAG_CONNECTION_CHANGE);

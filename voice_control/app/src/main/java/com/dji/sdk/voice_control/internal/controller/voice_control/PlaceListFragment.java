@@ -34,6 +34,6 @@ public class PlaceListFragment extends ListFragment {
 
     @Override
     public void onListItemClick(ListView list, View v, int position, long id) {
-        ((FPVFullscreenActivity) getActivity()).getPlaceCoordinates(position);
+        ((VoiceControlActivity) getActivity()).getPlaceCoordinates(position);
     }
 }

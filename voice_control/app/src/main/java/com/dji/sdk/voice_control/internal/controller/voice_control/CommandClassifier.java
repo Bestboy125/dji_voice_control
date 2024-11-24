@@ -1,12 +1,24 @@
 package com.dji.sdk.voice_control.internal.controller.voice_control;
 
+import android.speech.tts.TextToSpeech;
 import android.text.TextUtils;
+import android.util.Log;
+import android.widget.LinearLayout;
+import android.widget.Toast;
+import java.util.HashMap;
+import java.util.Map;
 
+//import com.dji.sdk.voice_control.internal.controller.gptchat.ChatApiClient;
 import com.ibm.watson.developer_cloud.natural_language_classifier.v1.NaturalLanguageClassifier;
 
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
+
+//import cn.hutool.json.JSONException;
+//import cn.hutool.json.JSONObject;
 
 /**
  * Classifier and encoder
@@ -34,16 +46,159 @@ public class CommandClassifier {
         nlpService.setUsernameAndPassword(username, password);
         nlpService.setEndPoint("https://gateway.watsonplatform.net/natural-language-classifier/api");
         google_map_search_string = null;
+
+//        // 初始化GPT客户端
+//        chatApiClient = new ChatApiClient(this,
+//                GlobalDataHolder.getGptApiHost(),
+//                GlobalDataHolder.getGptApiKey(),
+//                GlobalDataHolder.getGptModel(),
+//                new ChatApiClient.OnReceiveListener() {
+//                    private long lastRenderTime = 0;
+//
+//                    @Override
+//                    public void onMsgReceive(String message) { // 收到GPT回复（增量）
+//                        chatApiBuffer += message;
+//                        handler.post(() -> {
+//                            if(System.currentTimeMillis() - lastRenderTime > 100) { // 限制最高渲染频率10Hz
+//                                boolean isBottom = svChatArea.getChildAt(0).getBottom()
+//                                        <= svChatArea.getHeight() + svChatArea.getScrollY(); // 判断消息布局是否在底部
+//
+//                                markdownRenderer.render(tvGptReply, chatApiBuffer); // 渲染Markdown
+//
+//                                if(isBottom){
+//                                    scrollChatAreaToBottom(); // 渲染前在底部则渲染后滚动到底部
+//                                }
+//                                lastRenderTime = System.currentTimeMillis();
+//                            }
+//
+//                            if(currentTemplateParams.getBool("speak", ttsEnabled)) { // 处理TTS
+//                                String wholeText = tvGptReply.getText().toString(); // 获取可朗读的文本
+//                                if(ttsSentenceEndIndex < wholeText.length()) {
+//                                    int nextSentenceEndIndex = wholeText.length();
+//                                    boolean found = false;
+//                                    for(String separator : ttsSentenceSeparator) { // 查找最后一个断句分隔符
+//                                        int index = wholeText.indexOf(separator, ttsSentenceEndIndex);
+//                                        if(index != -1 && index < nextSentenceEndIndex) {
+//                                            nextSentenceEndIndex = index + separator.length();
+//                                            found = true;
+//                                        }
+//                                    }
+//                                    if(found) { // 找到断句分隔符则添加到朗读队列
+//                                        String sentence = wholeText.substring(ttsSentenceEndIndex, nextSentenceEndIndex);
+//                                        ttsSentenceEndIndex = nextSentenceEndIndex;
+//                                        String id = UUID.randomUUID().toString();
+//                                        tts.speak(sentence, TextToSpeech.QUEUE_ADD, null, id);
+//                                        ttsLastId = id;
+//                                    }
+//                                }
+//                            }
+//                        });
+//                    }
+//
+//                    @Override
+//                    public void onFinished(boolean completed) { // GPT回复完成
+//                        handler.post(() -> {
+//                            String referenceStr = "\n\n" + getString(R.string.text_ref_web_prefix);
+//                            int referenceCount = 0;
+//                            if(completed) { // 如果是完整回复则添加参考网页
+//                                int questionIndex = multiChatList.size() - 1;
+//                                while(questionIndex >= 0 && multiChatList.get(questionIndex).role != ChatRole.USER) { // 找到上一个提问消息
+//                                    questionIndex--;
+//                                }
+//                                for(int i = questionIndex + 1; i < multiChatList.size(); i++) { // 依次检查函数调用，并获取网页URL
+//                                    if(multiChatList.get(i).role == ChatRole.FUNCTION
+//                                            && multiChatList.get(i-1).role == ChatRole.ASSISTANT
+//                                            && multiChatList.get(i-1).functionName != null) {
+//                                        String funcName = multiChatList.get(i-1).functionName;
+//                                        String funcArgs = multiChatList.get(i-1).contentText;
+//                                        if(funcName.equals("get_html_text")) {
+//                                            String url = new JSONObject(funcArgs).getStr("url");
+//                                            referenceStr += String.format("[[%s]](%s) ", ++referenceCount, url);
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                            try {
+//                                markdownRenderer.render(tvGptReply, chatApiBuffer); // 渲染Markdown
+//                                String ttsText = tvGptReply.getText().toString();
+//                                if(currentTemplateParams.getBool("speak", ttsEnabled) && ttsText.length() > ttsSentenceEndIndex) { // 如果TTS开启则朗读剩余文本
+//                                    String id = UUID.randomUUID().toString();
+//                                    tts.speak(ttsText.substring(ttsSentenceEndIndex), TextToSpeech.QUEUE_ADD, null, id);
+//                                    ttsLastId = id;
+//                                }
+//                                if(referenceCount > 0)
+//                                    chatApiBuffer += referenceStr; // 添加参考网页
+//                                multiChatList.add(new ChatMessage(ChatRole.ASSISTANT).setText(chatApiBuffer)); // 保存回复内容到聊天数据列表
+//                                ((LinearLayout) tvGptReply.getParent()).setTag(multiChatList.get(multiChatList.size() - 1)); // 绑定该聊天数据到布局
+//                                markdownRenderer.render(tvGptReply, chatApiBuffer); // 再次渲染Markdown添加参考网页
+//                                btSend.setImageResource(R.drawable.send_btn);
+//                            } catch (Exception e) {
+//                                e.printStackTrace();
+//                            }
+//                        });
+//                    }
+//
+//                    @Override
+//                    public void onError(String message) {
+//                        handler.post(() -> {
+//                            String errText = String.format(getString(R.string.text_gpt_error_prefix) + "%s", message);
+//                            if(tvGptReply != null){
+//                                tvGptReply.setText(errText);
+//                            }else{
+//                                Toast.makeText(MainActivity.this, errText, Toast.LENGTH_LONG).show();
+//                            }
+//                            btSend.setImageResource(R.drawable.send_btn);
+//                        });
+//                    }
+//
+//                    @Override
+//                    public void onFunctionCall(String name, String arg) { // 收到函数调用请求
+//                        Log.d("FunctionCall", String.format("%s: %s", name, arg));
+//                        multiChatList.add(new ChatMessage(ChatRole.ASSISTANT).setFunction(name).setText(arg)); // 保存请求到聊天数据列表
+//                        if (name.equals("get_html_text")) { // 调用联网函数
+//                            try {
+//                                JSONObject argJson = new JSONObject(arg);
+//                                String url = argJson.getStr("url"); // 获取URL
+//                                runOnUiThread(() -> {
+//                                    markdownRenderer.render(tvGptReply, String.format(getString(R.string.text_visiting_web_prefix) + "[%s](%s)", URLDecoder.decode(url), url));
+//                                    webScraper.load(url, new WebScraper.Callback() { // 抓取网页内容
+//                                        @Override
+//                                        public void onLoadResult(String result) {
+//                                            postSendFunctionReply(name, result); // 返回网页内容给GPT
+////                                            Log.d("FunctionCall", String.format("Response: %s", result));
+//                                        }
+//
+//                                        @Override
+//                                        public void onLoadFail(String message) {
+//                                            postSendFunctionReply(name, "Failed to get response of this url.");
+//                                        }
+//                                    });
+//                                    Log.d("FunctionCall", String.format("Loading url: %s", url));
+//                                });
+//                            } catch (JSONException e) {
+//                                e.printStackTrace();
+//                                postSendFunctionReply(name, "Error when getting response.");
+//                            }
+//                        } else if(name.equals("exit_voice_chat")){
+//                            if(multiVoice)
+//                                runOnUiThread(() -> findViewById(R.id.cv_voice_chat).performClick());
+//                        } else {
+//                            postSendFunctionReply(name, "Function not found.");
+//                            Log.d("FunctionCall", String.format("Function not found: %s", name));
+//                        }
+//                    }
+//                });
     }
 
-    public ArrayList<Integer> classify(ArrayList<String> tokenedCommand){
+    public ArrayList<Integer> classify(ArrayList<String> tokenedCommand,String language){
         String command = "stop";
         String direction = null;
         String unit = null;
         String map_search_string = null;
         String object_detect_class_string = null;
+        ArrayList<Integer> result = null;
 
-        String commandInText = TextUtils.join(" ", tokenedCommand); //连接字符串
+        String commandInText = TextUtils.join(" ", tokenedCommand).toLowerCase(); //连接字符串
 //        if (tokenedCommand != null) {
 //            ExecutorService executor = Executors.newCachedThreadPool();
 ////            Callable<String> task0 = new ExactProcessCallableService(tokenedCommand); //寻找数字字符串
@@ -65,7 +220,7 @@ public class CommandClassifier {
 //            Future<String> future2 = executor.submit(task2);
 //            Future<String> future3 = executor.submit(task3);
 //            Future<String> future4 = executor.submit(task4);
-//
+//p
 //            executor.shutdown();
 //            //存储命令分类结果
 //            try {
@@ -83,54 +238,215 @@ public class CommandClassifier {
 
         // parse into decimal encoded string 对命令进行编码展示
         // Split the input string based on commas
-        String[] parts = commandInText.split(",");
+        if(language == "en_us"){
+            // 使用关键词匹配提取英文命令
+            if (commandInText.contains("takeoff")) {
+                command = "takeoff";
+            } else if (commandInText.contains("landing")) {
+                command = "landing";
+            } else if (commandInText.contains("stop")) {
+                command = "stop";
+            } else if (commandInText.contains("move")) {
+                command = "move";
+                if (commandInText.contains("left")) {
+                    direction = "left";
+                } else if (commandInText.contains("right")) {
+                    direction = "right";
+                } else if (commandInText.contains("forward")) {
+                    direction = "forward";
+                } else if (commandInText.contains("backward")) {
+                    direction = "backward";
+                } else if (commandInText.contains("up")) {
+                    direction = "up";
+                } else if (commandInText.contains("down")) {
+                    direction = "down";
+                }
+                // 提取单位
+                unit = commandInText.replaceAll("[^\\d]", ""); // 提取数字作为单位
+            } else if (commandInText.contains("turn")) {
+                command = "turn";
+                if (commandInText.contains("left")) {
+                    direction = "left";
+                } else if (commandInText.contains("right")) {
+                    direction = "right";
+                }
+            } else if (commandInText.contains("photo")) {
+                command = "photo";
+                // 提取目标对象
+                object_detect_class_string = commandInText.replaceFirst(".*photo", "").trim();
+            } else if (commandInText.contains("location")) {
+                command = "location";
+            } else if (commandInText.contains("home")) {
+                command = "home";
+            } else if (commandInText.contains("height")) {
+                command = "height";
+            } else if (commandInText.contains("speed")) {
+                command = "speed";
+            }
 
-        // Assign values based on the expected order
-        command = parts.length > 0 ? parts[0].trim() : "stop";
-        direction = parts.length > 1 ? parts[1].trim() : null;
-        unit = parts.length > 2 ? parts[2].trim() : null;
-        object_detect_class_string = parts.length > 3 ? parts[3].trim() : null;
+            result = encode_string(command, direction, unit, object_detect_class_string,language);
+            int switch_num = result.remove(result.size()-1);
 
-        ArrayList<Integer> result = encode_string(command, direction, unit, object_detect_class_string);
-        int switch_num = result.remove(result.size()-1);
+            // set encoded_string 对命令进行编码
+            switch (switch_num) {
+                case 0:
+                    this.command_direction = command;
+                    break;
+                case 1:
+                case 2:
+                    this.command_direction = command + ' ' + direction;
+                    break;
+                case 3:
+                case 4:
+                    this.command_direction = command + ' ' + direction + ' ' + unit;
+                    break;
+                case 5:
+                    this.command_direction = "Advance Mission: " + this.google_map_search_string;
+                    break;
+                case 6:
+                    this.command_direction = "Change Setting: " + command;
+                    break;
+                case 7:
+                    this.command_direction = "Take photo: "+object_detect_class_string;
+                    break;
+                default:
+                    this.command_direction = "Unrecognize command in WatsonCommandClassifier";
+                    break;
+            }
+            this.encoded_string = result;
 
-        // set encoded_string 对命令进行编码
-        switch (switch_num) {
-            case 0:
-                this.command_direction = command;
-                break;
-            case 1:
-            case 2:
-                this.command_direction = command + ' ' + direction;
-                break;
-            case 3:
-            case 4:
-                this.command_direction = command + ' ' + direction + ' ' + unit;
-                break;
-            case 5:
-                this.command_direction = "Advance Mission: " + this.google_map_search_string;
-                break;
-            case 6:
-                this.command_direction = "Change Setting: " + command;
-                break;
-            case 7:
-                this.command_direction = "Take photo: "+object_detect_class_string;
-                break;
-            default:
-                this.command_direction = "Unrecognize command in WatsonCommandClassifier";
-                break;
+            // show result TODO final comment out
+            System.out.println(command + ' ' + direction);
+            System.out.println(result.toString());
         }
-        this.encoded_string = result;
+        else {
+            // 使用关键词匹配提取中文命令
+            if (commandInText.contains("起飞")) {
+                command = "起飞";
+            } else if (commandInText.contains("降落")) {
+                command = "降落";
+            } else if (commandInText.contains("停止")) {
+                command = "停止";
+            } else if (commandInText.contains("移动")) {
+                command = "移动";
+                if (commandInText.contains("左")) {
+                    direction = "左";
+                } else if (commandInText.contains("右")) {
+                    direction = "右";
+                } else if (commandInText.contains("前")) {
+                    direction = "前";
+                } else if (commandInText.contains("后")) {
+                    direction = "后";
+                } else if (commandInText.contains("上")) {
+                    direction = "上";
+                } else if (commandInText.contains("下")) {
+                    direction = "下";
+                }
+                // 提取单位
+                unit = commandInText.replaceAll("[^\\d一二三四五六七八九十零百千]", "");
+                if (!unit.isEmpty()) {
+                    unit = convertChineseNumberToArabic(unit);
+                }// 提取文本中的数字作为单位
+            } else if (commandInText.contains("转向")) {
+                command = "转向";
+                if (commandInText.contains("左")) {
+                    direction = "左";
+                } else if (commandInText.contains("右")) {
+                    direction = "右";
+                }
+            } else if (commandInText.contains("拍照")) {
+                command = "拍照";
+                // 提取目标对象
+                object_detect_class_string = commandInText.replaceFirst(".*拍照", "").trim();
+            }
 
-        // show result TODO final comment out
-        System.out.println(command + ' ' + direction);
-        System.out.println(result.toString());
+            result = encode_string(command, direction, unit, object_detect_class_string, language);
+            int switch_num = result.remove(result.size() - 1);
 
+            // set encoded_string 对命令进行编码
+            switch (switch_num) {
+                case 0:
+                    this.command_direction = command;
+                    break;
+                case 1:
+                case 2:
+                    this.command_direction = command + ' ' + direction;
+                    break;
+                case 3:
+                case 4:
+                    this.command_direction = command + ' ' + direction + ' ' + unit;
+                    break;
+                case 5:
+                    this.command_direction = "执行任务: " + this.google_map_search_string;
+                    break;
+                case 6:
+                    this.command_direction = "设置更改: " + command;
+                    break;
+                case 7:
+                    this.command_direction = "拍照: " + object_detect_class_string;
+                    break;
+                default:
+                    this.command_direction = "无法识别的命令";
+                    break;
+            }
+            this.encoded_string = result;
+            System.out.println(command + ' ' + direction);
+            System.out.println(result.toString());
+        }
         return result;
     }
 
     public String getCommand(){
         return this.command_direction;
+    }
+
+    private String convertChineseNumberToArabic(String chineseNumber) {
+        // 定义汉字与阿拉伯数字的映射
+        Map<Character, Integer> chineseToArabicMap = new HashMap<>();
+        chineseToArabicMap.put('零', 0);
+        chineseToArabicMap.put('一', 1);
+        chineseToArabicMap.put('二', 2);
+        chineseToArabicMap.put('三', 3);
+        chineseToArabicMap.put('四', 4);
+        chineseToArabicMap.put('五', 5);
+        chineseToArabicMap.put('六', 6);
+        chineseToArabicMap.put('七', 7);
+        chineseToArabicMap.put('八', 8);
+        chineseToArabicMap.put('九', 9);
+
+        // 定义单位字符（十、百、千等）
+        chineseToArabicMap.put('十', 10);
+        chineseToArabicMap.put('百', 100);
+        chineseToArabicMap.put('千', 1000);
+
+        // 转换逻辑
+        int result = 0;
+        int temp = 0; // 用于存储每个单位的临时值
+        int base = 1; // 用于处理个位数字
+
+        for (int i = chineseNumber.length() - 1; i >= 0; i--) {
+            char c = chineseNumber.charAt(i);
+
+            if (chineseToArabicMap.containsKey(c)) {
+                int value = chineseToArabicMap.get(c);
+
+                if (value >= 10) {
+                    // 遇到单位（十、百、千等），更新临时基数
+                    if (temp == 0) {
+                        temp = 1; // 如果前面没有数字，单位默认为1
+                    }
+                    result += temp * value;
+                    temp = 0; // 清空临时值
+                    base = value; // 更新基数
+                } else {
+                    // 普通数字
+                    temp = temp + value * base;
+                }
+            }
+        }
+        result += temp; // 加上最后一段没有单位的值
+
+        return String.valueOf(result);
     }
 
 //    private String callChatGPTAPI(String task, String input) {
@@ -146,131 +462,234 @@ public class CommandClassifier {
         return this.google_map_search_string;
     }
 
-    private ArrayList<Integer> encode_string (String command, String direction, String unit, String object_detect_class_string){
+    private ArrayList<Integer> encode_string (String command, String direction, String unit, String object_detect_class_string, String language) {
         ArrayList<Integer> encoded_string = new ArrayList<Integer>();
         int switch_num = 0; // 0 for null, 1 for move, 2 for turn, 3 for move unit, 4 for turn unit, 5 for advance mission, 6 for setting, 7 for image recong
-        switch (command) {
-            case "takeoff":
-                encoded_string.add(100);
-                break;
-            case "landing":
-                encoded_string.add(101);
-                break;
-            case "stop":
-                encoded_string.add(102);
-                break;
-            case "move":
-                switch_num = 1;
-                switch (direction) {
-                    case "left":
-                        encoded_string.add(103);
-                        encoded_string.add(201);
-                        encoded_string.add(303);
-                        break;
-                    case "right":
-                        encoded_string.add(103);
-                        encoded_string.add(201);
-                        encoded_string.add(304);
-                        break;
-                    case "forward":
-                        encoded_string.add(103);
-                        encoded_string.add(201);
-                        encoded_string.add(301);
-                        break;
-                    case "backward":
-                        encoded_string.add(103);
-                        encoded_string.add(201);
-                        encoded_string.add(302);
-                        break;
-                    case "up":
-                        encoded_string.add(105);
-                        break;
-                    case "down":
-                        encoded_string.add(106);
-                        break;
-                    default:
-                }
-                break;
-            case "turn":
-                encoded_string.add(104);
-                encoded_string.add(203);
-                switch_num = 2;
-                switch (direction) {
-                    case "left":
-                        encoded_string.add(303);
-                        break;
-                    case "right":
-                        encoded_string.add(304);
-                        break;
-                    case "forward":
-                        encoded_string.add(303);
-                        encoded_string.add(204);
-                        encoded_string.add(180);
-                        break;
-                    case "backward":
-                        encoded_string.add(303);
-                        encoded_string.add(204);
-                        encoded_string.add(180);
-                        break;
-                    default:
-                }
-                break;
-            case "location":
-                encoded_string.add(107);
-                encoded_string.add(205);
-                switch_num = 5;
-                break;
-            case "home":
-                encoded_string.add(108);
-                encoded_string.add(206);
-                encoded_string.add(401);
-                encoded_string.add(207);
-                switch_num = 6;
-                break;
-            case "height":
-                encoded_string.add(108);
-                encoded_string.add(206);
-                encoded_string.add(402);
-                encoded_string.add(207);
-                switch_num = 6;
-                break;
-            case "speed":
-                encoded_string.add(108);
-                encoded_string.add(206);
-                encoded_string.add(403);
-                encoded_string.add(207);
-                switch_num = 6;
-                break;
-            case "photo":
-                encoded_string.add(109);
-                int id = this.object_list.indexOf(object_detect_class_string)+1;
-                encoded_string.add(id);
-                switch_num = 7;
-                break;
-            default:
-                // code to be executed if all cases are not matched;
+
+        if (language.equals("en_us")) {
+            // 英语部分保持不变
+            switch (command) {
+                case "takeoff":
+                    encoded_string.add(100);
+                    break;
+                case "landing":
+                    encoded_string.add(101);
+                    break;
+                case "stop":
+                    encoded_string.add(102);
+                    break;
+                case "move":
+                    switch_num = 1;
+                    switch (direction) {
+                        case "left":
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(303);
+                            break;
+                        case "right":
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(304);
+                            break;
+                        case "forward":
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(301);
+                            break;
+                        case "backward":
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(302);
+                            break;
+                        case "up":
+                            encoded_string.add(105);
+                            break;
+                        case "down":
+                            encoded_string.add(106);
+                            break;
+                        default:
+                    }
+                    break;
+                case "turn":
+                    encoded_string.add(104);
+                    encoded_string.add(203);
+                    switch_num = 2;
+                    switch (direction) {
+                        case "left":
+                            encoded_string.add(303);
+                            break;
+                        case "right":
+                            encoded_string.add(304);
+                            break;
+                        case "forward":
+                            encoded_string.add(303);
+                            encoded_string.add(204);
+                            encoded_string.add(180);
+                            break;
+                        case "backward":
+                            encoded_string.add(303);
+                            encoded_string.add(204);
+                            encoded_string.add(180);
+                            break;
+                        default:
+                    }
+                    break;
+                case "location":
+                    encoded_string.add(107);
+                    encoded_string.add(205);
+                    switch_num = 5;
+                    break;
+                case "home":
+                    encoded_string.add(108);
+                    encoded_string.add(206);
+                    encoded_string.add(401);
+                    encoded_string.add(207);
+                    switch_num = 6;
+                    break;
+                case "height":
+                    encoded_string.add(108);
+                    encoded_string.add(206);
+                    encoded_string.add(402);
+                    encoded_string.add(207);
+                    switch_num = 6;
+                    break;
+                case "speed":
+                    encoded_string.add(108);
+                    encoded_string.add(206);
+                    encoded_string.add(403);
+                    encoded_string.add(207);
+                    switch_num = 6;
+                    break;
+                case "photo":
+                    encoded_string.add(109);
+                    int id = this.object_list.indexOf(object_detect_class_string) + 1;
+                    encoded_string.add(id);
+                    switch_num = 7;
+                    break;
+                default:
+                    // code to be executed if all cases are not matched;
+            }
+        } else if (language.equals("zh_cn")) {
+            // 中文部分编码逻辑
+            switch (command) {
+                case "起飞":
+                    encoded_string.add(200);
+                    break;
+                case "降落":
+                    encoded_string.add(201);
+                    break;
+                case "停止":
+                    encoded_string.add(202);
+                    break;
+                case "移动":
+                    switch_num = 1;
+                    switch (direction) {
+                        case "左":
+                            encoded_string.add(203);
+                            encoded_string.add(301);
+                            encoded_string.add(401);
+                            break;
+                        case "右":
+                            encoded_string.add(203);
+                            encoded_string.add(301);
+                            encoded_string.add(402);
+                            break;
+                        case "前":
+                            encoded_string.add(203);
+                            encoded_string.add(301);
+                            encoded_string.add(403);
+                            break;
+                        case "后":
+                            encoded_string.add(203);
+                            encoded_string.add(301);
+                            encoded_string.add(404);
+                            break;
+                        case "上":
+                            encoded_string.add(205);
+                            break;
+                        case "下":
+                            encoded_string.add(206);
+                            break;
+                        default:
+                    }
+                    break;
+                case "转向":
+                    encoded_string.add(204);
+                    encoded_string.add(302);
+                    switch_num = 2;
+                    switch (direction) {
+                        case "左":
+                            encoded_string.add(401);
+                            break;
+                        case "右":
+                            encoded_string.add(402);
+                            break;
+                        case "前":
+                            encoded_string.add(403);
+                            encoded_string.add(303);
+                            encoded_string.add(180);
+                            break;
+                        case "后":
+                            encoded_string.add(403);
+                            encoded_string.add(303);
+                            encoded_string.add(180);
+                            break;
+                        default:
+                    }
+                    break;
+                case "位置":
+                    encoded_string.add(207);
+                    encoded_string.add(304);
+                    switch_num = 5;
+                    break;
+                case "返航":
+                    encoded_string.add(208);
+                    encoded_string.add(305);
+                    encoded_string.add(501);
+                    encoded_string.add(306);
+                    switch_num = 6;
+                    break;
+                case "高度":
+                    encoded_string.add(208);
+                    encoded_string.add(305);
+                    encoded_string.add(502);
+                    encoded_string.add(306);
+                    switch_num = 6;
+                    break;
+                case "速度":
+                    encoded_string.add(208);
+                    encoded_string.add(305);
+                    encoded_string.add(503);
+                    encoded_string.add(306);
+                    switch_num = 6;
+                    break;
+                case "拍照":
+                    encoded_string.add(209);
+                    int id = this.object_list.indexOf(object_detect_class_string) + 1;
+                    encoded_string.add(id);
+                    switch_num = 7;
+                    break;
+                default:
+                    // code to be executed if all cases are not matched;
+            }
         }
+
         if (unit != null) {
-            //move
             if (switch_num == 1) {
                 encoded_string.add(202);
                 switch_num = 3;
                 encoded_string.add(Integer.parseInt(unit));
-            }
-            //turn
-            else if (switch_num == 2) {
+            } else if (switch_num == 2) {
                 encoded_string.add(204);
                 switch_num = 4;
                 encoded_string.add(Integer.parseInt(unit));
-            }
-            //settings
-            else if (switch_num == 6) {
+            } else if (switch_num == 6) {
                 encoded_string.add(Integer.parseInt(unit));
             }
         }
+
         encoded_string.add(switch_num);
         return encoded_string;
     }
-
 }
 

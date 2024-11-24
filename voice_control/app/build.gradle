@@ -165,6 +165,10 @@ dependencies {
     implementation 'com.amap.api:map2d:latest.integration'
     implementation 'com.amap.api:search:latest.integration'
 
+//    implementation group: 'com.unfbx', name: 'chatgpt-java', version: '1.1.5'{
+//        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+//    }
+
     configurations {
         all*.exclude module: 'httpclient'
     }

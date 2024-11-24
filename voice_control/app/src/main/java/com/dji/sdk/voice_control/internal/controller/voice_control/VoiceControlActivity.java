@@ -12,6 +12,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.text.SpannableStringBuilder;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -128,7 +129,6 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
     // 弹框是否显示
     private int dialogType;
     //endregion
-
     //region 飞行控制的数据结构
     //该活动的实例
     private Context mContext;
@@ -180,6 +180,7 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
     private Button mBtnDummy;
     private Button mBtnShow;
     private Button mBtnHide;
+    private Button mBtnLanguage;
 
     //Aircraft State 文字显示飞机的状态
     private TextView mAltitude;
@@ -400,6 +401,7 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
         mBtnShow.setVisibility(View.GONE);
         mBtnLoacte = (Button) findViewById(R.id.locate_button);
         mBtnTracking = (Button) findViewById(R.id.tracking_button);
+        mBtnLanguage = (Button) findViewById(R.id.iat_lan);
         mBtnLoacte.setVisibility(View.GONE);
         mBtnTracking.setVisibility(View.GONE);
         mBatteryView = (BatteryView) findViewById(R.id.battery_view);
@@ -413,8 +415,10 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
         findViewById(R.id.iat_recognize).setOnClickListener(this);
         findViewById(R.id.iat_stop).setOnClickListener(this);
         findViewById(R.id.iat_cancel).setOnClickListener(this);
+        findViewById(R.id.iat_lan).setOnClickListener(this);
 
         stopBtnListener();
+        lanBtnListener();
         voiceInputListener();
         inputBtnListener();
         RRInputListener();
@@ -426,6 +430,24 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
             public void onClick(View v) {
 //                mCI.mDestroy();
                 mCI.mStop();
+            }
+        });
+    }
+
+    private void lanBtnListener() {
+        mBtnLanguage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (languageType) {
+                    languageType = false;
+                    language = "zh_cn";
+                    mBtnLanguage.setText("中文");
+                } else {
+                    languageType = true;
+                    language = "en_us";
+                    mBtnLanguage.setText("英文");
+                }
+                mIat.setParameter(SpeechConstant.LANGUAGE, language);
             }
         });
     }
@@ -691,21 +713,32 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
             for (String key : mIatResults.keySet()) {
                 resultBuffer.append(mIatResults.get(key));
             }
-            mStrIntention = resultBuffer.toString().toLowerCase();
-            // Tokenize command_in_text
-            StringTokenizer st = new StringTokenizer(mStrIntention);
-            ArrayList<String> tokenedCommand = new ArrayList<>();
-            while (st.hasMoreTokens()) {
-                tokenedCommand.add(st.nextToken());
-            }
-            // Replace mavic similar words
-//            tokenedCommand = findMavicSimilar(tokenedCommand);
-            // Change arraylist to string
-            mStrIntention = TextUtils.join(" ", tokenedCommand);
-            // Display command in string format
-            showMicText(mStrIntention);
-            // Execute NLC
-            new VoiceControlActivity.ClassificationTask().execute(tokenedCommand);
+            // 创建消息框
+            AlertDialog.Builder builder = new AlertDialog.Builder(VoiceControlActivity.this);
+            builder.setTitle("确认识别结果");
+
+            // 创建一个 EditText 以显示和编辑结果
+            EditText editText = new EditText(VoiceControlActivity.this);
+            editText.setText(resultBuffer.toString());
+            editText.setSelection(resultBuffer.toString().length()); // 光标移到文本末尾
+            builder.setView(editText);
+
+            // 设置确认按钮
+            builder.setPositiveButton("确定", (dialog, which) -> {
+                String confirmedResult = editText.getText().toString();
+                // TODO: 在这里处理用户确认后的识别结果，例如更新 UI 或发送数据
+                editText.setText(confirmedResult); // 假设将结果显示在 TextView 上
+                Toast.makeText(getApplicationContext(), "结果已确认：" + confirmedResult, Toast.LENGTH_SHORT).show();
+                processConfirmedResult(confirmedResult);
+            });
+
+            // 设置取消按钮
+            builder.setNegativeButton("取消", (dialog, which) -> {
+                dialog.dismiss(); // 直接关闭对话框
+            });
+
+            // 显示消息框
+            builder.show();
         }
 
         /**
@@ -717,6 +750,30 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
 
 
     };
+    // 处理确认后的结果并执行您的逻辑
+    private void processConfirmedResult(String confirmedResult) {
+        // 将确认结果转换为小写
+        String mStrIntention = confirmedResult.toLowerCase();
+
+        // 使用 StringTokenizer 对结果进行分词
+        StringTokenizer st = new StringTokenizer(mStrIntention);
+        ArrayList<String> tokenedCommand = new ArrayList<>();
+        while (st.hasMoreTokens()) {
+            tokenedCommand.add(st.nextToken());
+        }
+
+        // 如果需要，处理类似 mavic 的单词（这里注释掉了）
+        // tokenedCommand = findMavicSimilar(tokenedCommand);
+
+        // 将 ArrayList 转换为字符串
+        mStrIntention = TextUtils.join(" ", tokenedCommand);
+
+        // 在界面上显示分词后的字符串
+        showMicText(mStrIntention);
+
+        // 执行分类任务（假设是执行 NLC 的核心逻辑）
+        new VoiceControlActivity.ClassificationTask().execute(tokenedCommand);
+    }
 
     /**
      * 听写参数设置
@@ -778,6 +835,7 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
     //endregion
 
     //region 飞行控制器
+
     private void initDrone() {
         mCI.initFlightController();
         if (mCI.mFlightController != null) {
@@ -1125,7 +1183,7 @@ public class VoiceControlActivity extends AppCompatActivity implements CommandCo
             String result = null;
             if (params[0].size() != 0) {
                 // call WatsonCommandClassifier to classify into 利用分类器进行命令的编码
-                cc1.classify(params[0]);
+                cc1.classify(params[0],language);
                 // show execution confirmation dialog fragment 确定窗口 并执行回调函数，如果确定，那么就进行任务执行
                 showDialog(findViewById(android.R.id.content));
 

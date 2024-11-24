@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
+    android:id="@+id/main_layout"
     android:layout_height="match_parent"
     android:gravity="center_horizontal"
     android:orientation="vertical"
@@ -30,6 +31,14 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="停止"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/iat_lan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="英文"
             android:textSize="20sp" />
 
         <Button

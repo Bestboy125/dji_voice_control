@@ -54,14 +54,6 @@
         android:layout_alignStart="@+id/directionJoystickLeft"
         android:layout_marginTop="0dp" />
 
-    <Button
-        android:text="FPV"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/fpv_btn"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true" />
-
     <EditText
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -81,6 +73,16 @@
         android:id="@+id/sub_btn"
         android:layout_alignBottom="@+id/cmd_input"
         android:layout_alignEnd="@+id/directionJoystickRight" />
+
+    <Button
+        android:id="@+id/sub_lan"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignEnd="@+id/directionJoystickRight"
+        android:layout_alignBottom="@+id/cmd_input"
+        android:layout_marginEnd="88dp"
+        android:layout_marginBottom="0dp"
+        android:text="英文" />
 
     <Button
         android:layout_width="wrap_content"

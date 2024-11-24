@@ -22,7 +22,6 @@ import dji.sdk.products.Aircraft;
 
 /**
  * Interpreter that maps command to action of the drone
- *  Eddie Wang, Eric Xu, Melody Cai
  */
 public class CommandInterpreter {
 
@@ -222,7 +221,7 @@ public class CommandInterpreter {
                 mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mDown(para_dis);
                 break;
-            case 107: // FlyTo (a specific location)
+            case 107: // FlyTo (a specific location)+
                 double para_lati = 25, para_logi = 113;
                 if(idx+5<mCmdCode.length && mCmdCode[idx+1]==205){
                     para_lati = mCmdCode[idx+2] + mCmdCode[idx+3]/100000.0;
