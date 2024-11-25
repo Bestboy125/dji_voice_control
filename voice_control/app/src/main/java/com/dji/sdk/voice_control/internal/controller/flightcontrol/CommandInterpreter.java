@@ -147,12 +147,12 @@ public class CommandInterpreter {
 
         BaseProduct product = DJISampleApplication.getProductInstance();
         if(product == null || !product.isConnected()){
-//            Utils.setResultToToast(mContext, "CI: disconnect");
+            Utils.setResultToToast(mContext, "CI: disconnect");
             return;
         }else{
             if(product instanceof Aircraft){
                 mFlightController = ((Aircraft)product).getFlightController();
-//                Utils.setResultToToast(mContext, "CI: FC good");
+                Utils.setResultToToast(mContext, "CI: FC good");
             }else{
                 return;
             }

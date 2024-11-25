@@ -8,7 +8,7 @@
     <RelativeLayout
         android:id="@+id/main_title_rl"
         android:layout_width="fill_parent"
-        android:layout_height="40dp"
+        android:layout_height="50dp"
         android:background="@color/black_overlay" >
 
         <ImageButton
@@ -25,15 +25,48 @@
             android:scaleType="centerInside"
             android:src="@drawable/selector_back_button" />
 
-        <TextView
-            android:id="@+id/ConnectStatusTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="飞行模拟"
-            android:textColor="@android:color/white"
-            android:textSize="19sp" />
     </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="350dp"
+        android:layout_marginBottom="2dp"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_control_recognize"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="开始"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btn_control_stop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="停止"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btn_control_lan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="英文"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btn_control_cancel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="取消"
+            android:textSize="20sp" />
+    </LinearLayout>
 
     <TextView
         android:layout_marginTop="70dp"
@@ -55,24 +88,25 @@
         android:layout_marginTop="0dp" />
 
     <EditText
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:inputType="textPersonName"
-        android:text=""
-        android:hint="Command Input"
-        android:ems="10"
-        android:layout_marginBottom="11dp"
         android:id="@+id/cmd_input"
-        android:layout_above="@+id/directionJoystickLeft"
-        android:layout_alignStart="@+id/btn_disable_virtual_stick" />
-
-    <Button
-        android:text="Sub"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/sub_btn"
-        android:layout_alignBottom="@+id/cmd_input"
-        android:layout_alignEnd="@+id/directionJoystickRight" />
+        android:layout_above="@+id/directionJoystickLeft"
+        android:layout_alignStart="@+id/btn_disable_virtual_stick"
+        android:layout_marginStart="-6dp"
+        android:layout_marginBottom="136dp"
+        android:ems="10"
+        android:hint="Command Input"
+        android:inputType="textPersonName"
+        android:text="" />
+
+    <TextView
+        android:id="@+id/process_text"
+        android:layout_width="100dp"
+        android:layout_height="40dp"
+        android:layout_above="@+id/btn_start_simulator"
+        android:layout_marginBottom="158dp"
+        android:text="TextView" />
 
     <Button
         android:id="@+id/sub_lan"
@@ -80,9 +114,19 @@
         android:layout_height="wrap_content"
         android:layout_alignEnd="@+id/directionJoystickRight"
         android:layout_alignBottom="@+id/cmd_input"
-        android:layout_marginEnd="88dp"
+        android:layout_marginEnd="94dp"
         android:layout_marginBottom="0dp"
         android:text="英文" />
+
+    <Button
+        android:id="@+id/sub_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignEnd="@+id/directionJoystickRight"
+        android:layout_alignBottom="@+id/cmd_input"
+        android:layout_marginEnd="6dp"
+        android:layout_marginBottom="0dp"
+        android:text="Sub" />
 
     <Button
         android:layout_width="wrap_content"
@@ -119,39 +163,30 @@
         android:layout_marginTop="107dp"
         android:layout_marginLeft="10dp" />
 
+
     <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="着陆"
-        style="@style/common_button"
         android:id="@+id/btn_land"
-        android:layout_alignTop="@+id/btn_take_off"
-        android:layout_marginTop="0dp"
-        android:layout_alignEnd="@+id/directionJoystickRight"
-        android:layout_toEndOf="@+id/btn_take_off"
-        android:layout_marginLeft="10dp" />
-
-    <Button
-        android:id="@+id/btn_speak"
         style="@style/common_button"
-        android:layout_width="184dp"
+        android:layout_width="125dp"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/textview_simulator"
+        android:layout_alignTop="@+id/btn_take_off"
+        android:layout_alignEnd="@+id/directionJoystickRight"
+        android:layout_marginStart="16dp"
         android:layout_marginLeft="10dp"
-        android:layout_marginTop="107dp"
-        android:layout_toEndOf="@+id/btn_start_simulator"
-        android:text="语音控制" />
-
+        android:layout_marginTop="1dp"
+        android:layout_marginEnd="45dp"
+        android:layout_toEndOf="@+id/btn_take_off"
+        android:text="着陆" />
 
     <Button
         android:id="@+id/btn_photo"
         style="@style/common_button"
-        android:layout_width="184dp"
+        android:layout_width="115dp"
         android:layout_height="wrap_content"
         android:layout_below="@+id/textview_simulator"
-        android:layout_marginStart="-105dp"
+        android:layout_marginStart="-168dp"
         android:layout_marginLeft="10dp"
-        android:layout_marginTop="258dp"
+        android:layout_marginTop="213dp"
         android:layout_toEndOf="@+id/btn_start_simulator"
         android:text="拍照和录像" />
 
@@ -161,9 +196,9 @@
         android:layout_width="131dp"
         android:layout_height="wrap_content"
         android:layout_below="@+id/textview_simulator"
-        android:layout_marginStart="-76dp"
+        android:layout_marginStart="-33dp"
         android:layout_marginLeft="10dp"
-        android:layout_marginTop="326dp"
+        android:layout_marginTop="213dp"
         android:layout_toEndOf="@+id/btn_start_simulator"
         android:text="下载" />
 
@@ -173,9 +208,9 @@
         android:layout_width="131dp"
         android:layout_height="wrap_content"
         android:layout_below="@+id/textview_simulator"
-        android:layout_marginStart="-76dp"
+        android:layout_marginStart="15dp"
         android:layout_marginLeft="10dp"
-        android:layout_marginTop="387dp"
+        android:layout_marginTop="105dp"
         android:layout_toEndOf="@+id/btn_start_simulator"
         android:text="航点" />
 
@@ -198,6 +233,86 @@
         android:layout_marginBottom="10dp"
         android:layout_marginRight="10dp"
         android:background="@mipmap/joystick_bg"/>
+    <view
+        android:layout_width="38dp"
+        android:layout_height="15dp"
+        class="com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/battery_data"
+        android:layout_marginTop="5dp"
+        android:layout_marginEnd="5dp"
+        android:id="@+id/battery_view" />
+
+    <TextView
+        android:text="100%"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="5dp"
+        android:id="@+id/battery_data" />
+
+    <TextView
+        android:text="D: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/Altitude"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/Distance" />
+
+    <TextView
+        android:text="V.S: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/HorizonSpeed"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/VerticalSpeed" />
+
+    <TextView
+        android:text="H: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/battery_view"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/Altitude" />
+
+    <TextView
+        android:text="H.S: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/Distance"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/HorizonSpeed" />
+
+    <TextView
+        android:id="@+id/ConnectStatusTextView"
+        android:layout_width="100dp"
+        android:layout_height="35dp"
+        android:text="DJI语音控制"
+        android:textColor="@android:color/white"
+        android:textSize="15sp" />
+
+    <TextView
+        android:id="@+id/LogView"
+        android:layout_width="397dp"
+        android:layout_height="105dp"
+        android:layout_above="@+id/directionJoystickLeft"
+        android:layout_marginBottom="16dp"
+        android:text="TextView"
+        android:scrollbars="vertical"
+        android:background="#EFEFEF"
+        android:padding="10dp"
+        android:maxLines="10"
+        android:overScrollMode="always"/>
 
 
 </RelativeLayout>

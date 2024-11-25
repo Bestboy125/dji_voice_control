@@ -8,6 +8,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import com.dji.sdk.voice_control.R;
+import com.dji.sdk.voice_control.internal.controller.ControlActivity;
 
 /**
  * Place picker for fly to a specific location
@@ -34,6 +35,6 @@ public class PlaceListFragment extends ListFragment {
 
     @Override
     public void onListItemClick(ListView list, View v, int position, long id) {
-        ((VoiceControlActivity) getActivity()).getPlaceCoordinates(position);
+        ((ControlActivity) getActivity()).getPlaceCoordinates(position);
     }
 }

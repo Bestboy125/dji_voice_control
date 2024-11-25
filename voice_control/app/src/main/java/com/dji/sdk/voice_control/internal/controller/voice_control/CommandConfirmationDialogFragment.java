@@ -1,6 +1,5 @@
 package com.dji.sdk.voice_control.internal.controller.voice_control;
 
-import android.app.Activity;
 //import android.app.DialogFragment;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -13,15 +12,9 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.DialogFragment;
+        import androidx.fragment.app.DialogFragment;
 
 import com.dji.sdk.voice_control.R;
-
-import java.text.BreakIterator;
-import java.text.CharacterIterator;
-
-import com.dji.sdk.voice_control.internal.controller.voice_control.VoiceControlActivity;
 
 /**
  * Confirmation box
