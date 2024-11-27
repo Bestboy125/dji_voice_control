@@ -45,7 +45,7 @@ public class CommandClassifier {
         String password = "1rFfpEEdA2k3";
         nlpService.setUsernameAndPassword(username, password);
         nlpService.setEndPoint("https://gateway.watsonplatform.net/natural-language-classifier/api");
-        google_map_search_string = null;
+        google_map_search_string = "中南大学";
 
 //        // 初始化GPT客户端
 //        chatApiClient = new ChatApiClient(this,
@@ -241,6 +241,8 @@ public class CommandClassifier {
         if(language == "en_us"){
             // 使用关键词匹配提取英文命令
             if (commandInText.contains("takeoff")) {
+                command = "takeoff";
+            } else if (commandInText.contains("take off")) {
                 command = "takeoff";
             } else if (commandInText.contains("landing")) {
                 command = "landing";
@@ -573,98 +575,98 @@ public class CommandClassifier {
             // 中文部分编码逻辑
             switch (command) {
                 case "起飞":
-                    encoded_string.add(200);
+                    encoded_string.add(100);
                     break;
                 case "降落":
-                    encoded_string.add(201);
+                    encoded_string.add(101);
                     break;
                 case "停止":
-                    encoded_string.add(202);
+                    encoded_string.add(102);
                     break;
                 case "移动":
                     switch_num = 1;
                     switch (direction) {
                         case "左":
-                            encoded_string.add(203);
-                            encoded_string.add(301);
-                            encoded_string.add(401);
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(303);
                             break;
                         case "右":
-                            encoded_string.add(203);
-                            encoded_string.add(301);
-                            encoded_string.add(402);
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(302);
                             break;
                         case "前":
-                            encoded_string.add(203);
-                            encoded_string.add(301);
-                            encoded_string.add(403);
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(303);
                             break;
                         case "后":
-                            encoded_string.add(203);
-                            encoded_string.add(301);
-                            encoded_string.add(404);
+                            encoded_string.add(103);
+                            encoded_string.add(201);
+                            encoded_string.add(304);
                             break;
                         case "上":
-                            encoded_string.add(205);
+                            encoded_string.add(105);
                             break;
                         case "下":
-                            encoded_string.add(206);
+                            encoded_string.add(106);
                             break;
                         default:
                     }
                     break;
                 case "转向":
-                    encoded_string.add(204);
-                    encoded_string.add(302);
+                    encoded_string.add(104);
+                    encoded_string.add(203);
                     switch_num = 2;
                     switch (direction) {
                         case "左":
-                            encoded_string.add(401);
+                            encoded_string.add(303);
                             break;
                         case "右":
-                            encoded_string.add(402);
+                            encoded_string.add(304);
                             break;
                         case "前":
-                            encoded_string.add(403);
                             encoded_string.add(303);
+                            encoded_string.add(204);
                             encoded_string.add(180);
                             break;
                         case "后":
-                            encoded_string.add(403);
                             encoded_string.add(303);
+                            encoded_string.add(204);
                             encoded_string.add(180);
                             break;
                         default:
                     }
                     break;
                 case "位置":
-                    encoded_string.add(207);
-                    encoded_string.add(304);
+                    encoded_string.add(107);
+                    encoded_string.add(205);
                     switch_num = 5;
                     break;
                 case "返航":
-                    encoded_string.add(208);
-                    encoded_string.add(305);
-                    encoded_string.add(501);
-                    encoded_string.add(306);
+                    encoded_string.add(108);
+                    encoded_string.add(206);
+                    encoded_string.add(401);
+                    encoded_string.add(207);
                     switch_num = 6;
                     break;
                 case "高度":
-                    encoded_string.add(208);
-                    encoded_string.add(305);
-                    encoded_string.add(502);
-                    encoded_string.add(306);
+                    encoded_string.add(108);
+                    encoded_string.add(206);
+                    encoded_string.add(402);
+                    encoded_string.add(207);
                     switch_num = 6;
                     break;
                 case "速度":
-                    encoded_string.add(208);
-                    encoded_string.add(305);
-                    encoded_string.add(503);
-                    encoded_string.add(306);
+                    encoded_string.add(108);
+                    encoded_string.add(206);
+                    encoded_string.add(403);
+                    encoded_string.add(207);
                     switch_num = 6;
                     break;
                 case "拍照":
-                    encoded_string.add(209);
+                    encoded_string.add(109);
                     int id = this.object_list.indexOf(object_detect_class_string) + 1;
                     encoded_string.add(id);
                     switch_num = 7;

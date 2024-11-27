@@ -25,6 +25,14 @@
             android:scaleType="centerInside"
             android:src="@drawable/selector_back_button" />
 
+        <TextView
+            android:id="@+id/ConnectStatusTextView"
+            android:layout_width="100dp"
+            android:layout_height="35dp"
+            android:text="DJI语音控制"
+            android:textColor="@android:color/white"
+            android:textSize="15sp" />
+
     </RelativeLayout>
 
     <LinearLayout
@@ -292,27 +300,6 @@
         android:layout_marginTop="3dp"
         android:layout_marginEnd="8dp"
         android:id="@+id/HorizonSpeed" />
-
-    <TextView
-        android:id="@+id/ConnectStatusTextView"
-        android:layout_width="100dp"
-        android:layout_height="35dp"
-        android:text="DJI语音控制"
-        android:textColor="@android:color/white"
-        android:textSize="15sp" />
-
-    <TextView
-        android:id="@+id/LogView"
-        android:layout_width="397dp"
-        android:layout_height="105dp"
-        android:layout_above="@+id/directionJoystickLeft"
-        android:layout_marginBottom="16dp"
-        android:text="TextView"
-        android:scrollbars="vertical"
-        android:background="#EFEFEF"
-        android:padding="10dp"
-        android:maxLines="10"
-        android:overScrollMode="always"/>
 
 
 </RelativeLayout>

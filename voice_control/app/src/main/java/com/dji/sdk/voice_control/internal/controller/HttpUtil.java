@@ -4,6 +4,7 @@ import static com.dji.sdk.voice_control.internal.utils.ToastUtils.showToast;
 import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.os.Environment;
 import android.os.Handler;
 import android.widget.Toast;
@@ -49,18 +50,17 @@ import java.util.Comparator;
 import java.util.List;
 
 public class HttpUtil {
-
-    private final android.view.View View;
+    private Context mContext;
     private Handler handler;
     private int currentProgress = -1;
     private ProgressDialog mDownloadDialog;
 
-    HttpUtil(View v){
-        this.View = v;
+    public HttpUtil(Context mcontext){
+        this.mContext = mcontext;
     }
 
     //拍照
-    private void captureAction(){
+    public void captureAction(){
         final Camera camera = DJISampleApplication.getCameraInstance();
         if (camera != null) {
             if (isMavicAir2() || isM300()) {
@@ -79,7 +79,7 @@ public class HttpUtil {
         }
     }
 
-    private void takePhoto(){
+    public void takePhoto(){
         final Camera camera = DJISampleApplication.getCameraInstance();
         if (camera == null){
             return;
@@ -99,7 +99,7 @@ public class HttpUtil {
     }
 
     //下载图片
-    private void fetchLatestPhoto() {
+    public void fetchLatestPhoto() {
         MediaManager mediaManager = DJISDKManager.getInstance().getProduct().getCamera().getMediaManager();
         mediaManager.refreshFileList(new CommonCallbacks.CompletionCallback() {
             @Override
@@ -117,7 +117,7 @@ public class HttpUtil {
         });
     }
 
-    private void downloadFile(MediaFile mediaFile){
+    public void downloadFile(MediaFile mediaFile){
         File destDir = new File(Environment.getExternalStorageDirectory().getPath() + "/MediaManagerDemo/");
         if ((mediaFile.getMediaType() == MediaFile.MediaType.PANORAMA)
                 || (mediaFile.getMediaType() == MediaFile.MediaType.SHALLOW_FOCUS)) {
@@ -159,6 +159,7 @@ public class HttpUtil {
             @Override
             public void onSuccess(String filePath) {
                 HideDownloadProgressDialog();
+                uploadPhotoToServer(destDir);
                 setResultToToast("Download File Success" + ":" + filePath);
                 currentProgress = -1;
             }
@@ -220,7 +221,7 @@ public class HttpUtil {
     private void setResultToToast(final String result) {
         runOnUiThread(new Runnable() {
             public void run() {
-                Toast.makeText(View.getContext(), result, Toast.LENGTH_SHORT).show();
+                Toast.makeText(mContext, result, Toast.LENGTH_SHORT).show();
             }
         });
     }

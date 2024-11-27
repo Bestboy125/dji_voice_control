@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.PointF;
 
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
+import com.dji.sdk.voice_control.internal.controller.HttpUtil;
 import com.dji.sdk.voice_control.internal.controller.Utils;
 
 import java.util.ArrayList;
@@ -50,13 +51,14 @@ public class CommandInterpreter {
     private static CommandInterpreter uniqueInstance = null;
 
     /**
-     * always private, no use
+     * always private, no use 构造函数 初始化context
      */
     private CommandInterpreter(Context context){
         mContext = context;
     }
 
     /**
+     * 实例化
      * @param context
      * @return instance of the command interpreter
      */
@@ -73,7 +75,7 @@ public class CommandInterpreter {
      */
 
     /**
-     * Initialize flight controller
+     * Initialize flight controller 初始化控制器
      */
     public void initFlightController() {
         aircraft = DJISampleApplication.getAircraftInstance();
@@ -88,7 +90,7 @@ public class CommandInterpreter {
     }
 
     /**
-     * Take off
+     * Take off 起飞
      */
     private void mTakeoff(){
         if (mFlightController != null){
@@ -102,7 +104,7 @@ public class CommandInterpreter {
     }
 
     /**
-     * Landing
+     * Landing 着陆
      */
     private void mLand(){
         if (mFlightController != null){
@@ -116,7 +118,7 @@ public class CommandInterpreter {
     }
 
     /**
-     * Stop
+     * Stop 停止
      */
     public void mStop(){
         if(mFlightController.isVirtualStickControlModeAvailable()){
@@ -129,7 +131,7 @@ public class CommandInterpreter {
     }
 
     /**
-     * Encoded String Mapper
+     * Encoded String Mapper 执行命令
      * See encoding protocol for details (http://heymavic.edillower.com/protocol)
      * @param mEncoded Encoded string given by NLP module
      */
@@ -250,7 +252,9 @@ public class CommandInterpreter {
                 break;
             case 109: // Take photo (with focusing on a specific object)
                 object_id = mCmdCode[1];
-//                shootPhoto();
+                HttpUtil http = new HttpUtil(mContext);
+                http.captureAction();
+                http.fetchLatestPhoto();
                 break;
             default:
                 mStop();
@@ -259,7 +263,7 @@ public class CommandInterpreter {
     }
 
     /**
-     * Change setting
+     * Change setting 更改配置
 
      * @param type code of target setting
      * @param para parameter of target setting
@@ -285,7 +289,7 @@ public class CommandInterpreter {
     }
 
     /**
-     * Photo Shooting Module
+     * Photo Shooting Module 拍照
      * @assitants David Yang, Eddie Wang, Eric Xu
      */
 

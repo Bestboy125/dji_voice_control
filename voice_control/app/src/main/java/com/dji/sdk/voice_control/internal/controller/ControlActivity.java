@@ -35,6 +35,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,6 +48,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+
+import com.amap.api.services.geocoder.GeocodeResult;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
@@ -55,11 +58,6 @@ import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfir
 import com.dji.sdk.voice_control.internal.controller.voice_control.PlaceListFragment;
 import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
-import com.ibm.watson.developer_cloud.android.library.audio.utils.ContentType;
-import com.ibm.watson.developer_cloud.speech_to_text.v1.SpeechToText;
-import com.ibm.watson.developer_cloud.speech_to_text.v1.model.RecognizeOptions;
 import com.iflytek.cloud.ErrorCode;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.RecognizerListener;
@@ -96,10 +94,24 @@ import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 
+import com.amap.api.maps2d.AMap;
+import com.amap.api.maps2d.CameraUpdateFactory;
+import com.amap.api.maps2d.model.Marker;
+import com.amap.api.services.core.LatLonPoint;
+import com.amap.api.services.geocoder.GeocodeAddress;
+import com.amap.api.services.geocoder.GeocodeQuery;
+import com.amap.api.maps2d.model.LatLng;
+import com.amap.api.services.geocoder.GeocodeSearch;
+import com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener;
+import com.amap.api.services.geocoder.RegeocodeResult;
+import com.dji.sdk.voice_control.internal.utils.AMapUtil;
+import com.dji.sdk.voice_control.internal.utils.ToastUtil;
+
 import com.iflytek.cloud.SpeechUtility;
 
-public class ControlActivity extends AppCompatActivity implements View.OnClickListener,CommandConfirmationDialogFragment.Communicator {
-    //UI数据结构
+public class ControlActivity extends AppCompatActivity implements View.OnClickListener,CommandConfirmationDialogFragment.Communicator, OnGeocodeSearchListener {
+
+    //region UI数据结构
     //日志
     private static final String TAG = MainActivity.class.getName();
     //权限列表
@@ -123,9 +135,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     //是被注册在过程中
     private AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
     private static final int REQUEST_PERMISSION_CODE = 12345;
-
-    //飞行控制器
-    private FlightController mFlightController;
     //UI控件
     protected TextView mConnectStatusTextView;
     private Button mBtnEnableVirtualStick;
@@ -143,10 +152,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private Button mBtnLanguage2;
     private boolean languageType;
     private String language="en_us";
-
-    private TextView mTextView;
-
-    //Aircraft State 文字显示飞机的状态
+    //飞机的状态
     private TextView mAltitude;
     private TextView mVerSpeed;
     private TextView mHorSpeed;
@@ -155,11 +161,65 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     BatteryView mBatteryView;
     private TextView mBatteryData;
     private int mBatteryPercent;
-    private Toast mToast;
+
+    private TextView mTextView;
+
+    //消息控件
+    private Toast toast;
+    //该活动的实例
+    private Context mContext;
+    //endregion
+
+    //region 语音识别的数据结构
+    // 语音听写对象
+    private SpeechRecognizer mIat;
+    // 语音听写UI
+    private RecognizerDialog mIatDialog;
+    // 用HashMap存储听写结果
+    private HashMap<String, String> mIatResults = new LinkedHashMap<>();
+    // 格式类型【默认json】
+    private String resultType = "json";
+    private boolean cyclic = false;//音频流识别是否循环调用
+    //拼接字符串
+    private StringBuffer buffer = new StringBuffer();
+    //Handler码
+    private int handlerCode = 0x123;
+    // 函数调用返回值
+    private int resultCode = 0;
+    // 弹框是否显示
+    private int dialogType;
+    //endregion
+
+    //region 地图数据结构
+    // Map
+    private View mMapView;
+    private LatLng mDroneLocation = new LatLng(0, 0);
+    private float mDroneHeading = 0;
+    private Marker mDroneMarker = null;
+    private LatLng mUserLocation = new LatLng(0, 0);
+    private LatLonPoint mTargetLocation = new LatLonPoint(0, 0);
+    //定位
+    private Button mBtnLoacte;
+    private boolean mMapLocate_flag = true;
+    //追踪
+    private Button mBtnTracking;
+    private boolean mMapTracking_flag = true;
+
+    private PlaceListFragment mPlaceListFragment;
+    //endregion
+
+    //region 飞行控制的数据结构
+    //飞行控制器
+    private FlightController mFlightController;
 
     //虚拟摇杆
     private OnScreenJoystick mScreenJoystickRight;
     private OnScreenJoystick mScreenJoystickLeft;
+
+    //高德地图查询器
+    GeocodeSearch geocoderSearch;
+    private AMap aMap;
+    private String addressName;
 
     private Timer mSendVirtualStickDataTimer;
     private SendVirtualStickDataTask mSendVirtualStickDataTask;
@@ -173,60 +233,800 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private Handler mHandler;
     private DJISDKManager.SDKManagerCallback mDJISDKManagerCallback;
     public static final String FLAG_CONNECTION_CHANGE = "com_dji_simulatorDemo_connection_change";
-    int ret = 0;
-    private TextView logTextView;
-    //endregion
-    //region 语音识别的数据结构
-    // 语音听写对象
-    private SpeechRecognizer mIat;
-    // 语音听写UI
-    private RecognizerDialog mIatDialog;
-    //
-    // 用HashMap存储听写结果
-    private HashMap<String, String> mIatResults = new LinkedHashMap<>();
-    private Button languageText, dialogButton;
-    // 语言类型【默认中文】
-    // 格式类型【默认json】
-    private String resultType = "json";
-    private boolean cyclic = false;//音频流识别是否循环调用
-    //拼接字符串
-    private StringBuffer buffer = new StringBuffer();
-    //Handler码
-    private int handlerCode = 0x123;
-    // 函数调用返回值
-    private int resultCode = 0;
-    // 切换中英文
-    // 弹框是否显示
-    private int dialogType;
-    //endregion
-
-    //region 飞行控制的数据结构
-    //该活动的实例
-    private Context mContext;
 
     //命令行交互
     private CommandInterpreter mCI;
-
-    // Map
-    private View mMapView;
-    private LatLng mDroneLocation = new LatLng(0, 0);
-    private float mDroneHeading = 0;
-    private Marker mDroneMarker = null;
-    private LatLng mUserLocation = new LatLng(0, 0);
-    //定位
-    private Button mBtnLoacte;
-    private boolean mMapLocate_flag = true;
-    //追踪
-    private Button mBtnTracking;
-    private boolean mMapTracking_flag = true;
-
-    private PlaceListFragment mPlaceListFragment;
 
     //private TextView mDistance; 存储飞机数据
     private double mAltitudeData;
     private double mvs;
     private double mhs;
     private double mdistToHome;
+    //endregion
+
+    //region 生命周期
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        //消息控制器
+        mHandler = new Handler(Looper.getMainLooper());
+
+        //初始化DJISDK
+        /**
+         * When starting SDK services, an instance of interface DJISDKManager.DJISDKManagerCallback will be used to listen to
+         * the SDK Registration result and the product changing.
+         */
+        mDJISDKManagerCallback = new DJISDKManager.SDKManagerCallback() {
+
+            //Listens to the SDK registration result
+            @Override
+            public void onRegister(DJIError error) {
+
+                if(error == DJISDKError.REGISTRATION_SUCCESS) {
+
+                    Handler handler = new Handler(Looper.getMainLooper());
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(), "Register Success", Toast.LENGTH_LONG).show();
+                        }
+                    });
+
+                    DJISDKManager.getInstance().startConnectionToProduct();
+
+                } else {
+
+                    Handler handler = new Handler(Looper.getMainLooper());
+                    handler.post(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(), "Register sdk fails, check network is available", Toast.LENGTH_LONG).show();
+                        }
+                    });
+
+                }
+                Log.e("TAG", error.toString());
+            }
+
+            @Override
+            public void onProductDisconnect() {
+                Log.d("TAG", "onProductDisconnect");
+                notifyStatusChange();
+            }
+            @Override
+            public void onProductConnect(BaseProduct baseProduct) {
+                Log.d("TAG", String.format("onProductConnect newProduct:%s", baseProduct));
+                notifyStatusChange();
+
+            }
+
+            @Override
+            public void onProductChanged(BaseProduct baseProduct) {
+
+            }
+
+            @Override
+            public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
+                                          BaseComponent newComponent) {
+                if (newComponent != null) {
+                    newComponent.setComponentListener(new BaseComponent.ComponentListener() {
+
+                        @Override
+                        public void onConnectivityChange(boolean isConnected) {
+                            Log.d("TAG", "onComponentConnectivityChanged: " + isConnected);
+                            notifyStatusChange();
+                        }
+                    });
+                }
+
+                Log.d("TAG",
+                        String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
+                                componentKey,
+                                oldComponent,
+                                newComponent));
+
+            }
+            @Override
+            public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
+
+            }
+
+            @Override
+            public void onDatabaseDownloadProgress(long l, long l1) {
+
+            }
+
+
+        };
+
+        //检查手机权限
+        checkAndRequestPermissions();
+
+        //语音识别初始化
+        SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
+
+        //加载XML文件
+        setContentView(R.layout.activity_control);
+
+        // 使用SpeechRecognizer对象，可根据回调消息自定义界面；
+        mIat = SpeechRecognizer.createRecognizer(this, mInitListener);
+
+        // 初始化听写Dialog
+        mIatDialog = new RecognizerDialog(ControlActivity.this, mInitListener);
+
+        //初始化UI按钮实例化
+        initUI();
+
+        //实例化命令分类器
+        cc1 = new CommandClassifier();
+
+        // 初始化命令交互控制器
+        mCI = CommandInterpreter.getUniqueInstance(mContext);
+
+        //初始化无人机
+        initDrone();
+//        //初始化查询器
+//        try {
+//            geocoderSearch = new GeocodeSearch(this);
+//        } catch (AMapException e) {
+//            throw new RuntimeException(e);
+//        }
+//        geocoderSearch.setOnGeocodeSearchListener(this);
+
+
+
+        //注册广播器
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(DJISampleApplication.FLAG_CONNECTION_CHANGE);
+        registerReceiver(mReceiver, filter);
+
+        Log.e(TAG, "onCreate");
+    }
+
+    @Override
+    public void onResume() {
+        Log.e(TAG, "onResume");
+        super.onResume();
+        //更新状态栏
+        updateTitleBar();
+        //初始化飞控
+        initFlightController();
+        //登录DJI账户
+        loginAccount();
+    }
+
+    @Override
+    public void onPause() {
+        Log.e(TAG, "onPause");
+        super.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        Log.e(TAG, "onStop");
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.e(TAG, "onDestroy");
+
+        //解除注册接收器
+        if (mReceiver != null) {
+            unregisterReceiver(mReceiver);
+            mReceiver = null;
+        }
+
+        //停止发送虚拟摇杆控制数据的任务
+        if (null != mSendVirtualStickDataTimer) {
+            mSendVirtualStickDataTask.cancel();
+            mSendVirtualStickDataTask = null;
+            mSendVirtualStickDataTimer.cancel();
+            mSendVirtualStickDataTimer.purge();
+            mSendVirtualStickDataTimer = null;
+        }
+        super.onDestroy();
+    }
+
+    public void onReturn(View view){
+        Log.e(TAG, "onReturn");
+        this.finish();
+    }
+    //endregion
+
+    //region UI点击事件
+    @Override
+    public void onClick(View v) {
+
+        switch (v.getId()) {
+            case R.id.btn_enable_virtual_stick:
+                if (mFlightController != null){
+
+                    mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onResult(DJIError djiError) {
+                            if (djiError != null){
+                                showToast(djiError.getDescription());
+                            }else
+                            {
+                                showToast("Enable Virtual Stick Success");
+                            }
+                        }
+                    });
+
+                }
+                break;
+
+            case R.id.btn_disable_virtual_stick:
+
+                if (mFlightController != null){
+                    mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onResult(DJIError djiError) {
+                            if (djiError != null) {
+                                showToast(djiError.getDescription());
+                            } else {
+                                showToast("Disable Virtual Stick Success");
+                            }
+                        }
+                    });
+                }
+                break;
+
+            case R.id.btn_take_off:
+                if (mFlightController != null){
+                    mFlightController.startTakeoff(
+                            new CommonCallbacks.CompletionCallback() {
+                                @Override
+                                public void onResult(DJIError djiError) {
+                                    if (djiError != null) {
+                                        showToast(djiError.getDescription());
+                                    } else {
+                                        showToast("Take off Success");
+                                    }
+                                }
+                            }
+                    );
+                }
+
+                break;
+
+            case R.id.btn_land:
+                if (mFlightController != null){
+
+                    mFlightController.startLanding(
+                            djiError -> {
+                                if (djiError != null) {
+                                    showToast(djiError.getDescription());
+                                } else {
+                                    showToast("Start Landing");
+                                }
+                            }
+                    );
+
+                }
+
+                break;
+
+            case R.id.sub_btn:
+                //获取命令行的文字
+                mStrIntention = mCMD.getText().toString();
+                // 令牌化命令
+                StringTokenizer st = new StringTokenizer(mStrIntention);
+                ArrayList<String> tokenedCommand = new ArrayList<>();
+                while (st.hasMoreTokens()) {
+                    tokenedCommand.add(st.nextToken());
+                }
+                mStrIntention = TextUtils.join(" ", tokenedCommand);
+                // 执行命令分类任务
+                ClassificationTask cft = new ClassificationTask(ControlActivity.this);
+                cft.execute(tokenedCommand);
+                break;
+            case R.id.btn_photo:
+                Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
+                v.getContext().startActivity(intent2);
+                break;
+            case R.id.btn_to_download:
+                Intent intent3 = new Intent(v.getContext(), DownloadActivity.class);
+                v.getContext().startActivity(intent3);
+                break;
+            case R.id.btn_waypoint:
+                Intent intent4 = new Intent(v.getContext(), Waypoint2Activity.class);
+                v.getContext().startActivity(intent4);
+                break;
+            case R.id.btn_control_recognize:
+                buffer.setLength(0);//长度清空
+                mIatResults.clear();//清除存贮结果
+                // 设置参数
+                setParam();
+                if (dialogType == 0) {
+                    // 显示听写对话框
+                    mIatDialog.setListener(mRecognizerDialogListener);
+                    mIatDialog.show();
+                    showToast("开始听写");
+                } else if (dialogType == 1) {
+                    // 不显示听写对话框
+                    resultCode = mIat.startListening(mRecognizerListener);
+                    if (resultCode != ErrorCode.SUCCESS) {
+                        showToast("听写失败,错误码：" + ",请点击网址https://www.xfyun.cn/document/error-code查询解决方案");
+                    } else {
+                        showToast("开始听写");
+                    }
+                } else if (dialogType == 2) {
+                    // 自定义听写对话框
+                    showAlertDialog();
+                    resultCode = mIat.startListening(mRecognizerListener);
+                    if (resultCode != ErrorCode.SUCCESS) {
+                        showToast("听写失败,错误码：" + ",请点击网址https://www.xfyun.cn/document/error-code查询解决方案");
+                    } else {
+                        showToast("开始听写");
+                    }
+                }
+                break;
+            case R.id.btn_control_stop:
+                mIat.stopListening();
+                showToast("停止听写");
+                break;
+            case R.id.btn_control_cancel:
+                mIat.cancel();
+                showToast("取消听写");
+                break;
+            default:
+                break;
+        }
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.activity_control, container, false);
+    }
+
+    @Override
+    public void onDialogMessage(boolean message) {
+        if (message) {
+            writeRecogRecord(true, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
+//            showFpvToast("Start executing command");
+            //预处理命令
+            preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
+        } else {
+            writeRecogRecord(false, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
+            showToast("Command cancelled");
+        }
+    }
+
+    /**
+     * Checks if there is any missing permissions, and 检查缺失的权限并重新请求
+     * requests runtime permission if needed.
+     */
+    private void checkAndRequestPermissions() {
+        // Check for permissions
+        for (String eachPermission : REQUIRED_PERMISSION_LIST) {
+            if (ContextCompat.checkSelfPermission(this, eachPermission) != PackageManager.PERMISSION_GRANTED) {
+                missingPermission.add(eachPermission);
+            }
+        }
+        // Request for missing permissions
+        if (!missingPermission.isEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(this,
+                    missingPermission.toArray(new String[missingPermission.size()]),
+                    REQUEST_PERMISSION_CODE);
+        }
+
+    }
+
+    /**
+     * Result of runtime permission request 请求权限的结果
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        // Check for granted permission and remove from missing list
+        if (requestCode == REQUEST_PERMISSION_CODE) {
+            for (int i = grantResults.length - 1; i >= 0; i--) {
+                if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                    missingPermission.remove(permissions[i]);
+                }
+            }
+        }
+        // If there is enough permission, we will start the registration
+        if (missingPermission.isEmpty()) {
+            startSDKRegistration();
+        } else {
+            showToast("Missing permissions!!!");
+        }
+    }
+    private void notifyStatusChange() {
+        mHandler.removeCallbacks(updateRunnable);
+        mHandler.postDelayed(updateRunnable, 500);
+    }
+    private Runnable updateRunnable = new Runnable() {
+
+        @Override
+        public void run() {
+            Intent intent = new Intent(FLAG_CONNECTION_CHANGE);
+            getApplicationContext().sendBroadcast(intent);
+        }
+    };
+
+    /**
+     * SDK注册
+     */
+    private void startSDKRegistration() {
+        if (isRegistrationInProgress.compareAndSet(false, true)) {
+            AsyncTask.execute(new Runnable() {
+                @Override
+                public void run() {
+                    runOnUiThread(() ->
+                            showToast( "registering, pls wait...")
+                    );
+                    DJISDKManager.getInstance().registerApp(getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
+                        @Override
+                        public void onRegister(DJIError djiError) {
+                            if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
+                                DJILog.e("App registration", DJISDKError.REGISTRATION_SUCCESS.getDescription());
+                                DJISDKManager.getInstance().startConnectionToProduct();
+                                showToast("Register Success");
+                            } else {
+                                showToast( "Register sdk fails, check network is available");
+                            }
+                            Log.v(TAG, djiError.getDescription());
+                        }
+
+                        @Override
+                        public void onProductDisconnect() {
+                            Log.d(TAG, "onProductDisconnect");
+                            showToast("Product Disconnected");
+
+                        }
+                        @Override
+                        public void onProductConnect(BaseProduct baseProduct) {
+                            Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
+                            showToast("Product Connected");
+
+                        }
+
+                        @Override
+                        public void onProductChanged(BaseProduct baseProduct) {
+
+                        }
+
+                        @Override
+                        public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
+                                                      BaseComponent newComponent) {
+
+                            if (newComponent != null) {
+                                newComponent.setComponentListener(new BaseComponent.ComponentListener() {
+
+                                    @Override
+                                    public void onConnectivityChange(boolean isConnected) {
+                                        Log.d(TAG, "onComponentConnectivityChanged: " + isConnected);
+                                    }
+                                });
+                            }
+                            Log.d(TAG,
+                                    String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
+                                            componentKey,
+                                            oldComponent,
+                                            newComponent));
+
+                        }
+                        @Override
+                        public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
+
+                        }
+
+                        @Override
+                        public void onDatabaseDownloadProgress(long l, long l1) {
+
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    /**
+     * 展示吐司
+     */
+    private void showToast(final String str) {
+        if (!isFinishing() && !isDestroyed()) {
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    if (toast != null) {
+                        toast.cancel();
+                    }
+                    toast = Toast.makeText(ControlActivity.this, str, Toast.LENGTH_SHORT);
+                    toast.show();
+                }
+            });
+        }
+    }
+
+    /**
+     * 更新状态栏
+     */
+    private void updateTitleBar() {
+        if(mConnectStatusTextView == null) return;
+        boolean ret = false;
+        BaseProduct product = DJISampleApplication.getProductInstance();
+        if (product != null) {
+            if(product.isConnected()) {
+                //The product is connected
+                mConnectStatusTextView.setText(DJISampleApplication.getProductInstance().getModel() + " Connected");
+                ret = true;
+            } else {
+                if(product instanceof Aircraft) {
+                    Aircraft aircraft = (Aircraft)product;
+                    if(aircraft.getRemoteController() != null && aircraft.getRemoteController().isConnected()) {
+                        // The product is not connected, but the remote controller is connected
+                        mConnectStatusTextView.setText("only RC Connected");
+                        ret = true;
+                    }
+                }
+            }
+        }
+
+        if(!ret) {
+            // The product or the remote controller are not connected.
+            mConnectStatusTextView.setText("Disconnected");
+        }
+    }
+
+    /**
+     * 语言切换按钮监听器
+     */
+    private void lanBtnListener() {
+        mBtnLanguage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (languageType) {
+                    languageType = false;
+                    language = "zh_cn";
+                    mBtnLanguage.setText("中文");
+                } else {
+                    languageType = true;
+                    language = "en_us";
+                    mBtnLanguage.setText("英文");
+                }
+            }
+        });
+    }
+
+    /**
+     * 登录账户
+     */
+    private void loginAccount(){
+
+        UserAccountManager.getInstance().logIntoDJIUserAccount(this,
+                new CommonCallbacks.CompletionCallbackWith<UserAccountState>() {
+                    @Override
+                    public void onSuccess(final UserAccountState userAccountState) {
+                        Log.e(TAG, "Login Success");
+                    }
+                    @Override
+                    public void onFailure(DJIError error) {
+                        showToast("Login Error:"
+                                + error.getDescription());
+                    }
+                });
+    }
+
+    /**
+     * 初始飞行控制器
+     */
+    private void initFlightController() {
+        //实例化飞控
+        Aircraft aircraft = DJISampleApplication.getAircraftInstance();
+        if (aircraft == null || !aircraft.isConnected()) {
+            showToast("Disconnected");
+            mFlightController = null;
+            return;
+        } else {
+            //初始化设置飞控模式
+            mFlightController = aircraft.getFlightController();
+            mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
+            mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
+            mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
+            mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
+            mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
+                //显示状态数据
+                @Override
+                public void onUpdate(final SimulatorState stateData) {
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            String yaw = String.format("%.2f", stateData.getYaw());
+                            String pitch = String.format("%.2f", stateData.getPitch());
+                            String roll = String.format("%.2f", stateData.getRoll());
+                            String positionX = String.format("%.2f", stateData.getPositionX());
+                            String positionY = String.format("%.2f", stateData.getPositionY());
+                            String positionZ = String.format("%.2f", stateData.getPositionZ());
+
+                            mTextView.setText("Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", PosX : " + positionX +
+                                    ", PosY : " + positionY +
+                                    ", PosZ : " + positionZ);
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    /**
+     * 初始化UI
+     */
+    private void initUI() {
+
+        mBtnEnableVirtualStick = (Button) findViewById(R.id.btn_enable_virtual_stick);
+        mBtnDisableVirtualStick = (Button) findViewById(R.id.btn_disable_virtual_stick);
+        mBtnTakeOff = (Button) findViewById(R.id.btn_take_off);
+        mBtnLand = (Button) findViewById(R.id.btn_land);
+        mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
+        mTextView = (TextView) findViewById(R.id.textview_simulator);
+        mBtnSub = (Button) findViewById(R.id.sub_btn);
+        mCMD = (EditText) findViewById(R.id.cmd_input);
+        mBtnPhoto = (Button) findViewById(R.id.btn_photo);
+        mBtnDownload = (Button) findViewById(R.id.btn_to_download);
+        mBtnWaypoint = (Button) findViewById(R.id.btn_waypoint);
+        mBtnLanguage = (Button) findViewById(R.id.sub_lan);
+        mBtnLanguage2 = (Button) findViewById(R.id.btn_control_lan);
+        mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
+        mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
+        mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
+        mBatteryView = (BatteryView) findViewById(R.id.battery_view);
+        mBatteryData = (TextView) findViewById(R.id.battery_data);
+        mAltitude = (TextView) findViewById(R.id.Altitude);
+        mVerSpeed = (TextView) findViewById(R.id.VerticalSpeed);
+        mDistance = (TextView) findViewById(R.id.Distance);
+        mHorSpeed = (TextView) findViewById(R.id.HorizonSpeed);
+        mContext = ControlActivity.this;
+
+        mBtnEnableVirtualStick.setOnClickListener(this);
+        mBtnDisableVirtualStick.setOnClickListener(this);
+        mBtnTakeOff.setOnClickListener(this);
+        mBtnLand.setOnClickListener(this);
+        mBtnSub.setOnClickListener(this);
+        mBtnPhoto.setOnClickListener(this);
+        mBtnDownload.setOnClickListener(this);
+        mBtnWaypoint.setOnClickListener(this);
+
+        findViewById(R.id.btn_control_recognize).setOnClickListener(this);
+        findViewById(R.id.btn_control_stop).setOnClickListener(this);
+        findViewById(R.id.btn_control_cancel).setOnClickListener(this);
+        findViewById(R.id.btn_control_lan).setOnClickListener(this);
+
+
+        mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+
+                    mTextView.setVisibility(View.VISIBLE);
+
+                    if (mFlightController != null) {
+
+                        mFlightController.getSimulator()
+                                .start(InitializationData.createInstance(new LocationCoordinate2D(23, 113), 10, 10),
+                                        new CommonCallbacks.CompletionCallback() {
+                                            @Override
+                                            public void onResult(DJIError djiError) {
+                                                if (djiError != null) {
+                                                    showToast(djiError.getDescription());
+                                                }else
+                                                {
+                                                    showToast("Start Simulator Success");
+                                                }
+                                            }
+                                        });
+                    }
+
+                } else {
+
+                    mTextView.setVisibility(View.INVISIBLE);
+
+                    if (mFlightController != null) {
+                        mFlightController.getSimulator()
+                                .stop(new CommonCallbacks.CompletionCallback() {
+                                          @Override
+                                          public void onResult(DJIError djiError) {
+                                              if (djiError != null) {
+                                                  showToast(djiError.getDescription());
+                                              }else
+                                              {
+                                                  showToast("Stop Simulator Success");
+                                              }
+                                          }
+                                      }
+                                );
+                    }
+                }
+            }
+        });
+
+        mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
+
+            @Override
+            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
+                if(Math.abs(pX) < 0.02 ){
+                    pX = 0;
+                }
+
+                if(Math.abs(pY) < 0.02 ){
+                    pY = 0;
+                }
+
+                float pitchJoyControlMaxSpeed = 10;
+                float rollJoyControlMaxSpeed = 10;
+
+                mPitch = (float)(pitchJoyControlMaxSpeed * pX);
+
+                mRoll = (float)(rollJoyControlMaxSpeed * pY);
+
+                if (null == mSendVirtualStickDataTimer) {
+                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
+                    mSendVirtualStickDataTimer = new Timer();
+                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 100, 200);
+                }
+
+            }
+
+        });
+
+        mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
+
+            @Override
+            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
+                if(Math.abs(pX) < 0.02 ){
+                    pX = 0;
+                }
+
+                if(Math.abs(pY) < 0.02 ){
+                    pY = 0;
+                }
+                float verticalJoyControlMaxSpeed = 2;
+                float yawJoyControlMaxSpeed = 30;
+
+                mYaw = (float)(yawJoyControlMaxSpeed * pX);
+                mThrottle = (float)(verticalJoyControlMaxSpeed * pY);
+
+                if (null == mSendVirtualStickDataTimer) {
+                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
+                    mSendVirtualStickDataTimer = new Timer();
+                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
+                }
+
+            }
+        });
+
+        lanBtnListener();
+        lanBtnListener2();
+    }
+
+    /**
+     * 语言切换按钮监听器
+     */
+    private void lanBtnListener2() {
+        mBtnLanguage2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (languageType) {
+                    languageType = false;
+                    language = "zh_cn";
+                    mBtnLanguage2.setText("中文");
+                } else {
+                    languageType = true;
+                    language = "en_us";
+                    mBtnLanguage2.setText("英文");
+                }
+                mIat.setParameter(SpeechConstant.LANGUAGE, language);
+            }
+        });
+    }
     //endregion
 
     //region 科大讯飞监视器
@@ -253,7 +1053,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         public void onBeginOfSpeech() {
             // 此回调表示：sdk内部录音机已经准备好了，用户可以开始语音输入
             showToast("开始说话");
-            updateLog("开始说话");
         }
 
         @Override
@@ -270,7 +1069,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         public void onEndOfSpeech() {
             // 此回调表示：检测到了语音的尾端点，已经进入识别过程，不再接受语音输入
             showToast("结束说话");
-            updateLog("结束说话");
             if (null != dialog) {
                 dialog.dismiss();
             }
@@ -285,7 +1083,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             // Change arraylist to string
             mStrIntention = TextUtils.join(" ", tokenedCommand);
             // Execute NLC
-            new ClassificationTask().execute(tokenedCommand);
+            new ClassificationTask(ControlActivity.this).execute(tokenedCommand);
         }
 
         @Override
@@ -330,6 +1128,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         }
     };
 
+    private boolean isDialogActive = false;
     /**
      * 听写UI监听器
      */
@@ -357,6 +1156,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             builder.setTitle("确认识别结果");
 
             // 创建一个 EditText 以显示和编辑结果
+            if(isDialogActive) return;
+
+            isDialogActive = true;
             EditText editText = new EditText(ControlActivity.this);
             editText.setText(resultBuffer.toString());
             editText.setSelection(resultBuffer.toString().length()); // 光标移到文本末尾
@@ -364,6 +1166,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
             // 设置确认按钮
             builder.setPositiveButton("确定", (dialog, which) -> {
+                isDialogActive = false;
                 String confirmedResult = editText.getText().toString();
                 // TODO: 在这里处理用户确认后的识别结果，例如更新 UI 或发送数据
                 editText.setText(confirmedResult); // 假设将结果显示在 TextView 上
@@ -373,6 +1176,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
             // 设置取消按钮
             builder.setNegativeButton("取消", (dialog, which) -> {
+                isDialogActive = false;
                 dialog.dismiss(); // 直接关闭对话框
             });
 
@@ -408,7 +1212,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mStrIntention = TextUtils.join(" ", tokenedCommand);
 
         // 执行分类任务（假设是执行 NLC 的核心逻辑）
-        ClassificationTask cft = new ClassificationTask();
+        ClassificationTask cft = new ClassificationTask(ControlActivity.this);
         cft.execute(tokenedCommand);
     }
 
@@ -443,14 +1247,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mIat.setParameter(SpeechConstant.ASR_AUDIO_PATH, Environment.getExternalStorageDirectory() + "/msc/helloword.wav");
     }
 
-
-    /**
-     * 展示吐司
-     */
-    private void showToast(final String str) {
-        Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
-    }
-
     private AlertDialog dialog;
 
     private void showAlertDialog() {
@@ -461,61 +1257,29 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 .create();
         dialog.show();
     }
-
-    private void showTip(final String str) {
-        if (mToast != null) {
-            mToast.cancel();
-        }
-        mToast = Toast.makeText(getApplicationContext(), str, Toast.LENGTH_SHORT);
-        mToast.show();
-    }
     //endregion
 
-    //region watson文字分类
+    //region 文字分类
     /**
-     * Initialize Watson Service
-     * 初始化watson service
+     * Classification Service 分类服务
      */
-    private SpeechToText initSpeechToTextService() {
-        SpeechToText service = new SpeechToText();
-        String username = "23c90b4b-23ee-43cc-b0e9-97f36a0c0cfc";
-        String password = "X5zb8Ub0WKsH";
-        service.setUsernameAndPassword(username, password);
-        service.setEndPoint("https://stream.watsonplatform.net/speech-to-text/api");
-        return service;
-    }
-
-    /**
-     * Recognize Options 识别选项
-     */
-    private RecognizeOptions getRecognizeOptions() {
-        return new RecognizeOptions.Builder()
-                .continuous(true)
-                .contentType(ContentType.OPUS.toString())
-                .model("en-US_BroadbandModel")
-                .interimResults(true)
-                .customizationId("bf8c3a80-fba6-11e6-a1e7-a139b48a88e5")
-                .inactivityTimeout(3000)
-                .smartFormatting(true)
-                .build();
-    }
-
-    /**
-     * Classification Service 声音分类服务
-     */
-
     public class ClassificationTask {
 
         private final ExecutorService executorService;
-        private final Handler mainHandler;
+        private final WeakReference<ControlActivity> activityReference;
 
-        public ClassificationTask() {
+        public ClassificationTask(ControlActivity activity) {
             this.executorService = Executors.newSingleThreadExecutor();
-            this.mainHandler = new Handler(Looper.getMainLooper());
+            this.activityReference = new WeakReference<>(activity);
         }
 
         public void execute(ArrayList params) {
             String result = doInBackground(params);
+
+            ControlActivity activity = activityReference.get();
+            if (activity != null && !activity.isFinishing()) {
+                activity.runOnUiThread(() -> activity.showToast(result));
+            }
             // Post result back to main thread
         }
 
@@ -534,12 +1298,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             return result;
         }
 
-        private void onPostExecute(String result) {
-            // Handle the result on the main thread (if needed)
-            // For example, update UI or log the result
-            System.out.println(result);
-        }
-
         // Clean up resources when no longer needed
         public void shutdown() {
             executorService.shutdown();
@@ -547,20 +1305,17 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     /**
-     * Prepare Encoded String
-     * 预处理命令编码
+     * Prepare Encoded String 预处理命令编码
      */
     private ArrayList<Integer> mEncodedStr;
-
     private void preCheck(ArrayList<Integer> encoded_string, String google_map_string) {
-        // Get first and see if it is adnvacce mission
+        // 如果有地图点跟踪任务
         if (encoded_string.get(0) == 107) {
             searchPlace(google_map_string);
         } else {
             callExecution(encoded_string);
         }
     }
-
     private void writeRecogRecord(boolean pos, String s2tStr, String encodedStr, String classifiedStr) {
         String group = "neg";
         if (pos) {
@@ -571,14 +1326,10 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 //        mDBRecog.child(group).child(key).child("classifiedStr").setValue(classifiedStr);
 //        mDBRecog.child(group).child(key).child("encodedStr").setValue(encodedStr);
     }
-    /**
-     * END of Prepare Encoded String
-     */
 
     /**
-     * Confirmation box
+     * Confirmation box 确认窗口
      */
-    // 显示命令确认窗口
     public void showDialog(View v) {
         // create FragmentManager and CommandConfirmationDialogFragment
         FragmentManager manager = getSupportFragmentManager();
@@ -595,29 +1346,13 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             runOnUiThread(() -> myDialogFragment.show(manager, "MyDialogFragment"));
         }
     }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.activity_control, container, false);
-    }
-
-    @Override
-    public void onDialogMessage(boolean message) {
-        if (message) {
-            writeRecogRecord(true, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
-//            showFpvToast("Start executing command");
-            preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString()); // Start execution 开始执行操作
-        } else {
-            writeRecogRecord(false, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
-            showcontrolToast("Command cancelled");
-        }
-    }
-
-
     //endregion
 
     //region 飞行控制器
 
+    /**
+    * 初始化无人机
+     */
     private void initDrone() {
         mCI.initFlightController();
         if (mCI.mFlightController != null) {
@@ -665,6 +1400,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
     }
 
+    /**
+     * 更新无人机状态
+     */
     private void updateConnection() {
 //        boolean ret = false;
         BaseProduct product = DJISampleApplication.getProductInstance();
@@ -678,7 +1416,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                     Aircraft aircraft = (Aircraft) product;
                     if (aircraft.getRemoteController() != null && aircraft.getRemoteController().isConnected()) {
                         // The product is not connected, but the remote controller is connected
-                        showToast("only RC Connected");
+                        runOnUiThread(() ->
+                            showToast("only RC Connected")
+                        );
 //                        ret = true;
                     }
                 }
@@ -703,8 +1443,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     };
 
     /**
-     * Update drone's distance, altitude, vertical speed, and horizontal speed
-     * 更新无人机的距离，经纬度，竖直速度，水平速度
+     * Update drone's distance, altitude, vertical speed, and horizontal speed 更新无人机的距离，经纬度，竖直速度，水平速度
      */
     private void updateFlightData() {
         this.runOnUiThread(new Runnable() {
@@ -719,8 +1458,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     /**
-     * Update battery level
-     * 更新电池状态
+     * Update battery level 更新电池状态
      */
     private void updateBatteryStatus() {
         this.runOnUiThread(new Runnable() {
@@ -745,12 +1483,39 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             success = true;
         }
         if (success) {
-            showToast("Instruction Sent");
+            runOnUiThread(() ->
+                showToast("Instruction Sent")
+            );
         } else {
-            showToast("Flight Control Error");
+            runOnUiThread(() ->
+                showToast("Flight Control Error")
+            );
         }
     }
 
+    /**
+     * 发送虚拟摇杆数据任务类
+     */
+    class SendVirtualStickDataTask extends TimerTask {
+
+        @Override
+        public void run() {
+
+            if (mFlightController != null) {
+                mFlightController.sendVirtualStickFlightControlData(
+                        new FlightControlData(
+                                mPitch, mRoll, mYaw, mThrottle
+                        ), djiError -> {
+
+                        }
+                );
+            }
+        }
+    }
+
+    //endregion
+
+    //region 在地图搜索指定目标点并存储在mTargetLocation
     /**
      * Search for place and sort the result by distance to the drone
      */
@@ -849,764 +1614,44 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         callExecution(temp);
     }
 
-    //endregion
+    private void GetPlace(String name){
 
+        // name表示地址，第二个参数表示查询城市，中文或者中文全拼，citycode、adcode
+        GeocodeQuery query = new GeocodeQuery(name, "长沙");
 
-    //region UI布局
-    //初始化布局，请求权限
+        geocoderSearch.getFromLocationNameAsyn(query);
+    }
+
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mHandler = new Handler(Looper.getMainLooper());
-        /**
-         * When starting SDK services, an instance of interface DJISDKManager.DJISDKManagerCallback will be used to listen to
-         * the SDK Registration result and the product changing.
-         */
-        mDJISDKManagerCallback = new DJISDKManager.SDKManagerCallback() {
-
-            //Listens to the SDK registration result
-            @Override
-            public void onRegister(DJIError error) {
-
-                if(error == DJISDKError.REGISTRATION_SUCCESS) {
-
-                    Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(), "Register Success", Toast.LENGTH_LONG).show();
-                        }
-                    });
-
-                    DJISDKManager.getInstance().startConnectionToProduct();
-
-                } else {
-
-                    Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(new Runnable() {
-
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(), "Register sdk fails, check network is available", Toast.LENGTH_LONG).show();
-                        }
-                    });
-
-                }
-                Log.e("TAG", error.toString());
-            }
-
-            @Override
-            public void onProductDisconnect() {
-                Log.d("TAG", "onProductDisconnect");
-                notifyStatusChange();
-            }
-            @Override
-            public void onProductConnect(BaseProduct baseProduct) {
-                Log.d("TAG", String.format("onProductConnect newProduct:%s", baseProduct));
-                notifyStatusChange();
-
-            }
-
-            @Override
-            public void onProductChanged(BaseProduct baseProduct) {
-
-            }
-
-            @Override
-            public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
-                                          BaseComponent newComponent) {
-                if (newComponent != null) {
-                    newComponent.setComponentListener(new BaseComponent.ComponentListener() {
-
-                        @Override
-                        public void onConnectivityChange(boolean isConnected) {
-                            Log.d("TAG", "onComponentConnectivityChanged: " + isConnected);
-                            notifyStatusChange();
-                        }
-                    });
-                }
-
-                Log.d("TAG",
-                        String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
-                                componentKey,
-                                oldComponent,
-                                newComponent));
-
-            }
-            @Override
-            public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
-
-            }
-
-            @Override
-            public void onDatabaseDownloadProgress(long l, long l1) {
-
-            }
-
-
-        };
-        checkAndRequestPermissions();
-        SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
-        setContentView(R.layout.activity_control);
-
-
-        //初始化科大讯飞语音识别
-        // 初始化识别无UI识别对象
-        // 使用SpeechRecognizer对象，可根据回调消息自定义界面；
-        mIat = SpeechRecognizer.createRecognizer(this, mInitListener);
-        // 初始化听写Dialog，如果只使用有UI听写功能，无需创建SpeechRecognizer
-        // 使用UI听写功能，请根据sdk文件目录下的notice.txt,放置布局文件和图片资源
-        mIatDialog = new RecognizerDialog(ControlActivity.this, mInitListener);
-
-        initUI();
-        lanBtnListener();
-        cc1 = new CommandClassifier();
-        // 初始化控制器
-        mCI = CommandInterpreter.getUniqueInstance(mContext);
-        initDrone();
-
-        //注册接收器
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(DJISampleApplication.FLAG_CONNECTION_CHANGE);
-        registerReceiver(mReceiver, filter);
-
-        Log.e(TAG, "onCreate");
-
-//        // Register the broadcast receiver for receiving the device connection's changes.
-//        IntentFilter filter = new IntentFilter();
-//        filter.addAction(DJISampleApplication.FLAG_CONNECTION_CHANGE);
-//        registerReceiver(mReceiver, filter);
-    }
-
-    /**
-     * Checks if there is any missing permissions, and
-     * requests runtime permission if needed.
-     */
-    private void checkAndRequestPermissions() {
-        // Check for permissions
-        for (String eachPermission : REQUIRED_PERMISSION_LIST) {
-            if (ContextCompat.checkSelfPermission(this, eachPermission) != PackageManager.PERMISSION_GRANTED) {
-                missingPermission.add(eachPermission);
-            }
-        }
-        // Request for missing permissions
-        if (!missingPermission.isEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions(this,
-                    missingPermission.toArray(new String[missingPermission.size()]),
-                    REQUEST_PERMISSION_CODE);
-        }
+    public void onRegeocodeSearched(RegeocodeResult regeocodeResult, int i) {
 
     }
 
-    /**
-     * Result of runtime permission request
-     */
     @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        // Check for granted permission and remove from missing list
-        if (requestCode == REQUEST_PERMISSION_CODE) {
-            for (int i = grantResults.length - 1; i >= 0; i--) {
-                if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
-                    missingPermission.remove(permissions[i]);
-                }
-            }
-        }
-        // If there is enough permission, we will start the registration
-        if (missingPermission.isEmpty()) {
-            startSDKRegistration();
-        } else {
-            showToast("Missing permissions!!!");
-        }
-    }
-    private void notifyStatusChange() {
-        mHandler.removeCallbacks(updateRunnable);
-        mHandler.postDelayed(updateRunnable, 500);
-    }
-    private Runnable updateRunnable = new Runnable() {
-
-        @Override
-        public void run() {
-            Intent intent = new Intent(FLAG_CONNECTION_CHANGE);
-            getApplicationContext().sendBroadcast(intent);
-        }
-    };
-    private void startSDKRegistration() {
-        if (isRegistrationInProgress.compareAndSet(false, true)) {
-            AsyncTask.execute(new Runnable() {
-                @Override
-                public void run() {
-                    showToast( "registering, pls wait...");
-                    DJISDKManager.getInstance().registerApp(getApplicationContext(), new DJISDKManager.SDKManagerCallback() {
-                        @Override
-                        public void onRegister(DJIError djiError) {
-                            if (djiError == DJISDKError.REGISTRATION_SUCCESS) {
-                                DJILog.e("App registration", DJISDKError.REGISTRATION_SUCCESS.getDescription());
-                                DJISDKManager.getInstance().startConnectionToProduct();
-                                showToast("Register Success");
-                            } else {
-                                showToast( "Register sdk fails, check network is available");
-                            }
-                            Log.v(TAG, djiError.getDescription());
-                        }
-
-                        @Override
-                        public void onProductDisconnect() {
-                            Log.d(TAG, "onProductDisconnect");
-                            showToast("Product Disconnected");
-
-                        }
-                        @Override
-                        public void onProductConnect(BaseProduct baseProduct) {
-                            Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
-                            showToast("Product Connected");
-
-                        }
-
-                        @Override
-                        public void onProductChanged(BaseProduct baseProduct) {
-
-                        }
-
-                        @Override
-                        public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
-                                                      BaseComponent newComponent) {
-
-                            if (newComponent != null) {
-                                newComponent.setComponentListener(new BaseComponent.ComponentListener() {
-
-                                    @Override
-                                    public void onConnectivityChange(boolean isConnected) {
-                                        Log.d(TAG, "onComponentConnectivityChanged: " + isConnected);
-                                    }
-                                });
-                            }
-                            Log.d(TAG,
-                                    String.format("onComponentChange key:%s, oldComponent:%s, newComponent:%s",
-                                            componentKey,
-                                            oldComponent,
-                                            newComponent));
-
-                        }
-                        @Override
-                        public void onInitProcess(DJISDKInitEvent djisdkInitEvent, int i) {
-
-                        }
-
-                        @Override
-                        public void onDatabaseDownloadProgress(long l, long l1) {
-
-                        }
-                    });
-                }
-            });
-        }
-    }
-
-//    public void showToast(final String msg) {
-//        runOnUiThread(new Runnable() {
-//            public void run() {
-//                Toast.makeText(ControlActivity.this, msg, Toast.LENGTH_SHORT).show();
-//            }
-//        });
-//    }
-
-    private void updateTitleBar() {
-        if(mConnectStatusTextView == null) return;
-        boolean ret = false;
-        BaseProduct product = DJISampleApplication.getProductInstance();
-        if (product != null) {
-            if(product.isConnected()) {
-                //The product is connected
-                mConnectStatusTextView.setText(DJISampleApplication.getProductInstance().getModel() + " Connected");
-                ret = true;
+    public void onGeocodeSearched(GeocodeResult result, int rCode) {
+        //解析result获取坐标信息
+        if (rCode == 0) {
+            if (result != null && result.getGeocodeAddressList() != null
+                    && result.getGeocodeAddressList().size() > 0) {
+                GeocodeAddress address = result.getGeocodeAddressList().get(0);
+                aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                        AMapUtil.convertToLatLng(address.getLatLonPoint()), 15));
+                addressName = "经纬度值:" + address.getLatLonPoint() + "\n位置描述:"
+                        + address.getFormatAddress();
+                mTargetLocation = address.getLatLonPoint();
+                ToastUtil.show(ControlActivity.this, addressName);
             } else {
-                if(product instanceof Aircraft) {
-                    Aircraft aircraft = (Aircraft)product;
-                    if(aircraft.getRemoteController() != null && aircraft.getRemoteController().isConnected()) {
-                        // The product is not connected, but the remote controller is connected
-                        mConnectStatusTextView.setText("only RC Connected");
-                        ret = true;
-                    }
-                }
+                ToastUtil.show(ControlActivity.this, R.string.no_result);
             }
-        }
 
-        if(!ret) {
-            // The product or the remote controller are not connected.
-            mConnectStatusTextView.setText("Disconnected");
-        }
-    }
-
-    //更新状态，初始化飞控，登录账户
-    private void lanBtnListener() {
-        mBtnLanguage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (languageType) {
-                    languageType = false;
-                    language = "zh_cn";
-                    mBtnLanguage.setText("中文");
-                } else {
-                    languageType = true;
-                    language = "en_us";
-                    mBtnLanguage.setText("英文");
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onResume() {
-        Log.e(TAG, "onResume");
-        super.onResume();
-        updateTitleBar();
-        initFlightController();
-        loginAccount();
-
-    }
-
-    @Override
-    public void onPause() {
-        Log.e(TAG, "onPause");
-        super.onPause();
-    }
-
-    @Override
-    public void onStop() {
-        Log.e(TAG, "onStop");
-        super.onStop();
-    }
-
-    public void onReturn(View view){
-        Log.e(TAG, "onReturn");
-        this.finish();
-    }
-
-    @Override
-    protected void onDestroy() {
-        Log.e(TAG, "onDestroy");
-        unregisterReceiver(mReceiver);
-        if (null != mSendVirtualStickDataTimer) {
-            mSendVirtualStickDataTask.cancel();
-            mSendVirtualStickDataTask = null;
-            mSendVirtualStickDataTimer.cancel();
-            mSendVirtualStickDataTimer.purge();
-            mSendVirtualStickDataTimer = null;
-        }
-        super.onDestroy();
-    }
-
-    //登录账户
-    private void loginAccount(){
-
-        UserAccountManager.getInstance().logIntoDJIUserAccount(this,
-                new CommonCallbacks.CompletionCallbackWith<UserAccountState>() {
-                    @Override
-                    public void onSuccess(final UserAccountState userAccountState) {
-                        Log.e(TAG, "Login Success");
-                    }
-                    @Override
-                    public void onFailure(DJIError error) {
-                        showToast("Login Error:"
-                                + error.getDescription());
-                    }
-                });
-    }
-    //初始化飞控
-    private void initFlightController() {
-        //实例化飞控
-        Aircraft aircraft = DJISampleApplication.getAircraftInstance();
-        if (aircraft == null || !aircraft.isConnected()) {
-            showToast("Disconnected");
-            mFlightController = null;
-            return;
+        } else if (rCode == 27) {
+            ToastUtil.show(ControlActivity.this, R.string.error_network);
+        } else if (rCode == 32) {
+            ToastUtil.show(ControlActivity.this, R.string.error_key);
         } else {
-            //初始化设置飞控模式
-            mFlightController = aircraft.getFlightController();
-            mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
-            mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
-            mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
-            mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
-            mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
-                //显示状态数据
-                @Override
-                public void onUpdate(final SimulatorState stateData) {
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            String yaw = String.format("%.2f", stateData.getYaw());
-                            String pitch = String.format("%.2f", stateData.getPitch());
-                            String roll = String.format("%.2f", stateData.getRoll());
-                            String positionX = String.format("%.2f", stateData.getPositionX());
-                            String positionY = String.format("%.2f", stateData.getPositionY());
-                            String positionZ = String.format("%.2f", stateData.getPositionZ());
-
-                            mTextView.setText("Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", PosX : " + positionX +
-                                    ", PosY : " + positionY +
-                                    ", PosZ : " + positionZ);
-                        }
-                    });
-                }
-            });
+            ToastUtil.show(ControlActivity.this,
+                    getString(R.string.error_other) + rCode);
         }
-    }
-
-    private void initUI() {
-
-        mBtnEnableVirtualStick = (Button) findViewById(R.id.btn_enable_virtual_stick);
-        mBtnDisableVirtualStick = (Button) findViewById(R.id.btn_disable_virtual_stick);
-        mBtnTakeOff = (Button) findViewById(R.id.btn_take_off);
-        mBtnLand = (Button) findViewById(R.id.btn_land);
-        mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
-        mTextView = (TextView) findViewById(R.id.textview_simulator);
-        mBtnSub = (Button) findViewById(R.id.sub_btn);
-        mCMD = (EditText) findViewById(R.id.cmd_input);
-        mBtnPhoto = (Button) findViewById(R.id.btn_photo);
-        mBtnDownload = (Button) findViewById(R.id.btn_to_download);
-        mBtnWaypoint = (Button) findViewById(R.id.btn_waypoint);
-        mBtnLanguage = (Button) findViewById(R.id.sub_lan);
-        mBtnLanguage2 = (Button) findViewById(R.id.btn_control_lan);
-        mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
-        mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
-        mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
-        mBatteryView = (BatteryView) findViewById(R.id.battery_view);
-        mBatteryData = (TextView) findViewById(R.id.battery_data);
-        mAltitude = (TextView) findViewById(R.id.Altitude);
-        mVerSpeed = (TextView) findViewById(R.id.VerticalSpeed);
-        mDistance = (TextView) findViewById(R.id.Distance);
-        mHorSpeed = (TextView) findViewById(R.id.HorizonSpeed);
-        logTextView = findViewById(R.id.LogView);
-
-        mBtnEnableVirtualStick.setOnClickListener(this);
-        mBtnDisableVirtualStick.setOnClickListener(this);
-        mBtnTakeOff.setOnClickListener(this);
-        mBtnLand.setOnClickListener(this);
-        mBtnSub.setOnClickListener(this);
-        mBtnPhoto.setOnClickListener(this);
-        mBtnDownload.setOnClickListener(this);
-        mBtnWaypoint.setOnClickListener(this);
-
-        findViewById(R.id.btn_control_recognize).setOnClickListener(this);
-        findViewById(R.id.btn_control_stop).setOnClickListener(this);
-        findViewById(R.id.btn_control_cancel).setOnClickListener(this);
-        findViewById(R.id.btn_control_lan).setOnClickListener(this);
-
-        mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-
-                    mTextView.setVisibility(View.VISIBLE);
-
-                    if (mFlightController != null) {
-
-                        mFlightController.getSimulator()
-                                .start(InitializationData.createInstance(new LocationCoordinate2D(23, 113), 10, 10),
-                                        new CommonCallbacks.CompletionCallback() {
-                                    @Override
-                                    public void onResult(DJIError djiError) {
-                                        if (djiError != null) {
-                                            showToast(djiError.getDescription());
-                                        }else
-                                        {
-                                            showToast("Start Simulator Success");
-                                        }
-                                    }
-                                });
-                    }
-
-                } else {
-
-                    mTextView.setVisibility(View.INVISIBLE);
-
-                    if (mFlightController != null) {
-                        mFlightController.getSimulator()
-                                .stop(new CommonCallbacks.CompletionCallback() {
-                                            @Override
-                                            public void onResult(DJIError djiError) {
-                                                if (djiError != null) {
-                                                    showToast(djiError.getDescription());
-                                                }else
-                                                {
-                                                    showToast("Stop Simulator Success");
-                                                }
-                                            }
-                                        }
-                                );
-                    }
-                }
-            }
-        });
-
-        mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
-
-            @Override
-            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-                if(Math.abs(pX) < 0.02 ){
-                    pX = 0;
-                }
-
-                if(Math.abs(pY) < 0.02 ){
-                    pY = 0;
-                }
-
-                float pitchJoyControlMaxSpeed = 10;
-                float rollJoyControlMaxSpeed = 10;
-
-                mPitch = (float)(pitchJoyControlMaxSpeed * pX);
-
-                mRoll = (float)(rollJoyControlMaxSpeed * pY);
-
-                if (null == mSendVirtualStickDataTimer) {
-                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-                    mSendVirtualStickDataTimer = new Timer();
-                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 100, 200);
-                }
-
-            }
-
-        });
-
-        mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
-
-            @Override
-            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-                if(Math.abs(pX) < 0.02 ){
-                    pX = 0;
-                }
-
-                if(Math.abs(pY) < 0.02 ){
-                    pY = 0;
-                }
-                float verticalJoyControlMaxSpeed = 2;
-                float yawJoyControlMaxSpeed = 30;
-
-                mYaw = (float)(yawJoyControlMaxSpeed * pX);
-                mThrottle = (float)(verticalJoyControlMaxSpeed * pY);
-
-                if (null == mSendVirtualStickDataTimer) {
-                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-                    mSendVirtualStickDataTimer = new Timer();
-                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
-                }
-
-            }
-        });
-        lanBtnListener2();
-    }
-
-    private void updateLog(String message) {
-        runOnUiThread(() -> {
-            // 将新的日志追加到 TextView 中
-            String currentLog = logTextView.getText().toString();
-            logTextView.setText(currentLog + "\n" + message);
-
-        });
-    }
-
-    @Override
-    public void onClick(View v) {
-
-        switch (v.getId()) {
-            case R.id.btn_enable_virtual_stick:
-                if (mFlightController != null){
-
-                    mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError djiError) {
-                            if (djiError != null){
-                                showToast(djiError.getDescription());
-                            }else
-                            {
-                                showToast("Enable Virtual Stick Success");
-                            }
-                        }
-                    });
-
-                }
-                break;
-
-            case R.id.btn_disable_virtual_stick:
-
-                if (mFlightController != null){
-                    mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError djiError) {
-                            if (djiError != null) {
-                                showToast(djiError.getDescription());
-                            } else {
-                                showToast("Disable Virtual Stick Success");
-                            }
-                        }
-                    });
-                }
-                break;
-
-            case R.id.btn_take_off:
-                if (mFlightController != null){
-                    mFlightController.startTakeoff(
-                            new CommonCallbacks.CompletionCallback() {
-                                @Override
-                                public void onResult(DJIError djiError) {
-                                    if (djiError != null) {
-                                        showToast(djiError.getDescription());
-                                    } else {
-                                        showToast("Take off Success");
-                                    }
-                                }
-                            }
-                    );
-                }
-
-                break;
-
-            case R.id.btn_land:
-                if (mFlightController != null){
-
-                    mFlightController.startLanding(
-                            djiError -> {
-                                if (djiError != null) {
-                                    showToast(djiError.getDescription());
-                                } else {
-                                    showToast("Start Landing");
-                                }
-                            }
-                    );
-
-                }
-
-                break;
-
-            case R.id.sub_btn:
-                mStrIntention = mCMD.getText().toString();
-                // Tokenize command_in_text
-                StringTokenizer st = new StringTokenizer(mStrIntention);
-                ArrayList<String> tokenedCommand = new ArrayList<>();
-                while (st.hasMoreTokens()) {
-                    tokenedCommand.add(st.nextToken());
-                }
-                // Replace mavic similar words
-//                    tokenedCommand = findMavicSimilar(tokenedCommand);
-                // Change arraylist to string
-                mStrIntention = TextUtils.join(" ", tokenedCommand);
-                // Execute NLC
-                ClassificationTask cft = new ClassificationTask();
-                cft.execute(tokenedCommand);
-                break;
-            case R.id.btn_photo:
-                Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
-                v.getContext().startActivity(intent2);
-                break;
-            case R.id.btn_to_download:
-                Intent intent3 = new Intent(v.getContext(), DownloadActivity.class);
-                v.getContext().startActivity(intent3);
-                break;
-            case R.id.btn_waypoint:
-                Intent intent4 = new Intent(v.getContext(), Waypoint2Activity.class);
-                v.getContext().startActivity(intent4);
-                break;
-            case R.id.btn_control_recognize:
-                buffer.setLength(0);//长度清空
-                mIatResults.clear();//清除存贮结果
-                // 设置参数
-                setParam();
-                if (dialogType == 0) {
-                    // 显示听写对话框
-                    mIatDialog.setListener(mRecognizerDialogListener);
-                    mIatDialog.show();
-                    showToast("开始听写");
-                } else if (dialogType == 1) {
-                    // 不显示听写对话框
-                    resultCode = mIat.startListening(mRecognizerListener);
-                    if (resultCode != ErrorCode.SUCCESS) {
-                        showToast("听写失败,错误码：" + ",请点击网址https://www.xfyun.cn/document/error-code查询解决方案");
-                    } else {
-                        showToast("开始听写");
-                    }
-                } else if (dialogType == 2) {
-                    // 自定义听写对话框
-                    showAlertDialog();
-                    resultCode = mIat.startListening(mRecognizerListener);
-                    if (resultCode != ErrorCode.SUCCESS) {
-                        showToast("听写失败,错误码：" + ",请点击网址https://www.xfyun.cn/document/error-code查询解决方案");
-                    } else {
-                        showToast("开始听写");
-                    }
-                }
-                break;
-//            case R.id.languageText:
-//                if (languageType) {
-//                    languageType = false;
-//                    language = "zh_cn";
-//                    languageText.setText("点击切换语种：中文");
-//                } else {
-//                    languageType = true;
-//                    language = "en_us";
-//                    languageText.setText("点击切换语种：英文");
-//                }
-//                mIat.setParameter(SpeechConstant.LANGUAGE, language);
-//                break;
-            // 停止听写
-            case R.id.btn_control_stop:
-                mIat.stopListening();
-                showToast("停止听写");
-                break;
-            // 取消听写
-            case R.id.btn_control_cancel:
-                mIat.cancel();
-                showToast("取消听写");
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    class SendVirtualStickDataTask extends TimerTask {
-
-        @Override
-        public void run() {
-
-            if (mFlightController != null) {
-                mFlightController.sendVirtualStickFlightControlData(
-                        new FlightControlData(
-                                mPitch, mRoll, mYaw, mThrottle
-                        ), djiError -> {
-
-                        }
-                );
-            }
-        }
-    }
-
-    private void lanBtnListener2() {
-        mBtnLanguage2.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (languageType) {
-                    languageType = false;
-                    language = "zh_cn";
-                    mBtnLanguage2.setText("中文");
-                } else {
-                    languageType = true;
-                    language = "en_us";
-                    mBtnLanguage2.setText("英文");
-                }
-                mIat.setParameter(SpeechConstant.LANGUAGE, language);
-            }
-        });
-    }
-
-    public void showcontrolToast(final String msg) {
-        this.runOnUiThread(new Runnable() {
-            public void run() {
-                Toast.makeText(mContext.getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
-            }
-        });
     }
     //endregion
 

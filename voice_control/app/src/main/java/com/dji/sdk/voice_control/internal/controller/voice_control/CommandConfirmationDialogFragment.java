@@ -12,7 +12,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-        import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.DialogFragment;
 
 import com.dji.sdk.voice_control.R;
 
