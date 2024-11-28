@@ -28,6 +28,7 @@ import android.widget.TextView;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.demo.bluetooth.BluetoothView;
+import com.dji.sdk.voice_control.demo.flightcontroller.CompassCalibrationView;
 import com.dji.sdk.voice_control.internal.controller.ControlActivity;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.MainActivity;
@@ -109,6 +110,7 @@ public class MainContent extends RelativeLayout {
     private Handler mHandler;
     private Handler mHandlerUI;
     private HandlerThread mHandlerThread = new HandlerThread("Bluetooth");
+    private CompassCalibrationView compassCalibrationView;
 
     private BaseProduct mProduct;
     private DJIKey firmwareKey;
@@ -187,6 +189,7 @@ public class MainContent extends RelativeLayout {
         mBtnBluetooth = (Button) findViewById(R.id.btn_bluetooth);
         mBtnControl = (Button) findViewById(R.id.button3);
         mCheckboxFirmware = (CheckBox) findViewById(R.id.checkbox_firmware);
+        compassCalibrationView = findViewById(R.id.compassCalibrationView);
 
         //mBtnBluetooth.setEnabled(false);
 

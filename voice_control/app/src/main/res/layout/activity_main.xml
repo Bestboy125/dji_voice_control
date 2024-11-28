@@ -12,5 +12,6 @@
 
         <include layout="@layout/content_main" />
     </FrameLayout>
+
 </FrameLayout>
 

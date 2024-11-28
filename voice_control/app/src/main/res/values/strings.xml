@@ -193,10 +193,9 @@
 
     <!--*************** Flight controller string set ***************-->
     <!-- Compass Calibration View -->
-    <string name="compass_calibration_start_calibration">Start Calibration</string>
-    <string name="compass_calibration_stop_calibration">Stop Calibration</string>
-    <string name="compass_calibration_description">This view is for calibration. The calibration process includes two
-        parts: horizontal calibration and vertical calibration
+    <string name="compass_calibration_start_calibration">开始标定</string>
+    <string name="compass_calibration_stop_calibration">停止标定</string>
+    <string name="compass_calibration_description">罗盘标定两部分: 水平标定和竖直标定
     </string>
 
     <string name="flight_limitation_set_height_limitation">Set Height Limitation</string>

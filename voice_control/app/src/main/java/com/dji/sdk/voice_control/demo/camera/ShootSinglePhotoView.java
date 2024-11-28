@@ -1,6 +1,7 @@
 package com.dji.sdk.voice_control.demo.camera;
 
 import android.content.Context;
+import android.util.AttributeSet;
 import android.util.Log;
 
 import com.dji.sdk.voice_control.R;
@@ -24,8 +25,8 @@ public class ShootSinglePhotoView extends BaseThreeBtnView {
     private Context context;
     private Camera camera;
 
-    public ShootSinglePhotoView(Context context) {
-        super(context);
+    public ShootSinglePhotoView(Context context, AttributeSet attrs) {
+        super(context, attrs);
         this.context = context;
     }
 

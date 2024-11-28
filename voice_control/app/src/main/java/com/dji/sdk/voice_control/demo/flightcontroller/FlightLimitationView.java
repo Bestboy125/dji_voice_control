@@ -1,6 +1,7 @@
 package com.dji.sdk.voice_control.demo.flightcontroller;
 
 import android.content.Context;
+import android.util.AttributeSet;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
@@ -18,8 +19,8 @@ import dji.common.util.CommonCallbacks;
 public class FlightLimitationView extends BaseThreeBtnView {
     private boolean mRadiusLimitaionToggleFlag = true;
 
-    public FlightLimitationView(Context context) {
-        super(context);
+    public FlightLimitationView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override

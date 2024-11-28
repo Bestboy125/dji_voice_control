@@ -1,6 +1,8 @@
 package com.dji.sdk.voice_control.demo.gimbal;
 
 import android.content.Context;
+import android.util.AttributeSet;
+
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.view.BaseThreeBtnView;
@@ -19,8 +21,8 @@ public class MoveGimbalWithSpeedView extends BaseThreeBtnView {
     private Timer timer;
     private GimbalRotateTimerTask gimbalRotationTimerTask;
 
-    public MoveGimbalWithSpeedView(Context context) {
-        super(context);
+    public MoveGimbalWithSpeedView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override

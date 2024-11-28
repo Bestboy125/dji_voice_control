@@ -2,6 +2,7 @@ package com.dji.sdk.voice_control.demo.camera;
 
 import android.content.Context;
 import android.os.Environment;
+import android.util.AttributeSet;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
@@ -24,8 +25,8 @@ public class PlaybackDownloadView extends BaseThreeBtnView {
 
     private PlaybackManager playbackManager;
 
-    public PlaybackDownloadView(Context context) {
-        super(context);
+    public PlaybackDownloadView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     /**

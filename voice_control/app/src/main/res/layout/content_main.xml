@@ -165,4 +165,10 @@
         android:layout_height="106dp"
         android:text="打开飞行控制器" />
 
+    <com.dji.sdk.voice_control.demo.flightcontroller.CompassCalibrationView
+        android:id="@+id/compassCalibrationView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="550dp"/>
+
 </com.dji.sdk.voice_control.internal.view.MainContent>

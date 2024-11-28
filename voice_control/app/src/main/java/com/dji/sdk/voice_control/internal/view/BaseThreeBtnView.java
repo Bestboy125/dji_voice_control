@@ -2,6 +2,8 @@ package com.dji.sdk.voice_control.internal.view;
 
 import android.app.Service;
 import android.content.Context;
+import android.util.AttributeSet;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -24,8 +26,8 @@ public abstract class BaseThreeBtnView extends LinearLayout implements View.OnCl
     protected Button leftBtn;
     protected Button rightBtn;
 
-    public BaseThreeBtnView(Context context) {
-        super(context);
+    public BaseThreeBtnView(Context context, AttributeSet attrs) {
+        super(context,attrs);
         initUI(context);
     }
 
@@ -49,6 +51,10 @@ public abstract class BaseThreeBtnView extends LinearLayout implements View.OnCl
 
         leftBtn = (Button) findViewById(R.id.btn_left);
         rightBtn = (Button) findViewById(R.id.btn_right);
+
+        Log.d("BaseThreeBtnView", "Left Button: " + (leftBtn != null));
+        Log.d("BaseThreeBtnView", "Middle Button: " + (middleBtn != null));
+        Log.d("BaseThreeBtnView", "Right Button: " + (rightBtn != null));
 
         if (getMiddleBtnTextResourceId() == DISABLE) {
             middleBtn.setVisibility(INVISIBLE);

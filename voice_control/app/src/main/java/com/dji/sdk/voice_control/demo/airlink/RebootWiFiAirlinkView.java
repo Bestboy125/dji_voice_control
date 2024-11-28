@@ -2,6 +2,7 @@ package com.dji.sdk.voice_control.demo.airlink;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.util.AttributeSet;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
@@ -18,8 +19,8 @@ import dji.common.util.CommonCallbacks;
  * , reboot the WiFi airlink so that it will take effect.
  */
 public class RebootWiFiAirlinkView extends BaseThreeBtnView {
-    public RebootWiFiAirlinkView(Context context) {
-        super(context);
+    public RebootWiFiAirlinkView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override

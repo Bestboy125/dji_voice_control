@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -64,8 +65,8 @@ public class FetchMediaView extends BaseThreeBtnView {
     private Handler mHandler = new Handler(Looper.getMainLooper());
 
 
-    public FetchMediaView(Context context) {
-        super(context);
+    public FetchMediaView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override

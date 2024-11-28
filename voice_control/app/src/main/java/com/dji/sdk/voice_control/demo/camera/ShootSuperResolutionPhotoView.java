@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
@@ -43,8 +44,8 @@ public class ShootSuperResolutionPhotoView extends BaseThreeBtnView implements S
     private static final int MAX_SCALE = 10;
     private static final int TAP_ZOOM_SCALE = 2;
 
-    public ShootSuperResolutionPhotoView(Context context) {
-        super(context);
+    public ShootSuperResolutionPhotoView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override

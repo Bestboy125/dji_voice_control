@@ -1,6 +1,7 @@
 package com.dji.sdk.voice_control.demo.flightcontroller;
 
 import android.content.Context;
+import android.util.AttributeSet;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -30,8 +31,8 @@ import dji.sdk.products.Aircraft;
  */
 public class FlightAssistantPushDataView extends BaseThreeBtnView {
 
-    public FlightAssistantPushDataView(Context context) {
-        super(context);
+    public FlightAssistantPushDataView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override

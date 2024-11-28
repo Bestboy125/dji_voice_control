@@ -6,4 +6,7 @@
         <attr name="view_name" format="string"/>
         <attr name="component_name" format="string"/>
     </declare-styleable>
+
+    <declare-styleable name="CompassCalibrationView">
+    </declare-styleable>
 </resources>

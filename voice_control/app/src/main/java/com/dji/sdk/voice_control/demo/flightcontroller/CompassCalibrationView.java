@@ -1,6 +1,7 @@
 package com.dji.sdk.voice_control.demo.flightcontroller;
 
 import android.content.Context;
+import android.util.AttributeSet;
 
 import androidx.annotation.NonNull;
 
@@ -23,8 +24,8 @@ public class CompassCalibrationView extends BaseThreeBtnView {
 
     private Compass compass;
 
-    public CompassCalibrationView(Context context) {
-        super(context);
+    public CompassCalibrationView(Context context, AttributeSet attrs) {
+        super(context,attrs);
     }
 
     @Override
@@ -40,9 +41,9 @@ public class CompassCalibrationView extends BaseThreeBtnView {
                 public void onUpdate(@NonNull FlightControllerState djiFlightControllerCurrentState) {
                     if (null != compass) {
                         String description =
-                            "CalibrationStatus: " + compass.getCalibrationState() + "\n"
-                            + "Heading: " + compass.getHeading() + "\n"
-                            + "isCalibrating: " + compass.isCalibrating() + "\n";
+                            "标定状态: " + compass.getCalibrationState() + "\n"
+                            + "航向角度: " + compass.getHeading() + "\n"
+                            + "是否正在标定: " + compass.isCalibrating() + "\n";
 
                         changeDescription(description);
                     }
@@ -75,7 +76,11 @@ public class CompassCalibrationView extends BaseThreeBtnView {
             compass.stopCalibration(new CommonCallbacks.CompletionCallback() {
                 @Override
                 public void onResult(DJIError djiError) {
-
+                    if (djiError == null) {
+                        changeDescription("标定停止");
+                    } else {
+                        changeDescription("标定停止失败: " + djiError.getDescription());
+                    }
                 }
             });
         }
@@ -109,7 +114,11 @@ public class CompassCalibrationView extends BaseThreeBtnView {
             compass.startCalibration(new CommonCallbacks.CompletionCallback() {
                 @Override
                 public void onResult(DJIError djiError) {
-
+                    if (djiError == null) {
+                        changeDescription("标定开始，请先水平校准，然后垂直校准");
+                    } else {
+                        changeDescription("标定失败： " + djiError.getDescription());
+                    }
                 }
             });
         }

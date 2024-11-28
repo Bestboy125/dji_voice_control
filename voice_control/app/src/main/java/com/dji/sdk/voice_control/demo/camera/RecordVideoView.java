@@ -1,6 +1,7 @@
 package com.dji.sdk.voice_control.demo.camera;
 
 import android.content.Context;
+import android.util.AttributeSet;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
@@ -26,8 +27,8 @@ public class RecordVideoView extends BaseThreeBtnView {
     private long seconds = 0;
     private String time = "";
 
-    public RecordVideoView(Context context) {
-        super(context);
+    public RecordVideoView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override

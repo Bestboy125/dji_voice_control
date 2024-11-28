@@ -17,6 +17,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.text.TextUtils;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -51,6 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.amap.api.services.geocoder.GeocodeResult;
 import com.dji.sdk.voice_control.R;
+import com.dji.sdk.voice_control.demo.flightcontroller.CompassCalibrationView;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
@@ -152,6 +154,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private Button mBtnLanguage2;
     private boolean languageType;
     private String language="en_us";
+
     //飞机的状态
     private TextView mAltitude;
     private TextView mVerSpeed;
@@ -885,6 +888,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mDistance = (TextView) findViewById(R.id.Distance);
         mHorSpeed = (TextView) findViewById(R.id.HorizonSpeed);
         mContext = ControlActivity.this;
+
 
         mBtnEnableVirtualStick.setOnClickListener(this);
         mBtnDisableVirtualStick.setOnClickListener(this);

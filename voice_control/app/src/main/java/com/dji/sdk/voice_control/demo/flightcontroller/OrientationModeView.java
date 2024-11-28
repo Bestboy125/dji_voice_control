@@ -1,6 +1,7 @@
 package com.dji.sdk.voice_control.demo.flightcontroller;
 
 import android.content.Context;
+import android.util.AttributeSet;
 
 import androidx.annotation.NonNull;
 
@@ -27,8 +28,8 @@ public class OrientationModeView extends BaseThreeBtnView {
 
     private String orientationMode;
 
-    public OrientationModeView(Context context) {
-        super(context);
+    public OrientationModeView(Context context, AttributeSet attrs) {
+        super(context, attrs);
     }
 
     @Override
