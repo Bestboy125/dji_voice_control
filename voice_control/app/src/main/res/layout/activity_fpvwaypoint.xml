@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/main_title_rl"
+        android:layout_width="fill_parent"
+        android:layout_height="50dp"
+        android:background="@color/black_overlay" >
+
+        <ImageButton
+            android:id="@+id/ReturnBtn"
+            android:contentDescription="Enter How Much Cookies You Want"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_alignParentLeft="true"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="5dp"
+            android:adjustViewBounds="true"
+            android:background="@android:color/transparent"
+            android:onClick="onReturn"
+            android:scaleType="centerInside"
+            android:src="@drawable/selector_back_button" />
+
+        <TextView
+            android:id="@+id/ConnectStatusTextView"
+            android:layout_width="100dp"
+            android:layout_height="35dp"
+            android:text="DJI语音控制"
+            android:textColor="@android:color/white"
+            android:textSize="15sp" />
+
+    </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="680dp"
+        android:layout_marginBottom="2dp"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_control_recognize"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="开始"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btn_control_stop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="停止"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btn_control_lan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="英文"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btn_control_cancel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="取消"
+            android:textSize="20sp" />
+    </LinearLayout>
+
+    <com.amap.api.maps2d.MapView
+        android:id="@+id/map"
+        android:layout_width="match_parent"
+        android:layout_height="199dp"
+        android:layout_marginTop="50dp" />
+
+    <FrameLayout
+        android:id="@+id/fpv_container"
+        android:layout_width="match_parent"
+        android:layout_height="252dp"
+        android:layout_marginTop="250dp">
+    </FrameLayout>
+
+    <view
+        android:layout_width="38dp"
+        android:layout_height="15dp"
+        class="com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/battery_data"
+        android:layout_marginTop="5dp"
+        android:layout_marginEnd="5dp"
+        android:id="@+id/battery_view" />
+
+    <TextView
+        android:text="100%"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="5dp"
+        android:id="@+id/battery_data" />
+
+    <TextView
+        android:text="D: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/Altitude"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/Distance" />
+
+    <TextView
+        android:text="V.S: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/HorizonSpeed"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/VerticalSpeed" />
+
+    <TextView
+        android:text="H: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/battery_view"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/Altitude" />
+
+    <TextView
+        android:text="H.S: 0"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toStartOf="@+id/Distance"
+        android:layout_marginTop="3dp"
+        android:layout_marginEnd="8dp"
+        android:id="@+id/HorizonSpeed" />
+
+    <Button
+        android:id="@+id/locate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="550dp"
+        android:text="定位" />
+
+</RelativeLayout>

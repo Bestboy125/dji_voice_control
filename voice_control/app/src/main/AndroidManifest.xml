@@ -107,7 +107,7 @@
             android:configChanges="orientation|screenSize"/>
 
         <activity
-            android:name="com.dji.sdk.voice_control.internal.controller.voice_control.VoiceControlActivity"
+            android:name="com.dji.sdk.voice_control.internal.controller.FPVActivity"
             android:configChanges="orientation|screenSize"/>
 
         <activity

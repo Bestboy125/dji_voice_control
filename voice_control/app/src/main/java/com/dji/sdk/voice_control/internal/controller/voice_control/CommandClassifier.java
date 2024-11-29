@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 //import com.dji.sdk.voice_control.internal.controller.gptchat.ChatApiClient;
+import com.hankcs.hanlp.HanLP;
+import com.hankcs.hanlp.seg.Segment;
 import com.ibm.watson.developer_cloud.natural_language_classifier.v1.NaturalLanguageClassifier;
 
 import java.net.URLDecoder;
@@ -37,7 +39,7 @@ public class CommandClassifier {
     private String command_direction;
 
     private ArrayList<Integer> encoded_string;
-    private String google_map_search_string;
+    private String google_map_search_string = null;
 
     public CommandClassifier(){
         nlpService = new NaturalLanguageClassifier();
@@ -238,6 +240,7 @@ public class CommandClassifier {
 
         // parse into decimal encoded string 对命令进行编码展示
         // Split the input string based on commas
+
         if(language == "en_us"){
             // 使用关键词匹配提取英文命令
             if (commandInText.contains("takeoff")) {
@@ -248,6 +251,10 @@ public class CommandClassifier {
                 command = "landing";
             } else if (commandInText.contains("stop")) {
                 command = "stop";
+            } else if (commandInText.contains("flyto")) {
+                command = "flyto";
+            } else if (commandInText.contains("fly to")) {
+                command = "flyto";
             } else if (commandInText.contains("move")) {
                 command = "move";
                 if (commandInText.contains("left")) {
@@ -311,6 +318,9 @@ public class CommandClassifier {
                 case 7:
                     this.command_direction = "Take photo: "+object_detect_class_string;
                     break;
+                case 8:
+                    this.command_direction = "fly to" + this.google_map_search_string;
+                    break;
                 default:
                     this.command_direction = "Unrecognize command in WatsonCommandClassifier";
                     break;
@@ -329,6 +339,9 @@ public class CommandClassifier {
                 command = "降落";
             } else if (commandInText.contains("停止")) {
                 command = "停止";
+            } else if (commandInText.contains("飞到")) {
+                command = "飞到";
+                google_map_search_string = commandInText.replaceAll("飞到","");
             } else if (commandInText.contains("移动")) {
                 command = "移动";
                 if (commandInText.contains("左")) {
@@ -360,6 +373,14 @@ public class CommandClassifier {
                 command = "拍照";
                 // 提取目标对象
                 object_detect_class_string = commandInText.replaceFirst(".*拍照", "").trim();
+            }  else if (commandInText.contains("位置")) {
+                command = "位置";
+            } else if (commandInText.contains("返航")) {
+                command = "返航";
+            } else if (commandInText.contains("高度")) {
+                command = "高度";
+            } else if (commandInText.contains("速度")) {
+                command = "速度";
             }
 
             result = encode_string(command, direction, unit, object_detect_class_string, language);
@@ -386,6 +407,9 @@ public class CommandClassifier {
                     break;
                 case 7:
                     this.command_direction = "拍照: " + object_detect_class_string;
+                    break;
+                case 8:
+                    this.command_direction = "飞到" + this.google_map_search_string;
                     break;
                 default:
                     this.command_direction = "无法识别的命令";
@@ -568,6 +592,10 @@ public class CommandClassifier {
                     encoded_string.add(id);
                     switch_num = 7;
                     break;
+                case "flyto":
+                    encoded_string.add(110);
+                    switch_num = 8;
+                    break;
                 default:
                     // code to be executed if all cases are not matched;
             }
@@ -670,6 +698,10 @@ public class CommandClassifier {
                     int id = this.object_list.indexOf(object_detect_class_string) + 1;
                     encoded_string.add(id);
                     switch_num = 7;
+                    break;
+                case "飞到":
+                    encoded_string.add(110);
+                    switch_num = 8;
                     break;
                 default:
                     // code to be executed if all cases are not matched;

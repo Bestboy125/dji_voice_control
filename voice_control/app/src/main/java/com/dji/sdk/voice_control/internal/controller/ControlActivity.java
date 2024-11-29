@@ -463,7 +463,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 break;
 
             case R.id.btn_disable_virtual_stick:
-
                 if (mFlightController != null){
                     mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
                         @Override
@@ -493,7 +492,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                             }
                     );
                 }
-
                 break;
 
             case R.id.btn_land:
@@ -510,7 +508,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                     );
 
                 }
-
                 break;
 
             case R.id.sub_btn:
@@ -576,6 +573,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 mIat.cancel();
                 showToast("取消听写");
                 break;
+            case R.id.btn_to_fpv:
+                Intent intent5 = new Intent(v.getContext(), FPVActivity.class);
+                v.getContext().startActivity(intent5);
             default:
                 break;
         }
@@ -903,6 +903,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         findViewById(R.id.btn_control_stop).setOnClickListener(this);
         findViewById(R.id.btn_control_cancel).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
+        findViewById(R.id.btn_to_fpv).setOnClickListener(this);
 
 
         mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {

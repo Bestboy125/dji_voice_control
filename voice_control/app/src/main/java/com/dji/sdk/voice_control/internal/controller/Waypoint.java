@@ -2,6 +2,7 @@ package com.dji.sdk.voice_control.internal.controller;
 
 import static com.dji.sdk.voice_control.internal.utils.ToastUtils.setResultToToast;
 
+import android.content.Context;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -51,9 +52,14 @@ import com.dji.sdk.voice_control.internal.controller.waypoint.WaypointV2ActionDi
 public class Waypoint {
 
     private View view;
+    private Context mContext;
 
     Waypoint(View v){
         this.view = v;
+    }
+
+    Waypoint(Context mContext){
+        this.mContext = mContext;
     }
 
     //region 数据结构
@@ -88,6 +94,10 @@ public class Waypoint {
     private float droneHeading;
     private float droneHeight;
     //endregion
+
+    public int getWaypointCount(WaypointV2MissionOperator instance){
+        return waypointMissionBuilder.getWaypointCount();
+    }
 
     //region 航点操作
     public WaypointV2MissionOperator getWaypointMissionOperator(WaypointV2MissionOperator instance) {
@@ -148,7 +158,7 @@ public class Waypoint {
     public void uploadWayPointMission(WaypointV2MissionOperator instance) {
 
         if (!canUploadMission) {
-            Toast.makeText(view.getContext(), "Can`t upload Mission", Toast.LENGTH_SHORT).show();
+            Toast.makeText(mContext, "Can`t upload Mission", Toast.LENGTH_SHORT).show();
             return;
         }
         instance.uploadMission(new CommonCallbacks.CompletionCallback() {
