@@ -156,4 +156,20 @@
         android:layout_marginTop="550dp"
         android:text="定位" />
 
+    <Button
+        android:id="@+id/control_video"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="550dp"
+        android:layout_marginLeft="200dp"
+        android:text="开始推流" />
+
+    <TextView
+        android:id="@+id/rtspurl"
+        android:layout_width="122dp"
+        android:layout_height="47dp"
+        android:layout_marginLeft="100dp"
+        android:layout_marginTop="600dp"
+        android:text="TextView" />
+
 </RelativeLayout>

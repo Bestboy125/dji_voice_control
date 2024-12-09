@@ -251,6 +251,7 @@ public class VideoActivity extends Activity implements SurfaceTextureListener,On
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+
     }
 
     public void showToast(final String msg) {

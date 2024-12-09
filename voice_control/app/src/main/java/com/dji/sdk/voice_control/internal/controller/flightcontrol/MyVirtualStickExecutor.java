@@ -15,40 +15,53 @@ import dji.sdk.flightcontroller.FlightController;
  * Main flight control module
  */
 public class MyVirtualStickExecutor {
-    // set up
+
+    //region 控制数据结构
+    //设置虚拟控制指令模式
     private MyVirtualStickExecutorMode mMode = MyVirtualStickExecutorMode.UNINITIALIZED;
 
+    //飞行控制数据
     private float mSpeed = 3;
     private float mPitch = 0;
     private float mRoll = 0;
     private float mYaw = 0;
     private float mThrottle = 0;
 
+    //发送虚拟数据计时器和发送任务
     private Timer mSendVirtualStickDataTimer;
     private SendVirtualStickDataTask mSendVirtualStickDataTask;
 
+    //位置跟踪计时器和位置跟踪任务
     private Timer mLocationTrackTimer;
     private LocationTrackTask mLocationTrackTask;
 
+    //飞行控制
     private static FlightController mFlightController;
 
     /**
      * singleton pattern
      */
     private static MyVirtualStickExecutor uniqueInstance = null;
+    //endregion
 
+    //region 构造函数
     /**
      * always private, no use
      */
     private MyVirtualStickExecutor() {
     }
+    //endregion
 
+    //region 飞行控制初始化
+    /**
+     * 初始化飞行控制
+     */
     public static void initFlightController() {
         mFlightController = DJISampleApplication.getFlightController();
     }
 
     /**
-     * Get an istance of the virtual stick executor
+     *获取特定的飞行控制类
      * @return virtual stick executor
      */
     public static MyVirtualStickExecutor getUniqueInstance() {
@@ -65,16 +78,18 @@ public class MyVirtualStickExecutor {
     }
 
     /**
-     * Initialize the drone's heading
+     * 初始化无人机的航线
      */
     private void initYaw() {
         mYaw = mFlightController.getCompass().getHeading();
     }
 
 //    private void initAltitude (){hpAltitude=mFlightController.getState().getAircraftLocation().getAltitude();}
+    //endregion
 
+    //region 飞行数据获取
     /**
-     * Get the current altitude of the drone
+     * 获取当前的经纬度
      */
     private double getCurrentAltitude() {
         double alti = (double) mFlightController.getState().getAircraftLocation().getAltitude(); //-hpAltitude;
@@ -85,7 +100,7 @@ public class MyVirtualStickExecutor {
     }
 
     /**
-     * Change speed
+     * 改变速度
      */
     protected void setSpeed(int s) {
         mSpeed = (float) s;
@@ -132,18 +147,59 @@ public class MyVirtualStickExecutor {
             uniqueInstance = null;
         }
     }
+    //endregion
 
+    //region 任务执行器以及计时器
     /**
-     * Check for data sending to the drone
+     * 检查数据并且发送数据，50毫秒发送一次指令
      */
     private void checkSendVirtualStickDataTimer() {
         if (mSendVirtualStickDataTimer == null) {
             mSendVirtualStickDataTask = new SendVirtualStickDataTask();
             mSendVirtualStickDataTimer = new Timer();
-            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
+            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 50);
         }
     }
 
+    /**
+     * 高度位置追踪计时器
+     * destroy timer first
+     *
+     * @param mode flight mode
+     * @param homeH
+     * @param tarH
+     */
+    private void checkHeightLocationTrackTimer(MyVirtualStickExecutorMode mode, double homeH, double tarH) {
+        destroyLocationTrackTimer();
+        if (mode == MyVirtualStickExecutorMode.UP_DIS || mode == MyVirtualStickExecutorMode.DOWN_DIS) {
+            mLocationTrackTask = new LocationTrackTask(mode, homeH, tarH);
+        }
+        mLocationTrackTimer = new Timer();
+        mLocationTrackTimer.schedule(mLocationTrackTask, 200, 200);
+    }
+
+    /**
+     * 经纬度位置追踪计时器
+     * destroy timer first
+     *
+     * @param mode
+     * @param homeLat
+     * @param homeLog
+     * @param tarLat
+     * @param tarLog
+     */
+    private void check2DLocationTrackTimer(MyVirtualStickExecutorMode mode, double homeLat, double homeLog, double tarLat, double tarLog) {
+        destroyLocationTrackTimer();
+        if (mode == MyVirtualStickExecutorMode.MOVE_DIS || mode == MyVirtualStickExecutorMode.FLY_TO) {
+            mLocationTrackTask = new LocationTrackTask(mode, homeLat, homeLog, tarLat, tarLog);
+        }
+        mLocationTrackTimer = new Timer();
+        mLocationTrackTimer.schedule(mLocationTrackTask, 200, 200);
+    }
+
+    /**
+     * 发送虚拟控制指令
+     */
     class SendVirtualStickDataTask extends TimerTask {
         @Override
         public void run() {
@@ -161,63 +217,9 @@ public class MyVirtualStickExecutor {
             }
         }
     }
-    /**
-     * END of Check for data sending to the drone
-     */
 
     /**
-     * mLocationTrackTimer always has only one task: mLocationTrackTask
-     * destroy timer first
-     *
-     * @param mode flight mode
-     * @param homeH
-     * @param tarH
-     */
-    private void checkHeightLocationTrackTimer(MyVirtualStickExecutorMode mode, double homeH, double tarH) {
-        destroyLocationTrackTimer();
-        if (mode == MyVirtualStickExecutorMode.UP_DIS || mode == MyVirtualStickExecutorMode.DOWN_DIS) {
-            mLocationTrackTask = new LocationTrackTask(mode, homeH, tarH);
-        }
-        mLocationTrackTimer = new Timer();
-        mLocationTrackTimer.schedule(mLocationTrackTask, 400, 200);
-    }
-
-    /**
-     * mLocationTrackTimer always has only one task: mLocationTrackTask
-     * destroy timer first
-     *
-     * @param mode
-     * @param homeLat
-     * @param homeLog
-     * @param tarLat
-     * @param tarLog
-     */
-    private void check2DLocationTrackTimer(MyVirtualStickExecutorMode mode, double homeLat, double homeLog, double tarLat, double tarLog) {
-        destroyLocationTrackTimer();
-        if (mode == MyVirtualStickExecutorMode.MOVE_DIS || mode == MyVirtualStickExecutorMode.FLY_TO) {
-            mLocationTrackTask = new LocationTrackTask(mode, homeLat, homeLog, tarLat, tarLog);
-        }
-        mLocationTrackTimer = new Timer();
-        mLocationTrackTimer.schedule(mLocationTrackTask, 1000, 200);
-    }
-
-    /**
-     * destroy LocationTrackTimer when it is no need
-     */
-    private void destroyLocationTrackTimer() {
-        if (mLocationTrackTimer != null) {
-            mLocationTrackTask.cancel();
-            mLocationTrackTask = null;
-            mLocationTrackTimer.cancel();
-            mLocationTrackTimer.purge();
-            mLocationTrackTimer = null;
-        }
-    }
-
-    private boolean secFlag = true;
-
-    /**
-     * a new TimerTask to check location and set four global params (mPitch, mRoll, mYaw, mThrottle)
+     * 检查当前位置并且发送四个角
      * when need
      */
     class LocationTrackTask extends TimerTask {
@@ -297,6 +299,25 @@ public class MyVirtualStickExecutor {
         }
     }
 
+    /**
+     * destroy LocationTrackTimer when it is no need
+     */
+    private void destroyLocationTrackTimer() {
+        if (mLocationTrackTimer != null) {
+            mLocationTrackTask.cancel();
+            mLocationTrackTask = null;
+            mLocationTrackTimer.cancel();
+            mLocationTrackTimer.purge();
+            mLocationTrackTimer = null;
+        }
+    }
+
+    private boolean secFlag = true;
+
+    //endregion
+
+    //region 飞行指令
+    //TODO 更改延迟，优化代码
     /**
      * Stop
      */
@@ -437,4 +458,7 @@ public class MyVirtualStickExecutor {
             }
         }).start();
     }
+    //endregion
+
+
 }

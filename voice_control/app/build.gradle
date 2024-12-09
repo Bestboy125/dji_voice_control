@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId "com.dji.sdk.voice_control"
-        minSdkVersion 23
+        minSdkVersion 24
         targetSdkVersion 33
         multiDexEnabled true
         versionCode 1
@@ -179,5 +179,11 @@ dependencies {
 
 dependencies {
     implementation files('libs\\Msc.jar')
+    implementation 'com.jakewharton.timber:timber:5.0.1'
+    implementation 'androidx.databinding:databinding-runtime:8.7.3'
+    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtsp:2.2.4'
+    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:encoder:2.2.4'
+    implementation project(':rtspserver')
+    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtplibrary:2.2.4'
 }
 apply plugin: 'com.google.gms.google-services'

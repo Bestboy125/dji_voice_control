@@ -709,15 +709,20 @@ public class CommandClassifier {
         }
 
         if (unit != null) {
+            //move
             if (switch_num == 1) {
                 encoded_string.add(202);
                 switch_num = 3;
                 encoded_string.add(Integer.parseInt(unit));
-            } else if (switch_num == 2) {
+            }
+            //turn
+            else if (switch_num == 2) {
                 encoded_string.add(204);
                 switch_num = 4;
                 encoded_string.add(Integer.parseInt(unit));
-            } else if (switch_num == 6) {
+            }
+            //settings
+            else if (switch_num == 6) {
                 encoded_string.add(Integer.parseInt(unit));
             }
         }

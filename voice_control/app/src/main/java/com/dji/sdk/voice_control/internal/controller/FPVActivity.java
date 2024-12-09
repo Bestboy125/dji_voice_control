@@ -1,5 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller;
 
+
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -7,8 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.location.Address;
-import android.location.Geocoder;
+import android.media.projection.MediaProjectionManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,20 +23,18 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ToggleButton;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 
-import com.amap.api.location.AMapLocationClient;
 import com.amap.api.maps2d.AMap;
 import com.amap.api.maps2d.CameraUpdateFactory;
 import com.amap.api.maps2d.model.LatLng;
@@ -50,25 +48,20 @@ import com.amap.api.services.geocoder.GeocodeResult;
 import com.amap.api.services.geocoder.GeocodeSearch;
 import com.amap.api.services.geocoder.RegeocodeAddress;
 import com.amap.api.services.geocoder.RegeocodeResult;
-import com.amap.api.maps2d.AMap;
 import com.amap.api.maps2d.AMap.OnMapClickListener;
 import com.amap.api.maps2d.CameraUpdate;
-import com.amap.api.maps2d.CameraUpdateFactory;
 import com.amap.api.maps2d.MapView;
 import com.amap.api.maps2d.model.BitmapDescriptorFactory;
-import com.amap.api.maps2d.model.LatLng;
-import com.amap.api.maps2d.model.Marker;
 import com.amap.api.maps2d.model.MarkerOptions;
-import com.amap.api.maps.MapsInitializer;
 import com.dji.sdk.voice_control.R;
+import com.dji.sdk.voice_control.MediaProjectionService;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BaseFpvView;
+import com.dji.sdk.voice_control.internal.controller.voice_control.BaseRtspFpvView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.voice_control.PlaceListFragment;
-import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
-import com.dji.sdk.voice_control.internal.controller.waypoint.WaypointV2ActionDialog;
 import com.dji.sdk.voice_control.internal.utils.AMapUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
 import com.dji.sdk.voice_control.internal.utils.ToastUtil;
@@ -86,7 +79,6 @@ import com.iflytek.cloud.ui.RecognizerDialogListener;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -106,31 +98,31 @@ import dji.common.battery.BatteryState;
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
 import dji.common.flightcontroller.FlightControllerState;
-import dji.common.flightcontroller.simulator.InitializationData;
 import dji.common.flightcontroller.simulator.SimulatorState;
 import dji.common.flightcontroller.virtualstick.FlightControlData;
 import dji.common.flightcontroller.virtualstick.FlightCoordinateSystem;
 import dji.common.flightcontroller.virtualstick.RollPitchControlMode;
 import dji.common.flightcontroller.virtualstick.VerticalControlMode;
 import dji.common.flightcontroller.virtualstick.YawControlMode;
-import dji.common.mission.waypoint.WaypointMissionHeadingMode;
-import dji.common.mission.waypointv2.Action.WaypointV2Action;
 import dji.common.mission.waypointv2.WaypointV2;
-import dji.common.mission.waypointv2.WaypointV2Mission;
-import dji.common.mission.waypointv2.WaypointV2MissionTypes;
-import dji.common.model.LocationCoordinate2D;
 import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
 import dji.log.DJILog;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.flightcontroller.FlightController;
-import dji.sdk.flightcontroller.RTK;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
+
+//RTSP推流
+import kr.co.makeitall.rtspserver.RtspServer;
+
+import com.pedro.rtsp.utils.ConnectCheckerRtsp;
+import kr.co.makeitall.rtspserver.RtspServerDisplay;
+import timber.log.Timber;
 
 public class FPVActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator {
 
@@ -156,6 +148,7 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.CAMERA,
     };
     //缺失权限
     private List<String> missingPermission = new ArrayList<>();
@@ -188,6 +181,10 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
     private Context mContext;
     //FPV
     private TextureView fpvTexture;
+
+    //开始推流按钮
+    private Button mControlVideo;
+    private Boolean isStreaming = false;
     //endregion
 
     //region 语音识别的数据结构
@@ -278,6 +275,18 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
     private double mdistToHome;
     //endregion
 
+    //region 视频流RTSP数据结构
+    private RtspServer rtspServer;
+    private static final int RTSP_PORT = 5000;
+    private TextView mrtspurl;
+
+    //TEST
+//    private MediaProjectionManager projectionManager;
+//    private RtspServerDisplay rtspServerDisplay;
+//    private static final int REQUEST_CODE_SCREEN_CAPTURE = 100;
+    //endregion
+
+
     //region 生命周期
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -287,10 +296,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         mHandler = new Handler(Looper.getMainLooper());
 
         //初始化DJISDK
-        /**
-         * When starting SDK services, an instance of interface DJISDKManager.DJISDKManagerCallback will be used to listen to
-         * the SDK Registration result and the product changing.
-         */
         mDJISDKManagerCallback = new DJISDKManager.SDKManagerCallback() {
 
             //Listens to the SDK registration result
@@ -378,10 +383,14 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         //检查手机权限
         checkAndRequestPermissions();
 
+        //初始化RTSP推流
+        rtspServer = new RtspServer(connectCheckerRtsp, RTSP_PORT);
+
         //初始化FPV推流
         mContext = this;
         fpvTexture = new TextureView(mContext);
-        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
+//        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
+        fpvTexture.setSurfaceTextureListener(new BaseRtspFpvView(mContext,rtspServer));
 
         //语音识别初始化
         SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
@@ -392,8 +401,18 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         // 将 TextureView 添加到容器中
         FrameLayout fpvContainer = findViewById(R.id.fpv_container);
         fpvContainer.addView(fpvTexture);
+//        projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+//        rtspServerDisplay = new RtspServerDisplay(FPVActivity.this,true,connectCheckerRtsp,RTSP_PORT);
+//        Intent serviceIntent = new Intent(this, MediaProjectionService.class);
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//            startForegroundService(serviceIntent);
+//        } else {
+//            startService(serviceIntent);
+//        }
 
         // 使用SpeechRecognizer对象，可根据回调消息自定义界面；
+
+        //初始化UI听写dialog
         mIat = SpeechRecognizer.createRecognizer(this, mInitListener);
 
         // 初始化听写Dialog
@@ -415,9 +434,8 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         //初始化航点操作类
         mWaypoint = new Waypoint(FPVActivity.this);
         mMissionOperator = mWaypoint.getWaypointMissionOperator(mMissionOperator);
-//        mMapView.onCreate(savedInstanceState);
 
-        //初始化UI按钮实例化
+        //初始化UI事件
         initUI();
 
         //实例化命令分类器
@@ -428,7 +446,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
         //初始化无人机
         initDrone();
-
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -591,8 +608,9 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                     missingPermission.toArray(new String[missingPermission.size()]),
                     REQUEST_PERMISSION_CODE);
         }
-
     }
+
+
 
     /**
      * Result of runtime permission request 请求权限的结果
@@ -831,8 +849,10 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         mVerSpeed = (TextView) findViewById(R.id.VerticalSpeed);
         mDistance = (TextView) findViewById(R.id.Distance);
         mHorSpeed = (TextView) findViewById(R.id.HorizonSpeed);
+        mrtspurl = (TextView) findViewById(R.id.rtspurl);
         mBtnLoacte = (Button) findViewById(R.id.locate);
         mContext = FPVActivity.this;
+        mControlVideo = (Button) findViewById(R.id.control_video);
 
 
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
@@ -842,6 +862,23 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         mBtnLoacte.setOnClickListener(this);
 
         lanBtnListener2();
+        mControlVideo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (isStreaming) {
+                    mControlVideo.setText("开始推流");
+                    rtspServer.stopServer();// 更新按钮文字
+//                    rtspServerDisplay.stopStream();
+                } else {
+                    mControlVideo.setText("停止推流");
+                    rtspServer.startServer();
+//                    requestProjectionPermission();
+//                    showToast(rtspServerDisplay.getEndPointConnection());
+                    mrtspurl.setText(rtspServer.getEndPointConnection());
+                }
+                isStreaming = !isStreaming; // 切换推流状态
+            }
+        });
 
         //高德地图初始化
         if (aMap == null) {
@@ -851,6 +888,107 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
         aMap.moveCamera(CameraUpdateFactory.zoomTo(18));
     }
+
+    //endregion
+
+    //region RTSP连接回调函数
+    private final ConnectCheckerRtsp connectCheckerRtsp = new ConnectCheckerRtsp() {
+        @Override
+        public void onNewBitrateRtsp(long bitrate) {
+            // 可以添加逻辑处理码率
+        }
+
+        @Override
+        public void onConnectionSuccessRtsp() {
+            runOnUiThread(() -> Toast.makeText(
+                    FPVActivity.this,
+                    "Connection success",
+                    Toast.LENGTH_LONG
+            ).show());
+        }
+
+        @Override
+        public void onConnectionFailedRtsp(String reason) {
+            runOnUiThread(() -> {
+                Toast.makeText(
+                        FPVActivity.this,
+                        "Connection failed. " + reason,
+                        Toast.LENGTH_LONG
+                ).show();
+                rtspServer.stopServer();
+//                rtspServerDisplay.stopStream();
+                mControlVideo.setText("开始推流");
+            });
+        }
+
+        @Override
+        public void onConnectionStartedRtsp(String rtspUrl) {
+            // 可以添加逻辑处理连接启动
+        }
+
+        @Override
+        public void onDisconnectRtsp() {
+            runOnUiThread(() -> Toast.makeText(
+                    FPVActivity.this,
+                    "Disconnected",
+                    Toast.LENGTH_LONG
+            ).show());
+        }
+
+        @Override
+        public void onAuthErrorRtsp() {
+            runOnUiThread(() -> {
+                Toast.makeText(
+                        FPVActivity.this,
+                        "Auth error",
+                        Toast.LENGTH_LONG
+                ).show();
+                rtspServer.stopServer();
+//                rtspServerDisplay.stopStream();
+                mControlVideo.setText("开始推流");
+            });
+        }
+
+        @Override
+        public void onAuthSuccessRtsp() {
+            runOnUiThread(() -> Toast.makeText(
+                    FPVActivity.this,
+                    "Auth success",
+                    Toast.LENGTH_LONG
+            ).show());
+        }
+    };
+
+//    //TEST
+//    private void requestProjectionPermission() {
+//        Intent captureIntent = projectionManager.createScreenCaptureIntent();
+//        startActivityForResult(captureIntent, REQUEST_CODE_SCREEN_CAPTURE);
+//    }
+
+//    @Override
+//    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+//        super.onActivityResult(requestCode, resultCode, data);
+//        if (requestCode == REQUEST_CODE_SCREEN_CAPTURE && resultCode == RESULT_OK && data != null) {
+//            // 设置屏幕捕获权限到 RtspServerDisplay
+//            rtspServerDisplay.setProjectionResult(resultCode, data);
+//
+//            if (/*rtspServerCamera1.prepareAudio() && */
+//                    rtspServerDisplay.prepareVideo(
+//                            640,
+//                            480,
+//                            30,
+//                            1200 * 1024,
+//                            0,
+//                            320
+//                            )
+//                        ){
+//                // 启动流媒体推流
+//                rtspServerDisplay.startStream();
+//            }
+//        } else {
+//            Log.e("RTSP", "Screen capture permission denied.");
+//        }
+//    }
 
     //endregion
 
@@ -1281,6 +1419,7 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                     droneHeading = flightControllerState.getAircraftHeadDirection();
                     mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
                     updateFlightData();
+                    updateDroneLocation();
                 }
             });
 

@@ -44,6 +44,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <!--如需使用人脸识别，还要添加：摄像头权限，拍照需要用到 -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
 
 
     <uses-feature
@@ -52,6 +54,9 @@
     <uses-feature
         android:name="android.hardware.usb.accessory"
         android:required="true"/>
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
 
 
     <!-- SDK requirement permission end -->
@@ -65,6 +70,11 @@
         android:extractNativeLibs="true"
         tools:replace="label"
         tools:ignore="AllowBackup,GoogleAppIndexingWarning">
+
+        <service
+            android:name=".MediaProjectionService"
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false" />
 
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
         <!--
