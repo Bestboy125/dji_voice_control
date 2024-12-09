@@ -11,7 +11,7 @@ repositories {
 }
 
 android {
-    compileSdkVersion 33
+    compileSdk 34
     useLibrary 'org.apache.http.legacy'
 
     defaultConfig {
@@ -175,6 +175,7 @@ dependencies {
         all*.exclude module: 'httpclient'
     }
     }
+    buildToolsVersion '35.0.0'
 }
 
 dependencies {
