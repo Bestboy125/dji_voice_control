@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.media.projection.MediaProjectionManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -29,11 +28,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
 import com.amap.api.maps2d.AMap;
 import com.amap.api.maps2d.CameraUpdateFactory;
@@ -54,9 +55,13 @@ import com.amap.api.maps2d.MapView;
 import com.amap.api.maps2d.model.BitmapDescriptorFactory;
 import com.amap.api.maps2d.model.MarkerOptions;
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.MediaProjectionService;
+import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.IChatMessageData;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.IJSONMessage;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.JSONMessage;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
-import com.dji.sdk.voice_control.internal.controller.voice_control.BaseFpvView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BaseRtspFpvView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
@@ -65,6 +70,7 @@ import com.dji.sdk.voice_control.internal.controller.voice_control.PlaceListFrag
 import com.dji.sdk.voice_control.internal.utils.AMapUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
 import com.dji.sdk.voice_control.internal.utils.ToastUtil;
+import com.google.android.material.tabs.TabLayout;
 import com.iflytek.cloud.ErrorCode;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.RecognizerListener;
@@ -76,9 +82,11 @@ import com.iflytek.cloud.SpeechUtility;
 import com.iflytek.cloud.ui.RecognizerDialog;
 import com.iflytek.cloud.ui.RecognizerDialogListener;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -92,6 +100,7 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import dji.common.battery.BatteryState;
@@ -119,10 +128,14 @@ import dji.sdk.useraccount.UserAccountManager;
 
 //RTSP推流
 import kr.co.makeitall.rtspserver.RtspServer;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import com.pedro.rtsp.utils.ConnectCheckerRtsp;
-import kr.co.makeitall.rtspserver.RtspServerDisplay;
-import timber.log.Timber;
 
 public class FPVActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator {
 
@@ -160,8 +173,8 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
     private CommandClassifier cc1;
     private Button mBtnLanguage2;
-    private boolean languageType;
-    private String language="en_us";
+    private boolean languageType = false;
+    private String language="zh_cn";
 
     //飞机的状态
     private TextView mAltitude;
@@ -183,8 +196,10 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
     private TextureView fpvTexture;
 
     //开始推流按钮
-    private Button mControlVideo;
     private Boolean isStreaming = false;
+
+    //视图切换
+    private TabLayout mTabLayout;
     //endregion
 
     //region 语音识别的数据结构
@@ -278,7 +293,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
     //region 视频流RTSP数据结构
     private RtspServer rtspServer;
     private static final int RTSP_PORT = 5000;
-    private TextView mrtspurl;
 
     //TEST
 //    private MediaProjectionManager projectionManager;
@@ -286,6 +300,27 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 //    private static final int REQUEST_CODE_SCREEN_CAPTURE = 100;
     //endregion
 
+    //region chatgpt UI数据结构
+    private RecyclerView mRvChatList;
+    private EditText mEtQuestion;
+    private ChatListAdapter mListAdapter;
+    public OkHttpClient client;
+    private Button mSendBtn;
+
+    /**
+     * 聊天信息数据
+     */
+    private IChatMessageData mChatMessageData;
+    /**
+     * JSON类型的上下文聊天数据
+     */
+    private IJSONMessage mJSONMessage;
+
+    // 用于保存当前待确认的任务信息
+    private String pendingCommand;
+    private String pendingEncodedString;
+    private String pendingTarget;
+    //endregion
 
     //region 生命周期
     @Override
@@ -397,10 +432,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
         //加载XML文件
         setContentView(R.layout.activity_fpvwaypoint);
-
-        // 将 TextureView 添加到容器中
-        FrameLayout fpvContainer = findViewById(R.id.fpv_container);
-        fpvContainer.addView(fpvTexture);
 //        projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
 //        rtspServerDisplay = new RtspServerDisplay(FPVActivity.this,true,connectCheckerRtsp,RTSP_PORT);
 //        Intent serviceIntent = new Intent(this, MediaProjectionService.class);
@@ -422,6 +453,42 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         mMapView = findViewById(R.id.map);
         mMapView.onCreate(savedInstanceState);
 
+        // 将 TextureView 添加到容器中
+        FrameLayout fpvContainer = findViewById(R.id.fpv_container);
+        fpvContainer.addView(fpvTexture);
+
+        // 设置 TabLayout 切换监听
+        mTabLayout = (TabLayout) findViewById(R.id.tab_layout);
+        mTabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                switch (tab.getPosition()) {
+                    case 0: // 地图视图
+                        mMapView.setVisibility(View.VISIBLE);
+                        fpvTexture.setVisibility(View.GONE);
+                        break;
+                    case 1: // FPV 视图
+                        mMapView.setVisibility(View.GONE);
+                        fpvTexture.setVisibility(View.VISIBLE);
+                        break;
+                }
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // 可选：添加取消选择时的逻辑
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                // 可选：添加重新选择时的逻辑
+            }
+        });
+
+        // 添加 Tab 项
+        mTabLayout.addTab(mTabLayout.newTab().setText("地图视图"));
+        mTabLayout.addTab(mTabLayout.newTab().setText("FPV视图"));
+
         //初始地理查询器
         ServiceSettings.updatePrivacyShow(this,true,true);
         ServiceSettings.updatePrivacyAgree(this,true);
@@ -435,9 +502,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         mWaypoint = new Waypoint(FPVActivity.this);
         mMissionOperator = mWaypoint.getWaypointMissionOperator(mMissionOperator);
 
-        //初始化UI事件
-        initUI();
-
         //实例化命令分类器
         cc1 = new CommandClassifier();
 
@@ -446,6 +510,16 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
         //初始化无人机
         initDrone();
+
+        //初始化chatgpt
+        mRvChatList = (RecyclerView) findViewById(R.id.rv_chatlist);
+        mEtQuestion = (EditText) findViewById(R.id.dialog_Text);
+        mChatMessageData = ChatMessageData.getInstance();
+        mJSONMessage = JSONMessage.getInstance();
+        initAdpater();
+
+        //初始化UI事件
+        initUI();
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -507,7 +581,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
     //endregion
 
     //region UI点击事件
-
     @Override
     public void onClick(View v) {
 
@@ -553,6 +626,9 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                 mIat.cancel();
                 showToast("取消听写");
                 break;
+            case R.id.send_btn:
+                sendQuestion();
+                break;
             default:
                 break;
         }
@@ -569,23 +645,26 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
             if (message) {
                 writeRecogRecord(true, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
                 //预处理命令
-                preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
-                iscommond = true;
+//                preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
+                addChatMessage(Constant.OWNER_HUMAN,"确认执行");
+                handleUserResponse("确认执行");
+                iscommond = false;
             } else {
                 writeRecogRecord(false, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
+                addChatMessage(Constant.OWNER_HUMAN,"取消执行");
+                handleUserResponse("取消执行");
                 showToast("Command cancelled");
-                iscommond = true;
+                iscommond = false;
             }
         }
         else if (iswaypoint){
             if (message) {
+                addChatMessage(Constant.OWNER_HUMAN,"继续添加");
                 showToast("继续添加");
                 iswaypoint = false;
             } else {
-                if(mMissionOperator!=null){
-                    mWaypoint.startWaypointMission(mMissionOperator);
-                }
-                showToast("开始执行航点");
+                addChatMessage(Constant.OWNER_HUMAN,"添加完成");
+                showToast("添加完成");
                 iswaypoint = false;
             }
         }
@@ -849,36 +928,14 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         mVerSpeed = (TextView) findViewById(R.id.VerticalSpeed);
         mDistance = (TextView) findViewById(R.id.Distance);
         mHorSpeed = (TextView) findViewById(R.id.HorizonSpeed);
-        mrtspurl = (TextView) findViewById(R.id.rtspurl);
-        mBtnLoacte = (Button) findViewById(R.id.locate);
         mContext = FPVActivity.this;
-        mControlVideo = (Button) findViewById(R.id.control_video);
-
+        mSendBtn = (Button) findViewById(R.id.send_btn);
 
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
-        findViewById(R.id.btn_control_stop).setOnClickListener(this);
-        findViewById(R.id.btn_control_cancel).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
-        mBtnLoacte.setOnClickListener(this);
+        mSendBtn.setOnClickListener(this);
 
         lanBtnListener2();
-        mControlVideo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (isStreaming) {
-                    mControlVideo.setText("开始推流");
-                    rtspServer.stopServer();// 更新按钮文字
-//                    rtspServerDisplay.stopStream();
-                } else {
-                    mControlVideo.setText("停止推流");
-                    rtspServer.startServer();
-//                    requestProjectionPermission();
-//                    showToast(rtspServerDisplay.getEndPointConnection());
-                    mrtspurl.setText(rtspServer.getEndPointConnection());
-                }
-                isStreaming = !isStreaming; // 切换推流状态
-            }
-        });
 
         //高德地图初始化
         if (aMap == null) {
@@ -917,7 +974,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                 ).show();
                 rtspServer.stopServer();
 //                rtspServerDisplay.stopStream();
-                mControlVideo.setText("开始推流");
             });
         }
 
@@ -945,7 +1001,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                 ).show();
                 rtspServer.stopServer();
 //                rtspServerDisplay.stopStream();
-                mControlVideo.setText("开始推流");
             });
         }
 
@@ -1131,10 +1186,9 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
             builder.setPositiveButton("确定", (dialog, which) -> {
                 isDialogActive = false;
                 String confirmedResult = editText.getText().toString();
+                mEtQuestion.setText(editText.getText().toString());
                 // TODO: 在这里处理用户确认后的识别结果，例如更新 UI 或发送数据
-                editText.setText(confirmedResult); // 假设将结果显示在 TextView 上
                 Toast.makeText(getApplicationContext(), "结果已确认：" + confirmedResult, Toast.LENGTH_SHORT).show();
-                processConfirmedResult(confirmedResult);
             });
 
             // 设置取消按钮
@@ -1156,28 +1210,6 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
 
     };
-    // 处理确认后的结果并执行您的逻辑
-    private void processConfirmedResult(String confirmedResult) {
-        // 将确认结果转换为小写
-        String mStrIntention = confirmedResult.toLowerCase();
-
-        // 使用 StringTokenizer 对结果进行分词
-        StringTokenizer st = new StringTokenizer(mStrIntention);
-        ArrayList<String> tokenedCommand = new ArrayList<>();
-        while (st.hasMoreTokens()) {
-            tokenedCommand.add(st.nextToken());
-        }
-
-        // 如果需要，处理类似 mavic 的单词（这里注释掉了）
-        // tokenedCommand = findMavicSimilar(tokenedCommand);
-
-        // 将 ArrayList 转换为字符串
-        mStrIntention = TextUtils.join(" ", tokenedCommand);
-
-        // 执行分类任务（假设是执行 NLC 的核心逻辑）
-        FPVActivity.ClassificationTask cft = new FPVActivity.ClassificationTask(FPVActivity.this);
-        cft.execute(tokenedCommand);
-    }
 
     /**
      * 听写参数设置
@@ -1231,11 +1263,11 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                 if (languageType) {
                     languageType = false;
                     language = "zh_cn";
-                    mBtnLanguage2.setText("中文");
+                    mBtnLanguage2.setBackgroundResource (R.drawable.zh_cn);
                 } else {
                     languageType = true;
                     language = "en_us";
-                    mBtnLanguage2.setText("英文");
+                    mBtnLanguage2.setBackgroundResource(R.drawable.en_us);
                 }
                 mIat.setParameter(SpeechConstant.LANGUAGE, language);
             }
@@ -1270,16 +1302,20 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         private String doInBackground(ArrayList... params) {
             String result = null;
             if (params[0].size() != 0) {
+                cc1.google_map_search_string = null;
                 // call WatsonCommandClassifier to classify into 利用分类器进行命令的编码
                 cc1.classify(params[0],language);
                 // show execution confirmation dialog fragment 确定窗口 并执行回调函数，如果确定，那么就进行任务执行
-                iscommond = true;
+
                 if(cc1.getGoogleMapSearchString()!=null){
                     GetPlace(cc1.getGoogleMapSearchString());
                 }
                 else{
                     iscommond = true;
+                    pendingEncodedString = cc1.getEncodedString().toString();
+                    pendingCommand = cc1.getCommand();
                     showBaseDialog(findViewById(android.R.id.content));
+//                    sendCommandConfirmationToChatBot(cc1.getEncodedString().toString(), cc1.getCommand());
                 }
 
                 result = "Did classify";
@@ -1330,6 +1366,7 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
         bundle.putString("encoded_string", cc1.getEncodedString().toString());
         bundle.putString("command", cc1.getCommand());
+        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + cc1.getCommand() + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
         myDialogFragment1.setArguments(bundle);
         // show pop up window
         Log.d(TAG, "Showing dialog...");
@@ -1350,6 +1387,8 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
         Log.d(TAG, "mTargetDes: " + mTargetDes);
         Log.d(TAG, "Command: " + (cc1 != null ? cc1.getCommand() : "cc1 is null"));
+
+        addChatMessage(Constant.OWNER_BOT, "是否添加以下目标点" + mTargetDes + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
 
         bundle.putString("encoded_string", cc1.getEncodedString().toString());
         bundle.putString("command", mTargetDes);
@@ -1377,6 +1416,7 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
             bundle.putString("encoded_string", "现在航点数量"+ mWaypoint.getWaypointCount(mMissionOperator));
             bundle.putString("command", "是否继续添加航点");
         }
+        addChatMessage(Constant.OWNER_BOT, "是否继续添加目标点" + mTargetDes + "\n如果确认，请回复“继续添加”；如果取消，请回复“添加完成”。");
         bundle.putString("encoded_string", "现在航点数量");
         bundle.putString("command", "是否继续添加航点");
         myDialogFragment3.setArguments(bundle);
@@ -1571,6 +1611,7 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         final MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(pos);
         markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.aircraft));
+        markerOptions.anchor(0.5f, 0.618f);
 
         runOnUiThread(new Runnable() {
             @Override
@@ -1661,7 +1702,12 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                         mTargetLocation = address.getLatLonPoint();
 
                         iscommond = true;
+
+                        pendingEncodedString = cc1.getEncodedString().toString();
+                        pendingCommand = cc1.getCommand();
+                        pendingTarget = cc1.getGoogleMapSearchString();
                         showPlaceDialog(findViewById(android.R.id.content));
+//                        sendCommandConfirmationToChatBot(cc1.getEncodedString().toString(), mTargetDes);
 
                         ToastUtil.show(FPVActivity.this, addressName);
                     } else {
@@ -1709,4 +1755,314 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
 
     //endregion
 
+    //region 对话机器人
+    private void initAdpater() {
+        mListAdapter = new ChatListAdapter();
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(mContext);
+        // 从底部加入聊天消息
+        linearLayoutManager.setStackFromEnd(true);
+        mRvChatList.setLayoutManager(linearLayoutManager);
+        mRvChatList.setAdapter(mListAdapter);
+    }
+
+    /**
+     *
+     * @param confirmedResult
+     */
+    private void processCommand(String confirmedResult) {
+        // 将确认结果转换为小写
+        String mStrIntention = confirmedResult.toLowerCase();
+
+        // 使用 StringTokenizer 对结果进行分词
+        StringTokenizer st = new StringTokenizer(mStrIntention);
+        ArrayList<String> tokenedCommand = new ArrayList<>();
+        while (st.hasMoreTokens()) {
+            tokenedCommand.add(st.nextToken());
+        }
+
+        // 如果需要，处理类似 mavic 的单词（这里注释掉了）
+        // tokenedCommand = findMavicSimilar(tokenedCommand);
+
+        // 将 ArrayList 转换为字符串
+        mStrIntention = TextUtils.join(" ", tokenedCommand);
+
+        // 执行分类任务（假设是执行 NLC 的核心逻辑）
+        FPVActivity.ClassificationTask cft = new FPVActivity.ClassificationTask(FPVActivity.this);
+        cft.execute(tokenedCommand);
+    }
+
+    /**
+     * 发送分类后的确认任务消息给用户
+     * @param encodedString
+     * @param command
+     */
+    public void sendCommandConfirmationToChatBot(String encodedString, String command) {
+        this.pendingEncodedString = encodedString;
+        this.pendingCommand = command;
+
+        // 发送确认消息
+        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + command + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
+    }
+
+    /**
+     * 处理用户的回复
+     * @param userResponse
+     */
+    public void handleUserResponse(String userResponse) {
+        if ("确认执行".equalsIgnoreCase(userResponse)) {
+            if(pendingTarget!=null){
+                preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
+                addChatMessage(Constant.OWNER_BOT, "已添加航点目的地：" + pendingTarget);
+            }
+            else{
+                // 用户确认执行任务
+                if (pendingEncodedString != null) {
+                    preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
+                    addChatMessage(Constant.OWNER_BOT, "任务已开始执行：" + pendingCommand);
+                } else {
+                    addChatMessage(Constant.OWNER_BOT, "任务信息丢失，无法执行。");
+                }
+                // 清除待确认任务信息
+                pendingCommand = null;
+                pendingEncodedString = null;
+            }
+        } else if ("取消执行".equalsIgnoreCase(userResponse)) {
+            // 用户取消执行任务
+            addChatMessage(Constant.OWNER_BOT, "任务已取消：" + pendingCommand);
+            // 清除待确认任务信息
+            pendingCommand = null;
+            pendingEncodedString = null;
+        } else {
+            // 其他无效回复
+            addChatMessage(Constant.OWNER_BOT, "无效的回复，请输入“确认执行”或“取消执行”。");
+        }
+    }
+
+    /**
+     * 发送指令
+     */
+    private void sendQuestion() {
+        String question = mEtQuestion.getText().toString().trim();
+        if (TextUtils.isEmpty(question)) {
+            Toast.makeText(this, "请先输入你的问题", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        mEtQuestion.setText("");
+        // 发送文字到List里
+        addChatMessage(Constant.OWNER_HUMAN, question);
+
+        // 检查是否为用户反馈
+        if (isUserResponse(question)) {
+            handleUserResponse(question);
+        } else {
+            // 如果不是反馈，则按常规指令处理
+            addChatMessage(Constant.OWNER_BOT_THINK, "正在分析问题并自动执行任务中...");
+            handleRobotCommand(question);
+        }
+    }
+
+    /**
+     * 检查用户输入是否为反馈消息
+     * @param input 用户输入
+     * @return 是否为反馈
+     */
+    private boolean isUserResponse(String input) {
+        return input.equalsIgnoreCase("确认执行") || input.equalsIgnoreCase("取消执行");
+    }
+
+    /**
+     * #重要 存储消息，显示消息，播放消息内容，记录上下文
+     *
+     * @param owner
+     * @param question
+     */
+    private void addChatMessage(String owner, String question) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mChatMessageData.addChatMessage(owner, question);
+                mListAdapter.notifyDataSetChanged();
+                mRvChatList.smoothScrollToPosition(mChatMessageData.getSize());
+                if (mChatMessageData.isBot(owner)) {
+                    mJSONMessage.addBotMessage(question); // 记录每次用户的上下文，这样AI就能实现多次对话
+//                    Speech.getInstance().say(question, new TextToSpeechCallback() {
+//                        @Override
+//                        public void onStart() {
+//
+//                        }
+//
+//                        @Override
+//                        public void onCompleted() {
+//
+//                        }
+//
+//                        @Override
+//                        public void onError() {
+//
+//                        }
+//                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * 向GPT发送问题
+     * @param question
+     */
+    private void sendQuestionToAPI(String question) {
+        mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+        handleRobotCommand(question);
+
+        //chatgptapi
+
+//        JSONObject jsonBody = setRequestParam(question);
+//        // Request
+//        RequestBody requestBody = RequestBody.create(Constant.JSON, jsonBody.toString());
+//        Request request = new Request.Builder().url(Constant.OPENAI_URL).header(Constant.AUTHORIZATION, Constant.AUTHORIZATION_API_KEY).post(requestBody).build();
+//
+//        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+//        builder.connectTimeout(120, TimeUnit.SECONDS).readTimeout(120, TimeUnit.SECONDS);
+//        // TODO 代理ip
+////        builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(Constant.PROXY_HOST_NAME, Constant.PROXY_PORT)));
+////        builder.proxyAuthenticator(new Authenticator() {
+////            @Nullable
+////            @Override
+////            public Request authenticate(@Nullable Route route, @NonNull Response response) throws IOException {
+////                String basic = Credentials.basic(Constant.PROXY_USER_NAME, Constant.PROXY_PASSWORD);
+////                return response.request().newBuilder().header("Proxy-Authorization", basic).build();
+////            }
+////
+////        });
+//
+//        client = builder.build();
+//        client.newCall(request).enqueue(new Callback() {
+//            @Override
+//            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+//                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+//                addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + e.getMessage());
+//            }
+//
+//            @Override
+//            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+//                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+//
+//                if (response.isSuccessful()) {
+//                    try {
+//                        JSONObject jsonObject = new JSONObject(response.body().string());
+////                        Log.d(TAG, "onResponse: ===" + response.body().string());
+//                        JSONArray jsonArray = jsonObject.getJSONArray(Constant.RESPONSE_CHOICES);
+//                        JSONObject message = jsonArray.getJSONObject(0).getJSONObject(Constant.RESPONSE_CHOICES_MESSAGE);
+//                        String content = message.getString(Constant.MESSAGES_KEY_CONTENT);
+//
+//                        addChatMessage(Constant.OWNER_BOT, content.trim());
+//                    } catch (JSONException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                } else {
+//                    addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + response.body().string());
+//                }
+//
+//            }
+//        });
+    }
+
+    /**
+     * 设置请求参数
+     * @param question
+     * @return
+     */
+    private JSONObject setRequestParam(String question) {
+        // JSONObject
+        JSONObject jsonBody = new JSONObject();
+        try {
+            jsonBody.put(Constant.MODEL, Constant.MODEL_GPT35);
+            jsonBody.put(Constant.TEMPERATURE, Constant.TEMPERATURE_MIDDLE);
+
+            mJSONMessage.removeNotNeededMessage(); // 一次传输Token的长度做限制
+            mJSONMessage.addUserMessage(question); // 记录每次用户的上下文，这样AI就能实现多次对话
+
+            jsonBody.put(Constant.MESSAGES, mJSONMessage.getArray());
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        return jsonBody;
+    }
+
+    /**
+     * 命令处理
+     */
+    public void handleRobotCommand(String command) {
+        if (command.contains("开始推流")) {
+            handleStartStreaming();
+        } else if (command.contains("停止推流")) {
+            handleStopStreaming();
+        } else if (command.contains("定位")) {
+            handleLocateDrone();
+        } else if (command.contains("执行任务")) {
+            handleExecuteMission();
+        } else {
+            processCommand(command);
+        }
+//        else {
+//            addChatMessage(Constant.OWNER_BOT, "无法理解您的指令，请重试。");
+//        }
+    }
+    //endregion
+
+    //region 自动化执行逻辑
+    private void handleStartStreaming() {
+        if (!isStreaming) {
+            try {
+                rtspServer.startServer();
+                isStreaming = true;
+                String rtspUrl = rtspServer.getEndPointConnection();
+                addChatMessage(Constant.OWNER_BOT, "推流已启动，地址为：" + rtspUrl);
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
+            }
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "推流已经在进行中，无需重复启动。");
+        }
+    }
+
+    private void handleStopStreaming() {
+        if (isStreaming) {
+            try {
+                rtspServer.stopServer();
+                isStreaming = false;
+                addChatMessage(Constant.OWNER_BOT, "推流已停止。");
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "推流停止失败，错误信息：" + e.getMessage());
+            }
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "推流尚未启动，无需停止。");
+        }
+    }
+
+    private void handleLocateDrone() {
+        try {
+            updateDroneLocation();
+            cameraUpdate();
+            addChatMessage(Constant.OWNER_BOT, "无人机位置已更新，并定位至地图视图。");
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "定位失败，错误信息：" + e.getMessage());
+        }
+    }
+
+    private void handleExecuteMission() {
+        if (mMissionOperator != null) {
+            try {
+                mWaypoint.startWaypointMission(mMissionOperator);
+                addChatMessage(Constant.OWNER_BOT, "航点任务已启动。");
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "航点任务启动失败，错误信息：" + e.getMessage());
+            }
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "无法启动航点任务，任务操作对象未初始化。");
+        }
+    }
+
+    //endregion
 }

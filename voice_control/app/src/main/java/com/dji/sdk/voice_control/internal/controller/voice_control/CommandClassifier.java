@@ -39,7 +39,7 @@ public class CommandClassifier {
     private String command_direction;
 
     private ArrayList<Integer> encoded_string;
-    private String google_map_search_string = null;
+    public String google_map_search_string = null;
 
     public CommandClassifier(){
         nlpService = new NaturalLanguageClassifier();
@@ -47,7 +47,7 @@ public class CommandClassifier {
         String password = "1rFfpEEdA2k3";
         nlpService.setUsernameAndPassword(username, password);
         nlpService.setEndPoint("https://gateway.watsonplatform.net/natural-language-classifier/api");
-        google_map_search_string = "中南大学";
+        google_map_search_string = "";
 
 //        // 初始化GPT客户端
 //        chatApiClient = new ChatApiClient(this,

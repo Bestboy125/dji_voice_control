@@ -35,59 +35,40 @@
 
     </RelativeLayout>
 
-    <LinearLayout
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tab_layout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="680dp"
-        android:layout_marginBottom="2dp"
-        android:gravity="center_horizontal"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btn_control_recognize"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="开始"
-            android:textSize="20sp" />
-
-        <Button
-            android:id="@+id/btn_control_stop"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="停止"
-            android:textSize="20sp" />
-
-        <Button
-            android:id="@+id/btn_control_lan"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="英文"
-            android:textSize="20sp" />
-
-        <Button
-            android:id="@+id/btn_control_cancel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="取消"
-            android:textSize="20sp" />
-    </LinearLayout>
-
-    <com.amap.api.maps2d.MapView
-        android:id="@+id/map"
-        android:layout_width="match_parent"
-        android:layout_height="199dp"
+        android:layout_height="20dp"
         android:layout_marginTop="50dp" />
 
     <FrameLayout
         android:id="@+id/fpv_container"
         android:layout_width="match_parent"
         android:layout_height="252dp"
-        android:layout_marginTop="250dp">
+        android:layout_marginTop="70dp">
+
+        <com.amap.api.maps2d.MapView
+            android:id="@+id/map"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+        </com.amap.api.maps2d.MapView>
+
+        <!-- TextureView -->
+        <TextureView
+            android:id="@+id/fpv_texture"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
     </FrameLayout>
+
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_chatlist"
+        android:layout_width="match_parent"
+        android:layout_height="356dp"
+        android:layout_marginTop="320dp" />
 
     <view
         android:layout_width="38dp"
@@ -149,27 +130,50 @@
         android:layout_marginEnd="8dp"
         android:id="@+id/HorizonSpeed" />
 
-    <Button
-        android:id="@+id/locate"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="550dp"
-        android:text="定位" />
+    <RelativeLayout
+        android:id="@+id/rl_send"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_alignParentBottom="true"
+        android:padding="1dp">
 
-    <Button
-        android:id="@+id/control_video"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="550dp"
-        android:layout_marginLeft="200dp"
-        android:text="开始推流" />
+        <Button
+            android:id="@+id/btn_control_recognize"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/icon_record"
+            android:text="" />
 
-    <TextView
-        android:id="@+id/rtspurl"
-        android:layout_width="122dp"
-        android:layout_height="47dp"
-        android:layout_marginLeft="100dp"
-        android:layout_marginTop="600dp"
-        android:text="TextView" />
+        <EditText
+            android:id="@+id/dialog_Text"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:layout_toLeftOf="@+id/send_btn"
+            android:layout_toRightOf="@+id/btn_control_lan"
+            android:background="@drawable/bg_rounded_corner"
+            android:hint="在这里跟我聊任何内容"
+            android:padding="8dp"
+            android:textColor="@color/black"
+            android:textColorHint="@color/black_65"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/send_btn"
+            android:layout_width="48dp"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/btn_send" />
+
+        <Button
+            android:id="@+id/btn_control_lan"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_toRightOf="@+id/btn_control_recognize"
+            android:textSize="20sp"
+            android:background="@drawable/zh_cn" />
+    </RelativeLayout>
 
 </RelativeLayout>

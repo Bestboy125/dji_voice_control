@@ -18,4 +18,15 @@
     <color name="list_backgroud_color">#2fb3cb</color>
     <color name="button_normal">#50808080</color>
     <color name="button_press">#5086BFFF</color>
+    <color name="purple_200">#03A9F4</color>
+    <color name="purple_500">#3F51B5</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black_65">#65000000</color>
+    <color name="white_DA">#DAFFFFFF</color>
+    <color name="blue_200">#03A9F4</color>
+    <color name="blue_500">#3F51B5</color>
+    <color name="msg_bot_gray">#3D3F41</color>
+    <color name="msg_human_green">#4CAF50</color>
 </resources>

@@ -64,7 +64,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="英文"
+            android:text="中文"
             android:textSize="20sp" />
 
         <Button
@@ -124,7 +124,7 @@
         android:layout_alignBottom="@+id/cmd_input"
         android:layout_marginEnd="94dp"
         android:layout_marginBottom="0dp"
-        android:text="英文" />
+        android:text="中文" />
 
     <Button
         android:id="@+id/sub_btn"

@@ -152,8 +152,8 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private Button mBtnWaypoint;
     private Button mBtnLanguage;
     private Button mBtnLanguage2;
-    private boolean languageType;
-    private String language="en_us";
+    private boolean languageType = false;
+    private String language="zh_cn";
 
     //飞机的状态
     private TextView mAltitude;
