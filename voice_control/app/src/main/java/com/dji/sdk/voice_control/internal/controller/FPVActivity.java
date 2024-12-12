@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -86,6 +87,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.text.DecimalFormat;
@@ -130,6 +133,8 @@ import dji.sdk.useraccount.UserAccountManager;
 import kr.co.makeitall.rtspserver.RtspServer;
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -139,6 +144,8 @@ import com.pedro.rtsp.utils.ConnectCheckerRtsp;
 
 public class FPVActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator {
 
+    private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
+    private static final String TEMPLATE="Please answer the following question: {question}";
     //标记
     private boolean iscommond = false;
     private boolean iswaypoint = false;
@@ -930,6 +937,12 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         mHorSpeed = (TextView) findViewById(R.id.HorizonSpeed);
         mContext = FPVActivity.this;
         mSendBtn = (Button) findViewById(R.id.send_btn);
+
+        // 获取帮助按钮
+        Button helpButton = findViewById(R.id.help_Btn);
+
+        // 设置点击事件
+        helpButton.setOnClickListener(v -> showHelpDialog());
 
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
@@ -1908,86 +1921,93 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
     }
 
     /**
-     * 向GPT发送问题
-     * @param question
+     * 获取文件格式（扩展名）
+     *
+     * @param file File 对象
+     * @return 文件格式（扩展名），如果没有扩展名则返回 null
      */
-    private void sendQuestionToAPI(String question) {
-        mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
-        handleRobotCommand(question);
+    public static String getFileFormat(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            return null; // 如果文件无效，返回 null
+        }
 
-        //chatgptapi
-
-//        JSONObject jsonBody = setRequestParam(question);
-//        // Request
-//        RequestBody requestBody = RequestBody.create(Constant.JSON, jsonBody.toString());
-//        Request request = new Request.Builder().url(Constant.OPENAI_URL).header(Constant.AUTHORIZATION, Constant.AUTHORIZATION_API_KEY).post(requestBody).build();
-//
-//        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-//        builder.connectTimeout(120, TimeUnit.SECONDS).readTimeout(120, TimeUnit.SECONDS);
-//        // TODO 代理ip
-////        builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(Constant.PROXY_HOST_NAME, Constant.PROXY_PORT)));
-////        builder.proxyAuthenticator(new Authenticator() {
-////            @Nullable
-////            @Override
-////            public Request authenticate(@Nullable Route route, @NonNull Response response) throws IOException {
-////                String basic = Credentials.basic(Constant.PROXY_USER_NAME, Constant.PROXY_PASSWORD);
-////                return response.request().newBuilder().header("Proxy-Authorization", basic).build();
-////            }
-////
-////        });
-//
-//        client = builder.build();
-//        client.newCall(request).enqueue(new Callback() {
-//            @Override
-//            public void onFailure(@NonNull Call call, @NonNull IOException e) {
-//                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
-//                addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + e.getMessage());
-//            }
-//
-//            @Override
-//            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-//                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
-//
-//                if (response.isSuccessful()) {
-//                    try {
-//                        JSONObject jsonObject = new JSONObject(response.body().string());
-////                        Log.d(TAG, "onResponse: ===" + response.body().string());
-//                        JSONArray jsonArray = jsonObject.getJSONArray(Constant.RESPONSE_CHOICES);
-//                        JSONObject message = jsonArray.getJSONObject(0).getJSONObject(Constant.RESPONSE_CHOICES_MESSAGE);
-//                        String content = message.getString(Constant.MESSAGES_KEY_CONTENT);
-//
-//                        addChatMessage(Constant.OWNER_BOT, content.trim());
-//                    } catch (JSONException e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                } else {
-//                    addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + response.body().string());
-//                }
-//
-//            }
-//        });
+        String fileName = file.getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex > 0 && dotIndex < fileName.length() - 1) {
+            return fileName.substring(dotIndex + 1).toLowerCase(); // 返回扩展名
+        } else {
+            return null; // 如果没有扩展名，返回 null
+        }
     }
 
     /**
-     * 设置请求参数
+     * 向服务器诗句语言大模型发送问题
      * @param question
-     * @return
      */
-    private JSONObject setRequestParam(String question) {
-        // JSONObject
-        JSONObject jsonBody = new JSONObject();
-        try {
-            jsonBody.put(Constant.MODEL, Constant.MODEL_GPT35);
-            jsonBody.put(Constant.TEMPERATURE, Constant.TEMPERATURE_MIDDLE);
+    private void sendQuestionToAPI(String question, File file) {
 
-            mJSONMessage.removeNotNeededMessage(); // 一次传输Token的长度做限制
-            mJSONMessage.addUserMessage(question); // 记录每次用户的上下文，这样AI就能实现多次对话
-
-            jsonBody.put(Constant.MESSAGES, mJSONMessage.getArray());
-        } catch (JSONException e) {
-            throw new RuntimeException(e);
+        MultipartBody.Builder builder = new MultipartBody.Builder();
+        if(getFileFormat(file)=="jpg"){
+            // 创建请求体
+            builder = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
+                    .addFormDataPart("format", "jpg") // 文件格式
+                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("image/jpg"), file)); // 上传文件
         }
-        return jsonBody;
+        else{
+            // 创建请求体
+            builder = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
+                    .addFormDataPart("format", "mp4") // 文件格式
+                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("video/mp4"), file)); // 上传文件
+        }
+
+        // 创建请求
+        RequestBody requestBody = builder.build();
+        Request request = new Request.Builder()
+                .url(AGENT_URL)
+                .post(requestBody)
+                .build();
+
+        // 设置 OkHttp 客户端
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+                addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + e.getMessage());
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        // 将响应体解析为 JSON 对象
+                        String responseBody = response.body().string();
+                        JSONObject jsonResponse = new JSONObject(responseBody);
+
+                        // 提取 'response' 字段内容
+                        String responseMessage = jsonResponse.optString("response", "未找到响应内容");
+
+                        // 将提取的内容显示在对话框中
+                        addChatMessage(Constant.OWNER_BOT, responseMessage.trim());
+                    } catch (JSONException e) {
+                        // JSON 解析失败
+                        addChatMessage(Constant.OWNER_BOT, "响应解析错误：" + e.getMessage());
+                    }
+                } else {
+                    // 请求失败或无响应体
+                    addChatMessage(Constant.OWNER_BOT, "请求失败，错误信息是：" + (response.body() != null ? response.body().string() : "无响应体"));
+                }
+            }
+        });
     }
 
     /**
@@ -2002,12 +2022,11 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
             handleLocateDrone();
         } else if (command.contains("执行任务")) {
             handleExecuteMission();
+        } else if (command.contains("识别")) {
+            handleObjectIdentify();
         } else {
             processCommand(command);
         }
-//        else {
-//            addChatMessage(Constant.OWNER_BOT, "无法理解您的指令，请重试。");
-//        }
     }
     //endregion
 
@@ -2064,5 +2083,79 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
         }
     }
 
+    private void handleObjectIdentify() {
+        // 问题描述
+        String question = "Analyze the vehicles in this image, determine their types, and provide a detailed explanation of the reasoning behind your classification.";
+
+        // 初始化图片文件对象
+        File imageFile = null;
+
+        try {
+            // 从 TextureView 捕获视频流的一帧
+            Bitmap bitmap = fpvTexture.getBitmap();
+            if (bitmap == null) {
+                throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
+            }
+
+            // 保存帧为图片文件
+            imageFile = saveBitmapAsFile(bitmap, "frame.jpg");
+            if (imageFile == null) {
+                throw new IOException("图片保存失败");
+            }
+
+            // 反馈捕获成功
+            addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析车辆信息...");
+        } catch (NullPointerException e) {
+            addChatMessage(Constant.OWNER_BOT, "摄像头未连接或未准备好，请检查设备连接状态");
+            Log.e("ObjectIdentifyError", "摄像头错误：" + e.getMessage());
+            return;
+        } catch (IOException e) {
+            addChatMessage(Constant.OWNER_BOT, "无法保存图片，请检查存储权限或存储空间");
+            Log.e("ObjectIdentifyError", "保存图片失败：" + e.getMessage());
+            return;
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "未知错误：" + e.getMessage());
+            Log.e("ObjectIdentifyError", "未知错误：" + e.getMessage());
+            return;
+        }
+
+        // 如果图片文件成功生成，则发送至大模型
+        sendQuestionToAPI(question, imageFile);
+    }
+
+
+    //endregion
+
+    //region 辅助函数
+    private File saveBitmapAsFile(Bitmap bitmap, String filename) {
+        File file = new File(getCacheDir(), filename); // 保存到应用的缓存目录
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out); // 压缩并保存为 JPEG
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+        return file;
+    }
+
+    //帮助界面
+    private void showHelpDialog() {
+        // 创建指令示例内容
+        String helpMessage = "这是你可以跟Jarvis对话的命令:\n\n" +
+                "1. 开始推流:RTSP推流到局域网\n" +
+                "2. 定位:定位无人机当前位置\n" +
+                "3. 执行任务：执行航点任务\n" +
+                "4. 识别车辆类型：获取当前帧并识别其中的车辆\n" +
+                "5. 无人机控制命令：起飞，降落，向左移动五米，向左转\n" +
+                "6. 添加航点：飞到+目的地\n";
+
+        // 创建并显示消息框
+        new AlertDialog.Builder(this)
+                .setTitle("帮助-命令")
+                .setMessage(helpMessage)
+                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show();
+    }
     //endregion
 }
