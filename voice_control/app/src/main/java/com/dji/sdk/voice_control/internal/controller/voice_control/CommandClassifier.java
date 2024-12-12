@@ -359,7 +359,8 @@ public class CommandClassifier {
                 }
                 // 提取单位
                 unit = commandInText.replaceAll("[^\\d一二三四五六七八九十零百千]", "");
-                if (!unit.isEmpty()) {
+                if (unit.matches(".*[一二三四五六七八九十零百千].*")) {
+                    // 包含中文数字时进行转换
                     unit = convertChineseNumberToArabic(unit);
                 }// 提取文本中的数字作为单位
             } else if (commandInText.contains("转")) {
@@ -371,7 +372,8 @@ public class CommandClassifier {
                 }
                 // 提取单位
                 unit = commandInText.replaceAll("[^\\d一二三四五六七八九十零百千]", "");
-                if (!unit.isEmpty()) {
+                if (unit.matches(".*[一二三四五六七八九十零百千].*")) {
+                    // 包含中文数字时进行转换
                     unit = convertChineseNumberToArabic(unit);
                 }// 提取文本中的数字作为单位
             } else if (commandInText.contains("拍照")) {
@@ -431,52 +433,42 @@ public class CommandClassifier {
         return this.command_direction;
     }
 
-    private String convertChineseNumberToArabic(String chineseNumber) {
-        // 定义汉字与阿拉伯数字的映射
-        Map<Character, Integer> chineseToArabicMap = new HashMap<>();
-        chineseToArabicMap.put('零', 0);
-        chineseToArabicMap.put('一', 1);
-        chineseToArabicMap.put('二', 2);
-        chineseToArabicMap.put('三', 3);
-        chineseToArabicMap.put('四', 4);
-        chineseToArabicMap.put('五', 5);
-        chineseToArabicMap.put('六', 6);
-        chineseToArabicMap.put('七', 7);
-        chineseToArabicMap.put('八', 8);
-        chineseToArabicMap.put('九', 9);
+    // 中文数字转换为阿拉伯数字
+    public static String convertChineseNumberToArabic(String chineseNumber) {
+        HashMap<Character, Integer> numberMap = new HashMap<>();
+        numberMap.put('零', 0);
+        numberMap.put('一', 1);
+        numberMap.put('二', 2);
+        numberMap.put('三', 3);
+        numberMap.put('四', 4);
+        numberMap.put('五', 5);
+        numberMap.put('六', 6);
+        numberMap.put('七', 7);
+        numberMap.put('八', 8);
+        numberMap.put('九', 9);
+        numberMap.put('十', 10);
+        numberMap.put('百', 100);
+        numberMap.put('千', 1000);
 
-        // 定义单位字符（十、百、千等）
-        chineseToArabicMap.put('十', 10);
-        chineseToArabicMap.put('百', 100);
-        chineseToArabicMap.put('千', 1000);
-
-        // 转换逻辑
         int result = 0;
-        int temp = 0; // 用于存储每个单位的临时值
-        int base = 1; // 用于处理个位数字
+        int temp = 0;
+        int base = 1; // 表示当前的位值
 
         for (int i = chineseNumber.length() - 1; i >= 0; i--) {
             char c = chineseNumber.charAt(i);
 
-            if (chineseToArabicMap.containsKey(c)) {
-                int value = chineseToArabicMap.get(c);
-
-                if (value >= 10) {
-                    // 遇到单位（十、百、千等），更新临时基数
-                    if (temp == 0) {
-                        temp = 1; // 如果前面没有数字，单位默认为1
-                    }
-                    result += temp * value;
-                    temp = 0; // 清空临时值
-                    base = value; // 更新基数
+            if (numberMap.containsKey(c)) {
+                int num = numberMap.get(c);
+                if (num >= 10) { // 遇到“十、百、千”
+                    if (temp == 0) temp = 1; // 特殊处理如"十"等情况
+                    base = num;
                 } else {
-                    // 普通数字
-                    temp = temp + value * base;
+                    temp += num * base;
+                    base = 1; // 重置base
                 }
             }
         }
-        result += temp; // 加上最后一段没有单位的值
-
+        result += temp; // 加上最后一个段的值
         return String.valueOf(result);
     }
 

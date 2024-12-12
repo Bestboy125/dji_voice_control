@@ -2023,6 +2023,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             mWaypoint.uploadWayPointMission(mMissionOperator);
         }
         iswaypoint = true;
+        cc1.google_map_search_string = null;
         showTaskDialog(findViewById(android.R.id.content));
     }
 
@@ -2086,6 +2087,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             if(pendingTarget!=null){
                 preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
                 addChatMessage(Constant.OWNER_BOT, "已添加航点目的地：" + pendingTarget);
+                pendingTarget = null;
             }
             else{
                 // 用户确认执行任务
