@@ -49,6 +49,9 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
         super(context);
         this.rtspServer = rtspServer;
         initUI();
+        videoEncoder = new VideoEncoder(BaseRtspFpvView.this);
+        videoEncoder.prepareVideoEncoder();
+        videoEncoder.start();
     }
 
     private void initUI() {
@@ -80,10 +83,7 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
                     // 将一帧原始数据进行编码 getVideoData进行接受编码回调 并将视频发送给Rtspserver
                     int pts = (int) (System.nanoTime() / 1000);
                     Frame frame = new Frame(bytes, pts, bytes.length);
-                    videoEncoder = new VideoEncoder(BaseRtspFpvView.this);
-                    videoEncoder.prepareVideoEncoder();
                     videoEncoder.inputYUVData(frame);
-                    videoEncoder.start();
                 }
             };
         }
@@ -100,13 +100,17 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
     }
 
     @Override
-    public void onSpsPpsVps(ByteBuffer sps, ByteBuffer pps, ByteBuffer vps) {
+    public synchronized void onSpsPpsVps(ByteBuffer sps, ByteBuffer pps, ByteBuffer vps) {
         onSpsPpsVpsRtp(sps.duplicate(), pps.duplicate(), vps != null ? vps.duplicate() : null);
     }
 
     @Override
     public void getVideoData(ByteBuffer h264Buffer, MediaCodec.BufferInfo info) {
-        rtspServer.sendVideo(h264Buffer, info);
+        try {
+            rtspServer.sendVideo(h264Buffer, info);
+        } catch (Exception e) {
+            Log.e("BaseRtspFpvView", "Error sending video data: " + e.getMessage());
+        }
     }
 
     @Override

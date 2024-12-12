@@ -1,5 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller;
 
+
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -7,8 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.location.Address;
-import android.location.Geocoder;
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,14 +17,16 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.text.TextUtils;
-import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -33,33 +35,48 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.FragmentManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.StringTokenizer;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-
+import com.amap.api.maps2d.AMap;
+import com.amap.api.maps2d.CameraUpdateFactory;
+import com.amap.api.maps2d.model.LatLng;
+import com.amap.api.maps2d.model.Marker;
+import com.amap.api.services.core.AMapException;
+import com.amap.api.services.core.LatLonPoint;
+import com.amap.api.services.core.ServiceSettings;
+import com.amap.api.services.geocoder.GeocodeAddress;
+import com.amap.api.services.geocoder.GeocodeQuery;
 import com.amap.api.services.geocoder.GeocodeResult;
+import com.amap.api.services.geocoder.GeocodeSearch;
+import com.amap.api.services.geocoder.RegeocodeAddress;
+import com.amap.api.services.geocoder.RegeocodeResult;
+import com.amap.api.maps2d.AMap.OnMapClickListener;
+import com.amap.api.maps2d.CameraUpdate;
+import com.amap.api.maps2d.MapView;
+import com.amap.api.maps2d.model.BitmapDescriptorFactory;
+import com.amap.api.maps2d.model.MarkerOptions;
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.demo.flightcontroller.CompassCalibrationView;
+import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.IChatMessageData;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.IJSONMessage;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.JSONMessage;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
+import com.dji.sdk.voice_control.internal.controller.voice_control.BaseRtspFpvView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
-import com.dji.sdk.voice_control.internal.controller.voice_control.PlaceListFragment;
 import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
+import com.dji.sdk.voice_control.internal.utils.AMapUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
+import com.dji.sdk.voice_control.internal.utils.ToastUtil;
+import com.google.android.material.navigation.NavigationView;
+import com.google.android.material.tabs.TabLayout;
 import com.iflytek.cloud.ErrorCode;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.RecognizerListener;
@@ -67,11 +84,31 @@ import com.iflytek.cloud.RecognizerResult;
 import com.iflytek.cloud.SpeechConstant;
 import com.iflytek.cloud.SpeechError;
 import com.iflytek.cloud.SpeechRecognizer;
+import com.iflytek.cloud.SpeechUtility;
 import com.iflytek.cloud.ui.RecognizerDialog;
 import com.iflytek.cloud.ui.RecognizerDialogListener;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.StringTokenizer;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import dji.common.battery.BatteryState;
 import dji.common.error.DJIError;
@@ -84,6 +121,7 @@ import dji.common.flightcontroller.virtualstick.FlightCoordinateSystem;
 import dji.common.flightcontroller.virtualstick.RollPitchControlMode;
 import dji.common.flightcontroller.virtualstick.VerticalControlMode;
 import dji.common.flightcontroller.virtualstick.YawControlMode;
+import dji.common.mission.waypointv2.WaypointV2;
 import dji.common.model.LocationCoordinate2D;
 import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
@@ -91,27 +129,32 @@ import dji.log.DJILog;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.flightcontroller.FlightController;
+import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 
-import com.amap.api.maps2d.AMap;
-import com.amap.api.maps2d.CameraUpdateFactory;
-import com.amap.api.maps2d.model.Marker;
-import com.amap.api.services.core.LatLonPoint;
-import com.amap.api.services.geocoder.GeocodeAddress;
-import com.amap.api.services.geocoder.GeocodeQuery;
-import com.amap.api.maps2d.model.LatLng;
-import com.amap.api.services.geocoder.GeocodeSearch;
-import com.amap.api.services.geocoder.GeocodeSearch.OnGeocodeSearchListener;
-import com.amap.api.services.geocoder.RegeocodeResult;
-import com.dji.sdk.voice_control.internal.utils.AMapUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtil;
+//RTSP推流
+import kr.co.makeitall.rtspserver.RtspServer;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
-import com.iflytek.cloud.SpeechUtility;
+import com.pedro.rtsp.utils.ConnectCheckerRtsp;
 
-public class ControlActivity extends AppCompatActivity implements View.OnClickListener,CommandConfirmationDialogFragment.Communicator, OnGeocodeSearchListener {
+public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator {
+
+    private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
+    private static final String TEMPLATE="Please answer the following question: {question}";
+    //标记
+    private boolean iscommond = false;
+    private boolean iswaypoint = false;
 
     //region UI数据结构
     //日志
@@ -131,6 +174,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.CAMERA,
     };
     //缺失权限
     private List<String> missingPermission = new ArrayList<>();
@@ -139,18 +183,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private static final int REQUEST_PERMISSION_CODE = 12345;
     //UI控件
     protected TextView mConnectStatusTextView;
-    private Button mBtnEnableVirtualStick;
-    private Button mBtnDisableVirtualStick;
-    private ToggleButton mBtnSimulator;
-    private Button mBtnTakeOff;
-    private Button mBtnLand;
-    private Button mBtnSub;
-    private EditText mCMD;
+    private DrawerLayout drawerLayout;
+
     private CommandClassifier cc1;
-    private Button mBtnPhoto;
-    private Button mBtnDownload;
-    private Button mBtnWaypoint;
-    private Button mBtnLanguage;
     private Button mBtnLanguage2;
     private boolean languageType = false;
     private String language="zh_cn";
@@ -171,6 +206,26 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private Toast toast;
     //该活动的实例
     private Context mContext;
+    //FPV
+    private TextureView fpvTexture;
+
+    //开始推流按钮
+    private Boolean isStreaming = false;
+
+    //视图切换
+    private TabLayout mTabLayout;
+
+    //侧边栏按钮
+    private Button mBtnEnableVirtualStick;
+    private Button mBtnDisableVirtualStick;
+    private Button mBtnPhoto;
+    private Button mBtnDownload;
+    private Button mBtnWaypoint;
+    private NavigationView navView;
+    private ToggleButton mBtnSimulator;
+
+    //手动控制
+    private Button mFlightControlTab;
     //endregion
 
     //region 语音识别的数据结构
@@ -194,8 +249,10 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     //endregion
 
     //region 地图数据结构
-    // Map
-    private View mMapView;
+    // Mapui
+    private MapView mMapView;
+    //高德地图API
+    private AMap aMap;
     private LatLng mDroneLocation = new LatLng(0, 0);
     private float mDroneHeading = 0;
     private Marker mDroneMarker = null;
@@ -207,8 +264,18 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     //追踪
     private Button mBtnTracking;
     private boolean mMapTracking_flag = true;
+    //是否添加
+    private boolean isAdd = false;
+    //航点
+    private final Map<Integer, Marker> mMarkers = new ConcurrentHashMap<Integer, Marker>();
+    private Marker droneMarker = null;
+    private List<WaypointV2> waypointList = new ArrayList<>();
+    //endregion
 
-    private PlaceListFragment mPlaceListFragment;
+    //region 航点数据结构
+    private Waypoint mWaypoint;
+    private WaypointV2MissionOperator mMissionOperator;
+    private String mTargetDes;
     //endregion
 
     //region 飞行控制的数据结构
@@ -221,7 +288,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
     //高德地图查询器
     GeocodeSearch geocoderSearch;
-    private AMap aMap;
     private String addressName;
 
     private Timer mSendVirtualStickDataTimer;
@@ -232,6 +298,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private float mYaw;
     private float mThrottle;
     private String mStrIntention;
+    private float droneHeading;
     //消息控制器
     private Handler mHandler;
     private DJISDKManager.SDKManagerCallback mDJISDKManagerCallback;
@@ -245,6 +312,41 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private double mvs;
     private double mhs;
     private double mdistToHome;
+
+    //手动控制标志
+    private boolean iscontrol;
+    //endregion
+
+    //region 视频流RTSP数据结构
+    private RtspServer rtspServer;
+    private static final int RTSP_PORT = 5000;
+
+    //TEST
+//    private MediaProjectionManager projectionManager;
+//    private RtspServerDisplay rtspServerDisplay;
+//    private static final int REQUEST_CODE_SCREEN_CAPTURE = 100;
+    //endregion
+
+    //region chatgpt UI数据结构
+    private RecyclerView mRvChatList;
+    private EditText mEtQuestion;
+    private ChatListAdapter mListAdapter;
+    public OkHttpClient client;
+    private Button mSendBtn;
+
+    /**
+     * 聊天信息数据
+     */
+    private IChatMessageData mChatMessageData;
+    /**
+     * JSON类型的上下文聊天数据
+     */
+    private IJSONMessage mJSONMessage;
+
+    // 用于保存当前待确认的任务信息
+    private String pendingCommand;
+    private String pendingEncodedString;
+    private String pendingTarget;
     //endregion
 
     //region 生命周期
@@ -256,10 +358,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mHandler = new Handler(Looper.getMainLooper());
 
         //初始化DJISDK
-        /**
-         * When starting SDK services, an instance of interface DJISDKManager.DJISDKManagerCallback will be used to listen to
-         * the SDK Registration result and the product changing.
-         */
         mDJISDKManagerCallback = new DJISDKManager.SDKManagerCallback() {
 
             //Listens to the SDK registration result
@@ -347,20 +445,89 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         //检查手机权限
         checkAndRequestPermissions();
 
+        //初始化RTSP推流
+        rtspServer = new RtspServer(connectCheckerRtsp, RTSP_PORT);
+
+        //初始化FPV推流
+        mContext = this;
+        fpvTexture = new TextureView(mContext);
+//        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
+        fpvTexture.setSurfaceTextureListener(new BaseRtspFpvView(mContext,rtspServer));
+
         //语音识别初始化
         SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
 
         //加载XML文件
-        setContentView(R.layout.activity_control);
+        setContentView(R.layout.activity_fpvwaypoint);
+//        projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+//        rtspServerDisplay = new RtspServerDisplay(FPVActivity.this,true,connectCheckerRtsp,RTSP_PORT);
+//        Intent serviceIntent = new Intent(this, MediaProjectionService.class);
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//            startForegroundService(serviceIntent);
+//        } else {
+//            startService(serviceIntent);
+//        }
 
         // 使用SpeechRecognizer对象，可根据回调消息自定义界面；
+
+        //初始化UI听写dialog
         mIat = SpeechRecognizer.createRecognizer(this, mInitListener);
 
         // 初始化听写Dialog
         mIatDialog = new RecognizerDialog(ControlActivity.this, mInitListener);
 
-        //初始化UI按钮实例化
-        initUI();
+        //初始化地图
+        mMapView = findViewById(R.id.map);
+        mMapView.onCreate(savedInstanceState);
+
+        // 将 TextureView 添加到容器中
+        FrameLayout fpvContainer = findViewById(R.id.fpv_container);
+        fpvContainer.addView(fpvTexture);
+
+        // 设置 TabLayout 切换监听
+        mTabLayout = (TabLayout) findViewById(R.id.tab_layout);
+        mTabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                switch (tab.getPosition()) {
+                    case 0: // 地图视图
+                        mMapView.setVisibility(View.VISIBLE);
+                        fpvTexture.setVisibility(View.GONE);
+                        break;
+                    case 1: // FPV 视图
+                        mMapView.setVisibility(View.GONE);
+                        fpvTexture.setVisibility(View.VISIBLE);
+                        break;
+                }
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+                // 可选：添加取消选择时的逻辑
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+                // 可选：添加重新选择时的逻辑
+            }
+        });
+
+        // 添加 Tab 项
+        mTabLayout.addTab(mTabLayout.newTab().setText("地图视图"));
+        mTabLayout.addTab(mTabLayout.newTab().setText("FPV视图"));
+
+        //初始地理查询器
+        ServiceSettings.updatePrivacyShow(this,true,true);
+        ServiceSettings.updatePrivacyAgree(this,true);
+        try {
+            geocoderSearch = new GeocodeSearch(this);
+        } catch (AMapException e) {
+            throw new RuntimeException(e);
+        }
+
+        //初始化航点操作类
+        mWaypoint = new Waypoint(ControlActivity.this);
+        mMissionOperator = mWaypoint.getWaypointMissionOperator(mMissionOperator);
 
         //实例化命令分类器
         cc1 = new CommandClassifier();
@@ -370,15 +537,16 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
         //初始化无人机
         initDrone();
-//        //初始化查询器
-//        try {
-//            geocoderSearch = new GeocodeSearch(this);
-//        } catch (AMapException e) {
-//            throw new RuntimeException(e);
-//        }
-//        geocoderSearch.setOnGeocodeSearchListener(this);
 
+        //初始化chatgpt
+        mRvChatList = (RecyclerView) findViewById(R.id.rv_chatlist);
+        mEtQuestion = (EditText) findViewById(R.id.dialog_Text);
+        mChatMessageData = ChatMessageData.getInstance();
+        mJSONMessage = JSONMessage.getInstance();
+        initAdpater();
 
+        //初始化UI事件
+        initUI();
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -444,97 +612,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     public void onClick(View v) {
 
         switch (v.getId()) {
-            case R.id.btn_enable_virtual_stick:
-                if (mFlightController != null){
-
-                    mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError djiError) {
-                            if (djiError != null){
-                                showToast(djiError.getDescription());
-                            }else
-                            {
-                                showToast("Enable Virtual Stick Success");
-                            }
-                        }
-                    });
-
-                }
-                break;
-
-            case R.id.btn_disable_virtual_stick:
-                if (mFlightController != null){
-                    mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError djiError) {
-                            if (djiError != null) {
-                                showToast(djiError.getDescription());
-                            } else {
-                                showToast("Disable Virtual Stick Success");
-                            }
-                        }
-                    });
-                }
-                break;
-
-            case R.id.btn_take_off:
-                if (mFlightController != null){
-                    mFlightController.startTakeoff(
-                            new CommonCallbacks.CompletionCallback() {
-                                @Override
-                                public void onResult(DJIError djiError) {
-                                    if (djiError != null) {
-                                        showToast(djiError.getDescription());
-                                    } else {
-                                        showToast("Take off Success");
-                                    }
-                                }
-                            }
-                    );
-                }
-                break;
-
-            case R.id.btn_land:
-                if (mFlightController != null){
-
-                    mFlightController.startLanding(
-                            djiError -> {
-                                if (djiError != null) {
-                                    showToast(djiError.getDescription());
-                                } else {
-                                    showToast("Start Landing");
-                                }
-                            }
-                    );
-
-                }
-                break;
-
-            case R.id.sub_btn:
-                //获取命令行的文字
-                mStrIntention = mCMD.getText().toString();
-                // 令牌化命令
-                StringTokenizer st = new StringTokenizer(mStrIntention);
-                ArrayList<String> tokenedCommand = new ArrayList<>();
-                while (st.hasMoreTokens()) {
-                    tokenedCommand.add(st.nextToken());
-                }
-                mStrIntention = TextUtils.join(" ", tokenedCommand);
-                // 执行命令分类任务
-                ClassificationTask cft = new ClassificationTask(ControlActivity.this);
-                cft.execute(tokenedCommand);
-                break;
-            case R.id.btn_photo:
-                Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
-                v.getContext().startActivity(intent2);
-                break;
-            case R.id.btn_to_download:
-                Intent intent3 = new Intent(v.getContext(), DownloadActivity.class);
-                v.getContext().startActivity(intent3);
-                break;
-            case R.id.btn_waypoint:
-                Intent intent4 = new Intent(v.getContext(), Waypoint2Activity.class);
-                v.getContext().startActivity(intent4);
+            case R.id.locate:
+                updateDroneLocation();
+                cameraUpdate(); // Locate the drone's place
                 break;
             case R.id.btn_control_recognize:
                 buffer.setLength(0);//长度清空
@@ -573,9 +653,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 mIat.cancel();
                 showToast("取消听写");
                 break;
-            case R.id.btn_to_fpv:
-                Intent intent5 = new Intent(v.getContext(), FPVActivity.class);
-                v.getContext().startActivity(intent5);
+            case R.id.send_btn:
+                sendQuestion();
+                break;
             default:
                 break;
         }
@@ -588,14 +668,32 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
     @Override
     public void onDialogMessage(boolean message) {
-        if (message) {
-            writeRecogRecord(true, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
-//            showFpvToast("Start executing command");
-            //预处理命令
-            preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
-        } else {
-            writeRecogRecord(false, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
-            showToast("Command cancelled");
+        if(iscommond){
+            if (message) {
+                writeRecogRecord(true, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
+                //预处理命令
+//                preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
+                addChatMessage(Constant.OWNER_HUMAN,"确认执行");
+                handleUserResponse("确认执行");
+                iscommond = false;
+            } else {
+                writeRecogRecord(false, mStrIntention, cc1.getEncodedString().toString(), cc1.getCommand());
+                addChatMessage(Constant.OWNER_HUMAN,"取消执行");
+                handleUserResponse("取消执行");
+                showToast("Command cancelled");
+                iscommond = false;
+            }
+        }
+        else if (iswaypoint){
+            if (message) {
+                addChatMessage(Constant.OWNER_HUMAN,"继续添加");
+                showToast("继续添加");
+                iswaypoint = false;
+            } else {
+                addChatMessage(Constant.OWNER_HUMAN,"添加完成");
+                showToast("添加完成");
+                iswaypoint = false;
+            }
         }
     }
 
@@ -616,7 +714,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                     missingPermission.toArray(new String[missingPermission.size()]),
                     REQUEST_PERMISSION_CODE);
         }
-
     }
 
     /**
@@ -780,26 +877,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     /**
-     * 语言切换按钮监听器
-     */
-    private void lanBtnListener() {
-        mBtnLanguage.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (languageType) {
-                    languageType = false;
-                    language = "zh_cn";
-                    mBtnLanguage.setText("中文");
-                } else {
-                    languageType = true;
-                    language = "en_us";
-                    mBtnLanguage.setText("英文");
-                }
-            }
-        });
-    }
-
-    /**
      * 登录账户
      */
     private void loginAccount(){
@@ -850,9 +927,14 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                             String positionY = String.format("%.2f", stateData.getPositionY());
                             String positionZ = String.format("%.2f", stateData.getPositionZ());
 
-                            mTextView.setText("Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", PosX : " + positionX +
-                                    ", PosY : " + positionY +
-                                    ", PosZ : " + positionZ);
+                            try {
+                                addChatMessage(Constant.OWNER_BOT, "Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", X坐标 : " + positionX +
+                                        ", Y坐标 : " + positionY +
+                                        ", Z坐标 : " + positionZ);
+                            }
+                            catch (Exception e){
+                                addChatMessage(Constant.OWNER_BOT, "现在未连接无人机");
+                            }
                         }
                     });
                 }
@@ -865,18 +947,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
      */
     private void initUI() {
 
-        mBtnEnableVirtualStick = (Button) findViewById(R.id.btn_enable_virtual_stick);
-        mBtnDisableVirtualStick = (Button) findViewById(R.id.btn_disable_virtual_stick);
-        mBtnTakeOff = (Button) findViewById(R.id.btn_take_off);
-        mBtnLand = (Button) findViewById(R.id.btn_land);
-        mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
         mTextView = (TextView) findViewById(R.id.textview_simulator);
-        mBtnSub = (Button) findViewById(R.id.sub_btn);
-        mCMD = (EditText) findViewById(R.id.cmd_input);
-        mBtnPhoto = (Button) findViewById(R.id.btn_photo);
-        mBtnDownload = (Button) findViewById(R.id.btn_to_download);
-        mBtnWaypoint = (Button) findViewById(R.id.btn_waypoint);
-        mBtnLanguage = (Button) findViewById(R.id.sub_lan);
         mBtnLanguage2 = (Button) findViewById(R.id.btn_control_lan);
         mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
         mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
@@ -888,30 +959,152 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         mDistance = (TextView) findViewById(R.id.Distance);
         mHorSpeed = (TextView) findViewById(R.id.HorizonSpeed);
         mContext = ControlActivity.this;
+        mSendBtn = (Button) findViewById(R.id.send_btn);
+        navView = (NavigationView) findViewById(R.id.nav_view);
+        mBtnEnableVirtualStick = (Button) navView.findViewById(R.id.btn_enable_virtual_stick);
+        mBtnDisableVirtualStick = (Button) navView.findViewById(R.id.btn_disable_virtual_stick);
+        mBtnPhoto = (Button) navView.findViewById(R.id.btn_photo);
+        mBtnDownload = (Button) navView.findViewById(R.id.btn_to_download);
+        mBtnWaypoint = (Button) navView.findViewById(R.id.btn_waypoint);
+        drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        mFlightControlTab = (Button) findViewById(R.id.Flight_control_tab);
+        RelativeLayout mRlSend = (RelativeLayout) findViewById(R.id.rl_send);
+        // 获取帮助按钮
+        Button helpButton = findViewById(R.id.help_Btn);
+        Button openDrawerButton = findViewById(R.id.btn_open_drawer);
+        mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
 
-        mBtnEnableVirtualStick.setOnClickListener(this);
-        mBtnDisableVirtualStick.setOnClickListener(this);
-        mBtnTakeOff.setOnClickListener(this);
-        mBtnLand.setOnClickListener(this);
-        mBtnSub.setOnClickListener(this);
-        mBtnPhoto.setOnClickListener(this);
-        mBtnDownload.setOnClickListener(this);
-        mBtnWaypoint.setOnClickListener(this);
 
+        // 设置点击事件
+        openDrawerButton.setOnClickListener(v -> openDrawer());
+        mBtnEnableVirtualStick.setOnClickListener(v -> {
+            // 处理 Home 按钮点击逻辑
+            if (mFlightController != null){
+
+                mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onResult(DJIError djiError) {
+                        if (djiError != null){
+                            showToast(djiError.getDescription());
+                        }else
+                        {
+                            showToast("Enable Virtual Stick Success");
+                        }
+                    }
+                });
+
+            }
+            drawerLayout.closeDrawer(GravityCompat.START);
+        });
+        mBtnDisableVirtualStick.setOnClickListener(v -> {
+            if (mFlightController != null){
+                mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onResult(DJIError djiError) {
+                        if (djiError != null) {
+                            showToast(djiError.getDescription());
+                        } else {
+                            showToast("Disable Virtual Stick Success");
+                        }
+                    }
+                });
+            }
+            drawerLayout.closeDrawer(GravityCompat.START);
+        });
+        mBtnPhoto.setOnClickListener(v -> {
+            Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
+            v.getContext().startActivity(intent2);
+            drawerLayout.closeDrawer(GravityCompat.START);
+        });
+        mBtnDownload.setOnClickListener(v -> {
+            Intent intent3 = new Intent(v.getContext(), DownloadActivity.class);
+            v.getContext().startActivity(intent3);
+            drawerLayout.closeDrawer(GravityCompat.START);
+        });
+        mBtnWaypoint.setOnClickListener(v -> {
+            Intent intent4 = new Intent(v.getContext(), Waypoint2Activity.class);
+            v.getContext().startActivity(intent4);
+            drawerLayout.closeDrawer(GravityCompat.START);
+        });
+        mFlightControlTab.setOnClickListener(v -> {
+            if(iscontrol){
+                mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
+                mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
+                mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
+
+                    @Override
+                    public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
+                        if(Math.abs(pX) < 0.02 ){
+                            pX = 0;
+                        }
+
+                        if(Math.abs(pY) < 0.02 ){
+                            pY = 0;
+                        }
+
+                        float pitchJoyControlMaxSpeed = 10;
+                        float rollJoyControlMaxSpeed = 10;
+
+                        mPitch = (float)(pitchJoyControlMaxSpeed * pX);
+
+                        mRoll = (float)(rollJoyControlMaxSpeed * pY);
+
+                        if (null == mSendVirtualStickDataTimer) {
+                            mSendVirtualStickDataTask = new SendVirtualStickDataTask();
+                            mSendVirtualStickDataTimer = new Timer();
+                            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 100, 200);
+                        }
+
+                    }
+
+                });
+                mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
+
+                    @Override
+                    public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
+                        if(Math.abs(pX) < 0.02 ){
+                            pX = 0;
+                        }
+
+                        if(Math.abs(pY) < 0.02 ){
+                            pY = 0;
+                        }
+                        float verticalJoyControlMaxSpeed = 2;
+                        float yawJoyControlMaxSpeed = 30;
+
+                        mYaw = (float)(yawJoyControlMaxSpeed * pX);
+                        mThrottle = (float)(verticalJoyControlMaxSpeed * pY);
+
+                        if (null == mSendVirtualStickDataTimer) {
+                            mSendVirtualStickDataTask = new SendVirtualStickDataTask();
+                            mSendVirtualStickDataTimer = new Timer();
+                            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
+                        }
+
+                    }
+                });
+                mScreenJoystickRight.setVisibility(View.VISIBLE);
+                mScreenJoystickLeft.setVisibility(View.VISIBLE);
+                mRlSend.setVisibility(View.GONE);
+                mFlightControlTab.setText("手动控制");
+            }
+            else{
+                mScreenJoystickRight.setVisibility(View.GONE);
+                mScreenJoystickLeft.setVisibility(View.GONE);
+                mRlSend.setVisibility(View.VISIBLE);
+                mFlightControlTab.setText("语音控制");
+            }
+            iscontrol = !iscontrol;
+        });
+        helpButton.setOnClickListener(v -> showHelpDialog());
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
-        findViewById(R.id.btn_control_stop).setOnClickListener(this);
-        findViewById(R.id.btn_control_cancel).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
-        findViewById(R.id.btn_to_fpv).setOnClickListener(this);
-
-
+        mSendBtn.setOnClickListener(this);
         mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
-
-                    mTextView.setVisibility(View.VISIBLE);
 
                     if (mFlightController != null) {
 
@@ -932,7 +1125,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
                 } else {
 
-                    mTextView.setVisibility(View.INVISIBLE);
 
                     if (mFlightController != null) {
                         mFlightController.getSimulator()
@@ -952,7 +1144,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 }
             }
         });
-
+        // 虚拟摇杆设置事件
         mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
 
             @Override
@@ -981,7 +1173,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             }
 
         });
-
         mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
 
             @Override
@@ -1007,31 +1198,126 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
             }
         });
-
-        lanBtnListener();
         lanBtnListener2();
+        //高德地图初始化
+        if (aMap == null) {
+            aMap = mMapView.getMap();
+            aMap.setOnMapClickListener(ControlActivity.this);// add the listener for click for amap object
+        }
+        aMap.moveCamera(CameraUpdateFactory.zoomTo(18));
+
+        //设置可视化
+        mScreenJoystickRight.setVisibility(View.GONE);
+        mScreenJoystickLeft.setVisibility(View.GONE);
+        mRlSend.setVisibility(View.VISIBLE);
     }
 
-    /**
-     * 语言切换按钮监听器
-     */
-    private void lanBtnListener2() {
-        mBtnLanguage2.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (languageType) {
-                    languageType = false;
-                    language = "zh_cn";
-                    mBtnLanguage2.setText("中文");
-                } else {
-                    languageType = true;
-                    language = "en_us";
-                    mBtnLanguage2.setText("英文");
-                }
-                mIat.setParameter(SpeechConstant.LANGUAGE, language);
-            }
-        });
+    // 打开侧边栏的方法
+    public void openDrawer() {
+        if (drawerLayout != null) {
+            drawerLayout.openDrawer(GravityCompat.START);
+        }
     }
+
+    //endregion
+
+    //region RTSP连接回调函数
+    private final ConnectCheckerRtsp connectCheckerRtsp = new ConnectCheckerRtsp() {
+        @Override
+        public void onNewBitrateRtsp(long bitrate) {
+            // 可以添加逻辑处理码率
+        }
+
+        @Override
+        public void onConnectionSuccessRtsp() {
+            runOnUiThread(() -> Toast.makeText(
+                    ControlActivity.this,
+                    "Connection success",
+                    Toast.LENGTH_LONG
+            ).show());
+        }
+
+        @Override
+        public void onConnectionFailedRtsp(String reason) {
+            runOnUiThread(() -> {
+                Toast.makeText(
+                        ControlActivity.this,
+                        "Connection failed. " + reason,
+                        Toast.LENGTH_LONG
+                ).show();
+                rtspServer.stopServer();
+//                rtspServerDisplay.stopStream();
+            });
+        }
+
+        @Override
+        public void onConnectionStartedRtsp(String rtspUrl) {
+            // 可以添加逻辑处理连接启动
+        }
+
+        @Override
+        public void onDisconnectRtsp() {
+            runOnUiThread(() -> Toast.makeText(
+                    ControlActivity.this,
+                    "Disconnected",
+                    Toast.LENGTH_LONG
+            ).show());
+        }
+
+        @Override
+        public void onAuthErrorRtsp() {
+            runOnUiThread(() -> {
+                Toast.makeText(
+                        ControlActivity.this,
+                        "Auth error",
+                        Toast.LENGTH_LONG
+                ).show();
+                rtspServer.stopServer();
+//                rtspServerDisplay.stopStream();
+            });
+        }
+
+        @Override
+        public void onAuthSuccessRtsp() {
+            runOnUiThread(() -> Toast.makeText(
+                    ControlActivity.this,
+                    "Auth success",
+                    Toast.LENGTH_LONG
+            ).show());
+        }
+    };
+
+//    //TEST
+//    private void requestProjectionPermission() {
+//        Intent captureIntent = projectionManager.createScreenCaptureIntent();
+//        startActivityForResult(captureIntent, REQUEST_CODE_SCREEN_CAPTURE);
+//    }
+
+//    @Override
+//    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+//        super.onActivityResult(requestCode, resultCode, data);
+//        if (requestCode == REQUEST_CODE_SCREEN_CAPTURE && resultCode == RESULT_OK && data != null) {
+//            // 设置屏幕捕获权限到 RtspServerDisplay
+//            rtspServerDisplay.setProjectionResult(resultCode, data);
+//
+//            if (/*rtspServerCamera1.prepareAudio() && */
+//                    rtspServerDisplay.prepareVideo(
+//                            640,
+//                            480,
+//                            30,
+//                            1200 * 1024,
+//                            0,
+//                            320
+//                            )
+//                        ){
+//                // 启动流媒体推流
+//                rtspServerDisplay.startStream();
+//            }
+//        } else {
+//            Log.e("RTSP", "Screen capture permission denied.");
+//        }
+//    }
+
     //endregion
 
     //region 科大讯飞监视器
@@ -1088,7 +1374,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             // Change arraylist to string
             mStrIntention = TextUtils.join(" ", tokenedCommand);
             // Execute NLC
-            new ClassificationTask(ControlActivity.this).execute(tokenedCommand);
+            new ControlActivity.ClassificationTask(ControlActivity.this).execute(tokenedCommand);
         }
 
         @Override
@@ -1173,10 +1459,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
             builder.setPositiveButton("确定", (dialog, which) -> {
                 isDialogActive = false;
                 String confirmedResult = editText.getText().toString();
+                mEtQuestion.setText(editText.getText().toString());
                 // TODO: 在这里处理用户确认后的识别结果，例如更新 UI 或发送数据
-                editText.setText(confirmedResult); // 假设将结果显示在 TextView 上
                 Toast.makeText(getApplicationContext(), "结果已确认：" + confirmedResult, Toast.LENGTH_SHORT).show();
-                processConfirmedResult(confirmedResult);
             });
 
             // 设置取消按钮
@@ -1198,28 +1483,6 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
 
 
     };
-    // 处理确认后的结果并执行您的逻辑
-    private void processConfirmedResult(String confirmedResult) {
-        // 将确认结果转换为小写
-        String mStrIntention = confirmedResult.toLowerCase();
-
-        // 使用 StringTokenizer 对结果进行分词
-        StringTokenizer st = new StringTokenizer(mStrIntention);
-        ArrayList<String> tokenedCommand = new ArrayList<>();
-        while (st.hasMoreTokens()) {
-            tokenedCommand.add(st.nextToken());
-        }
-
-        // 如果需要，处理类似 mavic 的单词（这里注释掉了）
-        // tokenedCommand = findMavicSimilar(tokenedCommand);
-
-        // 将 ArrayList 转换为字符串
-        mStrIntention = TextUtils.join(" ", tokenedCommand);
-
-        // 执行分类任务（假设是执行 NLC 的核心逻辑）
-        ClassificationTask cft = new ClassificationTask(ControlActivity.this);
-        cft.execute(tokenedCommand);
-    }
 
     /**
      * 听写参数设置
@@ -1262,6 +1525,27 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                 .create();
         dialog.show();
     }
+
+    /**
+     * 语言切换按钮监听器
+     */
+    private void lanBtnListener2() {
+        mBtnLanguage2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (languageType) {
+                    languageType = false;
+                    language = "zh_cn";
+                    mBtnLanguage2.setBackgroundResource (R.drawable.zh_cn);
+                } else {
+                    languageType = true;
+                    language = "en_us";
+                    mBtnLanguage2.setBackgroundResource(R.drawable.en_us);
+                }
+                mIat.setParameter(SpeechConstant.LANGUAGE, language);
+            }
+        });
+    }
     //endregion
 
     //region 文字分类
@@ -1291,10 +1575,21 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         private String doInBackground(ArrayList... params) {
             String result = null;
             if (params[0].size() != 0) {
+                cc1.google_map_search_string = null;
                 // call WatsonCommandClassifier to classify into 利用分类器进行命令的编码
                 cc1.classify(params[0],language);
                 // show execution confirmation dialog fragment 确定窗口 并执行回调函数，如果确定，那么就进行任务执行
-                showDialog(findViewById(android.R.id.content));
+
+                if(cc1.getGoogleMapSearchString()!=null){
+                    GetPlace(cc1.getGoogleMapSearchString());
+                }
+                else{
+                    iscommond = true;
+                    pendingEncodedString = cc1.getEncodedString().toString();
+                    pendingCommand = cc1.getCommand();
+                    showBaseDialog(findViewById(android.R.id.content));
+//                    sendCommandConfirmationToChatBot(cc1.getEncodedString().toString(), cc1.getCommand());
+                }
 
                 result = "Did classify";
             } else {
@@ -1315,8 +1610,8 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     private ArrayList<Integer> mEncodedStr;
     private void preCheck(ArrayList<Integer> encoded_string, String google_map_string) {
         // 如果有地图点跟踪任务
-        if (encoded_string.get(0) == 107) {
-            searchPlace(google_map_string);
+        if (encoded_string.get(0) == 110) {
+            getPlaceCoordinates(mTargetLocation);
         } else {
             callExecution(encoded_string);
         }
@@ -1333,30 +1628,84 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     /**
-     * Confirmation box 确认窗口
+     * Confirmation box 确认命令窗口
      */
-    public void showDialog(View v) {
+    public void showBaseDialog(View v) {
         // create FragmentManager and CommandConfirmationDialogFragment
         FragmentManager manager = getSupportFragmentManager();
-        CommandConfirmationDialogFragment myDialogFragment = new CommandConfirmationDialogFragment();
+        CommandConfirmationDialogFragment myDialogFragment1 = new CommandConfirmationDialogFragment();
         // send encoded_string and command into pop up window
         Bundle bundle = new Bundle();
 
         bundle.putString("encoded_string", cc1.getEncodedString().toString());
         bundle.putString("command", cc1.getCommand());
-        myDialogFragment.setArguments(bundle);
+        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + cc1.getCommand() + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
+        myDialogFragment1.setArguments(bundle);
         // show pop up window
         Log.d(TAG, "Showing dialog...");
-        if (manager.findFragmentByTag("MyDialogFragment") == null) {
-            runOnUiThread(() -> myDialogFragment.show(manager, "MyDialogFragment"));
+        if (manager.findFragmentByTag("MyDialogFragment1") == null) {
+            runOnUiThread(() -> myDialogFragment1.show(manager, "MyDialogFragment1"));
         }
     }
+
+    /**
+     * Confirmation box 确认地点窗口
+     */
+    public void showPlaceDialog(View v) {
+        // create FragmentManager and CommandConfirmationDialogFragment
+        FragmentManager manager = getSupportFragmentManager();
+        CommandConfirmationDialogFragment myDialogFragment2 = new CommandConfirmationDialogFragment();
+        // send encoded_string and command into pop up window
+        Bundle bundle = new Bundle();
+
+        Log.d(TAG, "mTargetDes: " + mTargetDes);
+        Log.d(TAG, "Command: " + (cc1 != null ? cc1.getCommand() : "cc1 is null"));
+
+        addChatMessage(Constant.OWNER_BOT, "是否添加以下目标点" + mTargetDes + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
+
+        bundle.putString("encoded_string", cc1.getEncodedString().toString());
+        bundle.putString("command", mTargetDes);
+        myDialogFragment2.setArguments(bundle);
+        // show pop up window
+        Log.d(TAG, "Showing dialog...");
+        if (manager.findFragmentByTag("MyDialogFragment2") == null) {
+            runOnUiThread(() -> myDialogFragment2.show(manager, "MyDialogFragment2"));
+        }
+    }
+
+    /**
+     * Confirmation box 确认任务窗口
+     */
+    public void showTaskDialog(View v) {
+        // create FragmentManager and CommandConfirmationDialogFragment
+        FragmentManager manager = getSupportFragmentManager();
+        CommandConfirmationDialogFragment myDialogFragment3 = new CommandConfirmationDialogFragment();
+        // send encoded_string and command into pop up window
+        Bundle bundle = new Bundle();
+
+        Log.d(TAG, "mTargetDes: " + mTargetDes);
+        Log.d(TAG, "Command: " + (cc1 != null ? cc1.getCommand() : "cc1 is null"));
+        if(mMissionOperator!=null){
+            bundle.putString("encoded_string", "现在航点数量"+ mWaypoint.getWaypointCount(mMissionOperator));
+            bundle.putString("command", "是否继续添加航点");
+        }
+        addChatMessage(Constant.OWNER_BOT, "是否继续添加目标点" + mTargetDes + "\n如果确认，请回复“继续添加”；如果取消，请回复“添加完成”。");
+        bundle.putString("encoded_string", "现在航点数量");
+        bundle.putString("command", "是否继续添加航点");
+        myDialogFragment3.setArguments(bundle);
+        // show pop up window
+        Log.d(TAG, "Showing dialog...");
+        if (manager.findFragmentByTag("MyDialogFragment3") == null) {
+            runOnUiThread(() -> myDialogFragment3.show(manager, "MyDialogFragment3"));
+        }
+    }
+
     //endregion
 
     //region 飞行控制器
 
     /**
-    * 初始化无人机
+     * 初始化无人机
      */
     private void initDrone() {
         mCI.initFlightController();
@@ -1380,8 +1729,10 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                     mhs = Math.sqrt(flightControllerState.getVelocityX() * flightControllerState.getVelocityX()
                             + flightControllerState.getVelocityY() * flightControllerState.getVelocityY());
                     mvs = -1 * flightControllerState.getVelocityZ();
+                    droneHeading = flightControllerState.getAircraftHeadDirection();
                     mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
                     updateFlightData();
+                    updateDroneLocation();
                 }
             });
 
@@ -1422,7 +1773,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
                     if (aircraft.getRemoteController() != null && aircraft.getRemoteController().isConnected()) {
                         // The product is not connected, but the remote controller is connected
                         runOnUiThread(() ->
-                            showToast("only RC Connected")
+                                showToast("only RC Connected")
                         );
 //                        ret = true;
                     }
@@ -1447,8 +1798,9 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         }
     };
 
+
     /**
-     * Update drone's distance, altitude, vertical speed, and horizontal speed 更新无人机的距离，经纬度，竖直速度，水平速度
+     * 更新无人机的距离，经纬度，竖直速度，水平速度
      */
     private void updateFlightData() {
         this.runOnUiThread(new Runnable() {
@@ -1463,7 +1815,7 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     }
 
     /**
-     * Update battery level 更新电池状态
+     * 更新电池状态
      */
     private void updateBatteryStatus() {
         this.runOnUiThread(new Runnable() {
@@ -1489,11 +1841,11 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         }
         if (success) {
             runOnUiThread(() ->
-                showToast("Instruction Sent")
+                    showToast("Instruction Sent")
             );
         } else {
             runOnUiThread(() ->
-                showToast("Flight Control Error")
+                    showToast("Flight Control Error")
             );
         }
     }
@@ -1521,105 +1873,130 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
     //endregion
 
     //region 在地图搜索指定目标点并存储在mTargetLocation
-    /**
-     * Search for place and sort the result by distance to the drone
-     */
-    private List<Address> addressList = null;
-    private LatLng[] locList;
-    private boolean addressList_flag = true;
 
-    public void searchPlace(String locationName) {
-        Geocoder mGeocoder = new Geocoder(mContext);
-        int maxResults = 20;
-        double lowerLeftLatitude = mDroneLocation.latitude - 0.05;
-        double lowerLeftLongitude = mDroneLocation.longitude - 0.05;
-        double upperRightLatitude = mDroneLocation.latitude + 0.05;
-        double upperRightLongitude = mDroneLocation.longitude + 0.05;
-//        double lowerLeftLatitude = mUserLocation.latitude - 0.05;
-//        double lowerLeftLongitude = mUserLocation.longitude - 0.05;
-//        double upperRightLatitude = mUserLocation.latitude + 0.05;
-//        double upperRightLongitude = mUserLocation.longitude + 0.05;
-        try {
-            addressList = mGeocoder.getFromLocationName(locationName, maxResults, lowerLeftLatitude, lowerLeftLongitude, upperRightLatitude, upperRightLongitude);
-        } catch (IOException e) {
-            Log.e(TAG, e.toString());
-            addressList_flag = false;
-        }
-        if (addressList_flag && addressList.size() != 0) {
-            Bundle args = new Bundle();
-            String[] places = new String[addressList.size()];
-            double[] dist = new double[addressList.size()];
-            LatLng[] cdArray = new LatLng[addressList.size()];
-            for (int i = 0; i < addressList.size(); i++) {
-                String sb = "";
-                for (int k = 0; k < addressList.get(i).getMaxAddressLineIndex(); k++) {
-                    sb += addressList.get(i).getAddressLine(k);
-                    sb += "; ";
+    /**
+     * 更新无人机在地图上的标记
+     */
+    private void updateDroneLocation() {
+
+        LatLng pos = new LatLng(mDroneLocation.latitude, mDroneLocation.longitude);
+        //Create MarkerOptions object
+        final MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(pos);
+        markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.aircraft));
+        markerOptions.anchor(0.5f, 0.618f);
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (droneMarker != null) {
+                    droneMarker.remove();
                 }
-                double lat = addressList.get(i).getLatitude();
-                double lon = addressList.get(i).getLongitude();
-                LatLng currentCd = new LatLng(lat, lon);
-                double distance = Utils.calcDistance(mDroneLocation.latitude, mDroneLocation.longitude, lat, lon);
-                sb += new DecimalFormat("####").format(distance) + "m";
-                places[i] = sb;
-                dist[i] = distance;
-                cdArray[i] = currentCd;
-                for (int j = i - 1; j >= 0; j--) {
-                    if (dist[j + 1] < dist[j]) {
-                        double t1 = dist[j];
-                        String t2 = places[j];
-                        LatLng t3 = cdArray[j];
-                        dist[j] = dist[j + 1];
-                        places[j] = places[j + 1];
-                        cdArray[j] = cdArray[j + 1];
-                        dist[j + 1] = t1;
-                        places[j + 1] = t2;
-                        cdArray[j + 1] = t3;
-                    }
+
+                if (checkGpsCoordination(mDroneLocation.latitude, mDroneLocation.longitude)) {
+                    droneMarker = aMap.addMarker(markerOptions);
+                    droneMarker.setRotateAngle(droneHeading * -1.0f);
                 }
             }
-            locList = cdArray;
-            args.putStringArray("places", places);
-            mPlaceListFragment = new PlaceListFragment();
-            mPlaceListFragment.setArguments(args);
-            Log.e(TAG, mPlaceListFragment.getArguments().toString());
-            getSupportFragmentManager().beginTransaction().add(R.id.main_layout, mPlaceListFragment).commit();
+        });
+    }
+
+    /**
+     * 检查坐标是否合理
+     * @param latitude
+     * @param longitude
+     * @return
+     */
+    public static boolean checkGpsCoordination(double latitude, double longitude) {
+        return (latitude > -90 && latitude < 90 && longitude > -180 && longitude < 180) && (latitude != 0f && longitude != 0f);
+    }
+
+    /**
+     * 更新地图上的无人机位置，并鹰眼放大
+     */
+    private void cameraUpdate() {
+        LatLng pos = new LatLng(mDroneLocation.latitude, mDroneLocation.longitude);
+        float zoomlevel = (float) 18.0;
+        CameraUpdate cu = CameraUpdateFactory.newLatLngZoom(pos, zoomlevel);
+        aMap.moveCamera(cu);
+
+    }
+
+    /**
+     * 点击地图事件重写
+     * @param point
+     */
+    @Override
+    public void onMapClick(LatLng point) {
+        if (isAdd == true) {
+            markWaypoint(point);
         } else {
-            showToast("No result available");
-            Log.e(TAG, "No result available");
-            addressList_flag = true;
+            showToast("Cannot Add Waypoint");
         }
     }
 
     /**
-     * Get a specific place's coordinates, encode it, and call (fly to) execution
+     * 根据点数据在地图上标记航点
+     * @param point
      */
-    public void getPlaceCoordinates(int index) {
-        getSupportFragmentManager().beginTransaction().remove(mPlaceListFragment).commit();
-        double lat = locList[index].latitude;
-        double lon = locList[index].longitude;
-        LatLng targetLatLng = new LatLng(lat, lon);
-//        showFpvToast(targetLatLng.toString());
-        addressList = null;
-        locList = null;
+    private void markWaypoint(LatLng point) {
+        //Create MarkerOptions object
+        MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(point);
+        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+        Marker marker = aMap.addMarker(markerOptions);
+        mMarkers.put(mMarkers.size(), marker);
 
-        int latInt = (int) lat;
-        int latDeci = (int) ((lat - latInt) * 100000);
-        int lonInt = (int) lon;
-        int lonDeci = (int) ((lon - lonInt) * 100000);
-
-        ArrayList<Integer> temp = cc1.getEncodedString();
-        temp.add(latInt);
-        temp.add(latDeci);
-        temp.add(lonInt);
-        temp.add(lonDeci);
-
-//        showFpvToast(temp.toString());
-
-        callExecution(temp);
     }
 
+    /**
+     * 根据地名获取经纬度 核心函数
+     * @param name
+     */
     private void GetPlace(String name){
+        geocoderSearch.setOnGeocodeSearchListener(new GeocodeSearch.OnGeocodeSearchListener() {
+            @Override
+            public void onRegeocodeSearched(RegeocodeResult regeocodeResult, int i) {
+                // 处理逆地理编码结果
+                RegeocodeAddress address = regeocodeResult.getRegeocodeAddress();
+            }
+
+            @Override
+            public void onGeocodeSearched(GeocodeResult result, int rCode) {
+                if (rCode == 1000) {
+                    if (result != null && result.getGeocodeAddressList() != null
+                            && result.getGeocodeAddressList().size() > 0) {
+                        GeocodeAddress address = result.getGeocodeAddressList().get(0);
+                        aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                                AMapUtil.convertToLatLng(address.getLatLonPoint()), 15));
+                        addressName = "经纬度值:" + address.getLatLonPoint() + "\n位置描述:"
+                                + address.getFormatAddress();
+                        mTargetDes = address.getFormatAddress();
+                        mTargetLocation = address.getLatLonPoint();
+
+                        iscommond = true;
+
+                        pendingEncodedString = cc1.getEncodedString().toString();
+                        pendingCommand = cc1.getCommand();
+                        pendingTarget = cc1.getGoogleMapSearchString();
+                        showPlaceDialog(findViewById(android.R.id.content));
+//                        sendCommandConfirmationToChatBot(cc1.getEncodedString().toString(), mTargetDes);
+
+                        ToastUtil.show(ControlActivity.this, addressName);
+                    } else {
+                        ToastUtil.show(ControlActivity.this, R.string.no_result);
+                    }
+
+                } else if (rCode == 27) {
+                    ToastUtil.show(ControlActivity.this, R.string.error_network);
+                } else if (rCode == 32) {
+                    ToastUtil.show(ControlActivity.this, R.string.error_key);
+                } else {
+                    ToastUtil.show(ControlActivity.this,
+                            getString(R.string.error_other) + rCode);
+                }
+            }
+        });
 
         // name表示地址，第二个参数表示查询城市，中文或者中文全拼，citycode、adcode
         GeocodeQuery query = new GeocodeQuery(name, "长沙");
@@ -1627,38 +2004,418 @@ public class ControlActivity extends AppCompatActivity implements View.OnClickLi
         geocoderSearch.getFromLocationNameAsyn(query);
     }
 
-    @Override
-    public void onRegeocodeSearched(RegeocodeResult regeocodeResult, int i) {
+    /**
+     * 获取目标点的经纬度，添加航点，并在地图上标记，并执行航点任务
+     * @param mTargetLocation
+     */
+    public void getPlaceCoordinates(LatLonPoint mTargetLocation){
+        double lat = mTargetLocation.getLatitude();
+        double lon = mTargetLocation.getLongitude();
+        LatLng point = new LatLng(mTargetLocation.getLatitude(),mTargetLocation.getLongitude());
 
+        int latInt = (int) lat;
+        int lonInt = (int) lon;
+
+        mWaypoint.AddWaypoint(latInt,lonInt);
+        markWaypoint(point);
+        if(mMissionOperator!=null){
+            mWaypoint.configWayPointMission(mMissionOperator);
+            mWaypoint.uploadWayPointMission(mMissionOperator);
+        }
+        iswaypoint = true;
+        showTaskDialog(findViewById(android.R.id.content));
     }
 
-    @Override
-    public void onGeocodeSearched(GeocodeResult result, int rCode) {
-        //解析result获取坐标信息
-        if (rCode == 0) {
-            if (result != null && result.getGeocodeAddressList() != null
-                    && result.getGeocodeAddressList().size() > 0) {
-                GeocodeAddress address = result.getGeocodeAddressList().get(0);
-                aMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
-                        AMapUtil.convertToLatLng(address.getLatLonPoint()), 15));
-                addressName = "经纬度值:" + address.getLatLonPoint() + "\n位置描述:"
-                        + address.getFormatAddress();
-                mTargetLocation = address.getLatLonPoint();
-                ToastUtil.show(ControlActivity.this, addressName);
-            } else {
-                ToastUtil.show(ControlActivity.this, R.string.no_result);
+    //endregion
+
+    //region 对话机器人
+    private void initAdpater() {
+        mListAdapter = new ChatListAdapter();
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(mContext);
+        // 从底部加入聊天消息
+        linearLayoutManager.setStackFromEnd(true);
+        mRvChatList.setLayoutManager(linearLayoutManager);
+        mRvChatList.setAdapter(mListAdapter);
+    }
+
+    /**
+     *
+     * @param confirmedResult
+     */
+    private void processCommand(String confirmedResult) {
+        // 将确认结果转换为小写
+        String mStrIntention = confirmedResult.toLowerCase();
+
+        // 使用 StringTokenizer 对结果进行分词
+        StringTokenizer st = new StringTokenizer(mStrIntention);
+        ArrayList<String> tokenedCommand = new ArrayList<>();
+        while (st.hasMoreTokens()) {
+            tokenedCommand.add(st.nextToken());
+        }
+
+        // 如果需要，处理类似 mavic 的单词（这里注释掉了）
+        // tokenedCommand = findMavicSimilar(tokenedCommand);
+
+        // 将 ArrayList 转换为字符串
+        mStrIntention = TextUtils.join(" ", tokenedCommand);
+
+        // 执行分类任务（假设是执行 NLC 的核心逻辑）
+        ControlActivity.ClassificationTask cft = new ControlActivity.ClassificationTask(ControlActivity.this);
+        cft.execute(tokenedCommand);
+    }
+
+    /**
+     * 发送分类后的确认任务消息给用户
+     * @param encodedString
+     * @param command
+     */
+    public void sendCommandConfirmationToChatBot(String encodedString, String command) {
+        this.pendingEncodedString = encodedString;
+        this.pendingCommand = command;
+
+        // 发送确认消息
+        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + command + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
+    }
+
+    /**
+     * 处理用户的回复
+     * @param userResponse
+     */
+    public void handleUserResponse(String userResponse) {
+        if ("确认执行".equalsIgnoreCase(userResponse)) {
+            if(pendingTarget!=null){
+                preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
+                addChatMessage(Constant.OWNER_BOT, "已添加航点目的地：" + pendingTarget);
+            }
+            else{
+                // 用户确认执行任务
+                if (pendingEncodedString != null) {
+                    preCheck(cc1.getEncodedString(), cc1.getGoogleMapSearchString());
+                    addChatMessage(Constant.OWNER_BOT, "任务已开始执行：" + pendingCommand);
+                } else {
+                    addChatMessage(Constant.OWNER_BOT, "任务信息丢失，无法执行。");
+                }
+                // 清除待确认任务信息
+                pendingCommand = null;
+                pendingEncodedString = null;
+            }
+        } else if ("取消执行".equalsIgnoreCase(userResponse)) {
+            // 用户取消执行任务
+            addChatMessage(Constant.OWNER_BOT, "任务已取消：" + pendingCommand);
+            // 清除待确认任务信息
+            pendingCommand = null;
+            pendingEncodedString = null;
+        } else {
+            // 其他无效回复
+            addChatMessage(Constant.OWNER_BOT, "无效的回复，请输入“确认执行”或“取消执行”。");
+        }
+    }
+
+    /**
+     * 发送指令
+     */
+    private void sendQuestion() {
+        String question = mEtQuestion.getText().toString().trim();
+        if (TextUtils.isEmpty(question)) {
+            Toast.makeText(this, "请先输入你的问题", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        mEtQuestion.setText("");
+        // 发送文字到List里
+        addChatMessage(Constant.OWNER_HUMAN, question);
+
+        // 检查是否为用户反馈
+        if (isUserResponse(question)) {
+            handleUserResponse(question);
+        } else {
+            // 如果不是反馈，则按常规指令处理
+            addChatMessage(Constant.OWNER_BOT_THINK, "正在分析问题并自动执行任务中...");
+            handleRobotCommand(question);
+        }
+    }
+
+    /**
+     * 检查用户输入是否为反馈消息
+     * @param input 用户输入
+     * @return 是否为反馈
+     */
+    private boolean isUserResponse(String input) {
+        return input.equalsIgnoreCase("确认执行") || input.equalsIgnoreCase("取消执行");
+    }
+
+    /**
+     * #重要 存储消息，显示消息，播放消息内容，记录上下文
+     *
+     * @param owner
+     * @param question
+     */
+    private void addChatMessage(String owner, String question) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mChatMessageData.addChatMessage(owner, question);
+                mListAdapter.notifyDataSetChanged();
+                mRvChatList.smoothScrollToPosition(mChatMessageData.getSize());
+                if (mChatMessageData.isBot(owner)) {
+                    mJSONMessage.addBotMessage(question); // 记录每次用户的上下文，这样AI就能实现多次对话
+//                    Speech.getInstance().say(question, new TextToSpeechCallback() {
+//                        @Override
+//                        public void onStart() {
+//
+//                        }
+//
+//                        @Override
+//                        public void onCompleted() {
+//
+//                        }
+//
+//                        @Override
+//                        public void onError() {
+//
+//                        }
+//                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * 获取文件格式（扩展名）
+     *
+     * @param file File 对象
+     * @return 文件格式（扩展名），如果没有扩展名则返回 null
+     */
+    public static String getFileFormat(File file) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            return null; // 如果文件无效，返回 null
+        }
+
+        String fileName = file.getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex > 0 && dotIndex < fileName.length() - 1) {
+            return fileName.substring(dotIndex + 1).toLowerCase(); // 返回扩展名
+        } else {
+            return null; // 如果没有扩展名，返回 null
+        }
+    }
+
+    /**
+     * 向服务器诗句语言大模型发送问题
+     * @param question
+     */
+    private void sendQuestionToAPI(String question, File file) {
+
+        MultipartBody.Builder builder = new MultipartBody.Builder();
+        if(getFileFormat(file)=="jpg"){
+            // 创建请求体
+            builder = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
+                    .addFormDataPart("format", "jpg") // 文件格式
+                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("image/jpg"), file)); // 上传文件
+        }
+        else{
+            // 创建请求体
+            builder = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
+                    .addFormDataPart("format", "mp4") // 文件格式
+                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("video/mp4"), file)); // 上传文件
+        }
+
+        // 创建请求
+        RequestBody requestBody = builder.build();
+        Request request = new Request.Builder()
+                .url(AGENT_URL)
+                .post(requestBody)
+                .build();
+
+        // 设置 OkHttp 客户端
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+                addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + e.getMessage());
             }
 
-        } else if (rCode == 27) {
-            ToastUtil.show(ControlActivity.this, R.string.error_network);
-        } else if (rCode == 32) {
-            ToastUtil.show(ControlActivity.this, R.string.error_key);
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        // 将响应体解析为 JSON 对象
+                        String responseBody = response.body().string();
+                        JSONObject jsonResponse = new JSONObject(responseBody);
+
+                        // 提取 'response' 字段内容
+                        String responseMessage = jsonResponse.optString("response", "未找到响应内容");
+
+                        // 将提取的内容显示在对话框中
+                        addChatMessage(Constant.OWNER_BOT, responseMessage.trim());
+                    } catch (JSONException e) {
+                        // JSON 解析失败
+                        addChatMessage(Constant.OWNER_BOT, "响应解析错误：" + e.getMessage());
+                    }
+                } else {
+                    // 请求失败或无响应体
+                    addChatMessage(Constant.OWNER_BOT, "请求失败，错误信息是：" + (response.body() != null ? response.body().string() : "无响应体"));
+                }
+            }
+        });
+    }
+
+    /**
+     * 命令处理
+     */
+    public void handleRobotCommand(String command) {
+        if (command.contains("开始推流")) {
+            handleStartStreaming();
+        } else if (command.contains("停止推流")) {
+            handleStopStreaming();
+        } else if (command.contains("定位")) {
+            handleLocateDrone();
+        } else if (command.contains("执行任务")) {
+            handleExecuteMission();
+        } else if (command.contains("识别")) {
+            handleObjectIdentify();
         } else {
-            ToastUtil.show(ControlActivity.this,
-                    getString(R.string.error_other) + rCode);
+            processCommand(command);
         }
     }
     //endregion
 
+    //region 自动化执行逻辑
+    private void handleStartStreaming() {
+        if (!isStreaming) {
+            try {
+                rtspServer.startServer();
+                isStreaming = true;
+                String rtspUrl = rtspServer.getEndPointConnection();
+                addChatMessage(Constant.OWNER_BOT, "推流已启动，地址为：" + rtspUrl);
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
+            }
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "推流已经在进行中，无需重复启动。");
+        }
+    }
 
+    private void handleStopStreaming() {
+        if (isStreaming) {
+            try {
+                rtspServer.stopServer();
+                isStreaming = false;
+                addChatMessage(Constant.OWNER_BOT, "推流已停止。");
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "推流停止失败，错误信息：" + e.getMessage());
+            }
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "推流尚未启动，无需停止。");
+        }
+    }
+
+    private void handleLocateDrone() {
+        try {
+            updateDroneLocation();
+            cameraUpdate();
+            addChatMessage(Constant.OWNER_BOT, "无人机位置已更新，并定位至地图视图。");
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "定位失败，错误信息：" + e.getMessage());
+        }
+    }
+
+    private void handleExecuteMission() {
+        if (mMissionOperator != null) {
+            try {
+                mWaypoint.startWaypointMission(mMissionOperator);
+                addChatMessage(Constant.OWNER_BOT, "航点任务已启动。");
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "航点任务启动失败，错误信息：" + e.getMessage());
+            }
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "无法启动航点任务，任务操作对象未初始化。");
+        }
+    }
+
+    private void handleObjectIdentify() {
+        // 问题描述
+        String question = "Analyze the vehicles in this image, determine their types, and provide a detailed explanation of the reasoning behind your classification.";
+
+        // 初始化图片文件对象
+        File imageFile = null;
+
+        try {
+            // 从 TextureView 捕获视频流的一帧
+            Bitmap bitmap = fpvTexture.getBitmap();
+            if (bitmap == null) {
+                throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
+            }
+
+            // 保存帧为图片文件
+            imageFile = saveBitmapAsFile(bitmap, "frame.jpg");
+            if (imageFile == null) {
+                throw new IOException("图片保存失败");
+            }
+
+            // 反馈捕获成功
+            addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析车辆信息...");
+        } catch (NullPointerException e) {
+            addChatMessage(Constant.OWNER_BOT, "摄像头未连接或未准备好，请检查设备连接状态");
+            Log.e("ObjectIdentifyError", "摄像头错误：" + e.getMessage());
+            return;
+        } catch (IOException e) {
+            addChatMessage(Constant.OWNER_BOT, "无法保存图片，请检查存储权限或存储空间");
+            Log.e("ObjectIdentifyError", "保存图片失败：" + e.getMessage());
+            return;
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "未知错误：" + e.getMessage());
+            Log.e("ObjectIdentifyError", "未知错误：" + e.getMessage());
+            return;
+        }
+
+        // 如果图片文件成功生成，则发送至大模型
+        sendQuestionToAPI(question, imageFile);
+    }
+
+
+    //endregion
+
+    //region 辅助函数
+    private File saveBitmapAsFile(Bitmap bitmap, String filename) {
+        File file = new File(getCacheDir(), filename); // 保存到应用的缓存目录
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out); // 压缩并保存为 JPEG
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+        return file;
+    }
+
+    //帮助界面
+    private void showHelpDialog() {
+        // 创建指令示例内容
+        String helpMessage = "这是你可以跟控制大模型对话的命令:\n\n" +
+                "1. 开始推流:RTSP推流到局域网\n" +
+                "2. 定位:定位无人机当前位置\n" +
+                "3. 执行任务：执行航点任务\n" +
+                "4. 识别车辆类型：获取当前帧并识别其中的车辆\n" +
+                "5. 无人机控制命令：起飞，降落，向左移动五米，向左转五度\n" +
+                "6. 添加航点：飞到+目的地\n";
+
+        // 创建并显示消息框
+        new AlertDialog.Builder(this)
+                .setTitle("帮助-命令")
+                .setMessage(helpMessage)
+                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show();
+    }
+    //endregion
 }

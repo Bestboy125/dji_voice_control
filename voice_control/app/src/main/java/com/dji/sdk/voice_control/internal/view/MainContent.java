@@ -186,7 +186,7 @@ public class MainContent extends RelativeLayout {
         getmBtnRegisterAppForLDM = (Button) findViewById(R.id.btn_registerAppForLDM);
         mBtnOpen = (Button) findViewById(R.id.btn_open);
         mBridgeModeEditText = (EditText) findViewById(R.id.edittext_bridge_ip);
-        mBtnBluetooth = (Button) findViewById(R.id.btn_bluetooth);
+//        mBtnBluetooth = (Button) findViewById(R.id.btn_bluetooth);
         mBtnControl = (Button) findViewById(R.id.button3);
         mCheckboxFirmware = (CheckBox) findViewById(R.id.checkbox_firmware);
         compassCalibrationView = findViewById(R.id.compassCalibrationView);
@@ -218,21 +218,21 @@ public class MainContent extends RelativeLayout {
                 DJISampleApplication.getEventBus().post(componentList);
             }
         });
-        mBtnBluetooth.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (GeneralUtils.isFastDoubleClick()) {
-                    return;
-                }
-                if (DJISampleApplication.getBluetoothProductConnector() == null) {
-                    ToastUtils.setResultToToast("pls wait the sdk initiation finished");
-                    return;
-                }
-                bluetoothView =
-                        new ViewWrapper(new BluetoothView(getContext()), R.string.component_listview_bluetooth);
-                DJISampleApplication.getEventBus().post(bluetoothView);
-            }
-        });
+//        mBtnBluetooth.setOnClickListener(new OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if (GeneralUtils.isFastDoubleClick()) {
+//                    return;
+//                }
+//                if (DJISampleApplication.getBluetoothProductConnector() == null) {
+//                    ToastUtils.setResultToToast("pls wait the sdk initiation finished");
+//                    return;
+//                }
+//                bluetoothView =
+//                        new ViewWrapper(new BluetoothView(getContext()), R.string.component_listview_bluetooth);
+//                DJISampleApplication.getEventBus().post(bluetoothView);
+//            }
+//        });
         mBtnControl.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -310,12 +310,12 @@ public class MainContent extends RelativeLayout {
                             connector = DJISampleApplication.getBluetoothProductConnector();
 
                             if (connector != null) {
-                                mBtnBluetooth.post(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        mBtnBluetooth.setEnabled(true);
-                                    }
-                                });
+//                                mBtnBluetooth.post(new Runnable() {
+//                                    @Override
+//                                    public void run() {
+//                                        mBtnBluetooth.setEnabled(true);
+//                                    }
+//                                });
                                 return;
                             } else if ((System.currentTimeMillis() - currentTime) >= 5000) {
                                 DialogUtils.showDialog(getContext(),

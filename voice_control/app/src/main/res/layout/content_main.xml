@@ -75,14 +75,14 @@
         android:textSize="15dp"/>
 
     <Button
-        android:id="@+id/btn_bluetooth"
+        android:id="@+id/button3"
         android:layout_width="150dp"
         android:layout_height="55dp"
         android:layout_below="@+id/edittext_bridge_ip"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="15dp"
         android:background="@drawable/round_btn"
-        android:text="蓝牙"
+        android:text="打开语音助手Jarvis"
         android:textAllCaps="false"
         android:textColor="@color/common_text_color"
         android:textSize="15dp"/>
@@ -91,7 +91,7 @@
         android:id="@+id/btn_registerApp"
         android:layout_width="150dp"
         android:layout_height="55dp"
-        android:layout_below="@+id/btn_bluetooth"
+        android:layout_below="@+id/button3"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="15dp"
         android:background="@drawable/round_btn"
@@ -158,12 +158,6 @@
             android:textColor="@color/gray"
             android:textSize="15dp"/>
     </LinearLayout>
-
-    <Button
-        android:id="@+id/button3"
-        android:layout_width="64dp"
-        android:layout_height="106dp"
-        android:text="打开飞行控制器" />
 
     <com.dji.sdk.voice_control.demo.flightcontroller.CompassCalibrationView
         android:id="@+id/compassCalibrationView"
