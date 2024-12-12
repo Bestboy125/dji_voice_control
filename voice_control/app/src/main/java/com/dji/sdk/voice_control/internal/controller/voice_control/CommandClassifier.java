@@ -362,13 +362,18 @@ public class CommandClassifier {
                 if (!unit.isEmpty()) {
                     unit = convertChineseNumberToArabic(unit);
                 }// 提取文本中的数字作为单位
-            } else if (commandInText.contains("转向")) {
-                command = "转向";
+            } else if (commandInText.contains("转")) {
+                command = "转";
                 if (commandInText.contains("左")) {
                     direction = "左";
                 } else if (commandInText.contains("右")) {
                     direction = "右";
                 }
+                // 提取单位
+                unit = commandInText.replaceAll("[^\\d一二三四五六七八九十零百千]", "");
+                if (!unit.isEmpty()) {
+                    unit = convertChineseNumberToArabic(unit);
+                }// 提取文本中的数字作为单位
             } else if (commandInText.contains("拍照")) {
                 command = "拍照";
                 // 提取目标对象
@@ -622,17 +627,17 @@ public class CommandClassifier {
                         case "右":
                             encoded_string.add(103);
                             encoded_string.add(201);
-                            encoded_string.add(302);
+                            encoded_string.add(304);
                             break;
                         case "前":
                             encoded_string.add(103);
                             encoded_string.add(201);
-                            encoded_string.add(303);
+                            encoded_string.add(301);
                             break;
                         case "后":
                             encoded_string.add(103);
                             encoded_string.add(201);
-                            encoded_string.add(304);
+                            encoded_string.add(302);
                             break;
                         case "上":
                             encoded_string.add(105);
@@ -643,7 +648,7 @@ public class CommandClassifier {
                         default:
                     }
                     break;
-                case "转向":
+                case "转":
                     encoded_string.add(104);
                     encoded_string.add(203);
                     switch_num = 2;

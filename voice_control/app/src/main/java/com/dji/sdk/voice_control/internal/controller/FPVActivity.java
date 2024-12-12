@@ -2146,7 +2146,7 @@ public class FPVActivity extends AppCompatActivity implements OnMapClickListener
                 "2. 定位:定位无人机当前位置\n" +
                 "3. 执行任务：执行航点任务\n" +
                 "4. 识别车辆类型：获取当前帧并识别其中的车辆\n" +
-                "5. 无人机控制命令：起飞，降落，向左移动五米，向左转\n" +
+                "5. 无人机控制命令：起飞，降落，向左移动五米，向左转五度\n" +
                 "6. 添加航点：飞到+目的地\n";
 
         // 创建并显示消息框
