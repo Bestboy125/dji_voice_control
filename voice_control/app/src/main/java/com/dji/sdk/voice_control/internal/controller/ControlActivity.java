@@ -657,14 +657,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     }
                 }
                 break;
-            case R.id.btn_control_stop:
-                mIat.stopListening();
-                showToast("停止听写");
-                break;
-            case R.id.btn_control_cancel:
-                mIat.cancel();
-                showToast("取消听写");
-                break;
             case R.id.send_btn:
                 sendQuestion();
                 break;
@@ -675,7 +667,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.activity_control, container, false);
+        return inflater.inflate(R.layout.activity_fpvwaypoint, container, false);
     }
 
     @Override
