@@ -51,7 +51,6 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
         initUI();
         videoEncoder = new VideoEncoder(BaseRtspFpvView.this);
         videoEncoder.prepareVideoEncoder();
-        videoEncoder.start();
     }
 
     private void initUI() {
@@ -84,6 +83,7 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
                     int pts = (int) (System.nanoTime() / 1000);
                     Frame frame = new Frame(bytes, pts, bytes.length);
                     videoEncoder.inputYUVData(frame);
+                    videoEncoder.start();
                 }
             };
         }

@@ -60,6 +60,7 @@ import com.amap.api.maps2d.MapView;
 import com.amap.api.maps2d.model.BitmapDescriptorFactory;
 import com.amap.api.maps2d.model.MarkerOptions;
 import com.dji.sdk.voice_control.R;
+import com.dji.sdk.voice_control.demo.camera.PlaybackCommandsView;
 import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
@@ -98,6 +99,7 @@ import java.lang.ref.WeakReference;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -150,11 +152,15 @@ import com.pedro.rtsp.utils.ConnectCheckerRtsp;
 
 public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator {
 
+    //region agent 数据结构
     private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
     private static final String TEMPLATE="Please answer the following question: {question}";
-    //标记
+    //endregion
+
+    //region 标记
     private boolean iscommond = false;
     private boolean iswaypoint = false;
+    //endregion
 
     //region UI数据结构
     //日志
@@ -270,6 +276,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private final Map<Integer, Marker> mMarkers = new ConcurrentHashMap<Integer, Marker>();
     private Marker droneMarker = null;
     private List<WaypointV2> waypointList = new ArrayList<>();
+    private class Place{
+        public String name;
+        public Double lat;
+        public Double lon;
+    }
+    private List<Place> Places = new ArrayList<>();
     //endregion
 
     //region 航点数据结构
@@ -1976,6 +1988,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
                         iscommond = true;
 
+                        Place place = new Place();
+                        place.name = name;
+                        place.lat = mTargetLocation.getLatitude();
+                        place.lon = mTargetLocation.getLongitude();
+                        Places.add(place);
+
                         pendingEncodedString = cc1.getEncodedString().toString();
                         pendingCommand = cc1.getCommand();
                         pendingTarget = cc1.getGoogleMapSearchString();
@@ -2147,7 +2165,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
-     * #重要 存储消息，显示消息，播放消息内容，记录上下文
+     * 重要 存储消息，显示消息，播放消息内容，记录上下文
      *
      * @param owner
      * @param question
@@ -2286,6 +2304,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             handleExecuteMission();
         } else if (command.contains("识别")) {
             handleObjectIdentify();
+        } else if (command.contains("删除")){
+            handleDeleteMission(command.replaceAll("删除",""));
         } else {
             processCommand(command);
         }
@@ -2381,10 +2401,45 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             return;
         }
 
+        addChatMessage(Constant.OWNER_HUMAN,question);
+        //TODO
+        //显示捕获的这一帧图像在对话框
+
         // 如果图片文件成功生成，则发送至大模型
         sendQuestionToAPI(question, imageFile);
     }
 
+    private void handleDeleteMission(String place) {
+        Iterator<Place> iterator = Places.iterator();
+        int index = 0;
+
+        while (iterator.hasNext()) {
+            Place currentPlace = iterator.next();
+            if (currentPlace.name.equals(place)) {
+                mWaypoint.RemoveWaypoint(currentPlace.lat, currentPlace.lon);
+                mMarkers.get(index).remove();
+                mMarkers.remove(index);
+                iterator.remove(); // 如果需要从 Places 中移除该元素
+                // 向前推进markers索引
+                Map<Integer, Marker> updatedMarkers = new ConcurrentHashMap<>();
+                for (Map.Entry<Integer, Marker> entry : mMarkers.entrySet()) {
+                    int currentIndex = entry.getKey();
+                    Marker marker = entry.getValue();
+                    if (currentIndex > index) {
+                        updatedMarkers.put(currentIndex - 1, marker);
+                    } else {
+                        updatedMarkers.put(currentIndex, marker);
+                    }
+                }
+                mMarkers.clear();
+                mMarkers.putAll(updatedMarkers);
+
+                addChatMessage(Constant.OWNER_BOT, "已成功删除任务：" + place);
+                break; // 假设 place 是唯一的，找到后即可退出循环
+            }
+            index++;
+        }
+    }
 
     //endregion
 
@@ -2408,8 +2463,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "2. 定位:定位无人机当前位置\n" +
                 "3. 执行任务：执行航点任务\n" +
                 "4. 识别车辆类型：获取当前帧并识别其中的车辆\n" +
-                "5. 无人机控制命令：起飞，降落，向左移动五米，向左转五度\n" +
-                "6. 添加航点：飞到+目的地\n";
+                "5. 无人机控制命令：起飞，降落，向(方向)移动(路程值)米，向(方向)转(角度值)度\n" +
+                "6. 飞到+目的地:添加航点\n" +
+                "7. 删除+目的地:删除航点\n" +
+                "8. 未完待续";
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)

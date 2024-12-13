@@ -122,6 +122,19 @@ public class Waypoint {
         waypointMissionBuilder.addWaypoint(mWaypoint);
     }
 
+    public void RemoveWaypoint(int index){
+        waypointMissionBuilder.removeWaypoint(index);
+    }
+
+    public void RemoveWaypoint(double latitude,double longitude){
+        WaypointV2 mWaypoint = new WaypointV2.Builder()
+                .setAltitude(altitude)
+                .setCoordinate(new LocationCoordinate2D(latitude, longitude))
+                .build();
+        waypointMissionBuilder.removeWaypoint(mWaypoint);
+
+    }
+
     public void configWayPointMission(WaypointV2MissionOperator instance) {
 
         if (waypointMissionBuilder == null) {
