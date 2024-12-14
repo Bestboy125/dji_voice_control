@@ -75,13 +75,9 @@ public class Waypoint {
 
     public static WaypointV2Mission.Builder waypointMissionBuilder;
 
-    private FlightController mFlightController;
     private WaypointV2MissionTypes.MissionFinishedAction mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.NO_ACTION;
     private WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
     private WaypointV2MissionTypes.MissionGotoWaypointMode firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
-    private WaypointV2ActionDialog mActionDialog;
-    private List<WaypointV2Action> v2Actions;
-    private boolean canUploadAction;
     private boolean canUploadMission;
     private boolean canStartMission;
     private boolean ifNeedUploadAction;
@@ -99,16 +95,6 @@ public class Waypoint {
         return waypointMissionBuilder.getWaypointCount();
     }
 
-    //region 航点操作
-    public WaypointV2MissionOperator getWaypointMissionOperator(WaypointV2MissionOperator instance) {
-        if (instance == null) {
-            MissionControl missionControl = DJISDKManager.getInstance().getMissionControl();
-            if (missionControl != null) {
-                instance = missionControl.getWaypointMissionV2Operator();
-            }
-        }
-        return instance;
-    }
 
     public void AddWaypoint(double latitude,double longitude) {
         WaypointV2 mWaypoint = new WaypointV2.Builder()

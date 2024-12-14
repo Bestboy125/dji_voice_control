@@ -131,6 +131,7 @@ import dji.log.DJILog;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.flightcontroller.FlightController;
+import dji.sdk.mission.MissionControl;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
@@ -539,13 +540,16 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         //初始化航点操作类
         mWaypoint = new Waypoint(ControlActivity.this);
-        mMissionOperator = mWaypoint.getWaypointMissionOperator(mMissionOperator);
+        mMissionOperator = getWaypointMissionOperator(mMissionOperator);
 
         //实例化命令分类器
         cc1 = new CommandClassifier();
 
         // 初始化命令交互控制器
         mCI = CommandInterpreter.getUniqueInstance(mContext);
+
+        //初始化UI事件
+        initUI();
 
         //初始化无人机
         initDrone();
@@ -556,9 +560,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mChatMessageData = ChatMessageData.getInstance();
         mJSONMessage = JSONMessage.getInstance();
         initAdpater();
-
-        //初始化UI事件
-        initUI();
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -1802,7 +1803,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     };
 
-
     /**
      * 更新无人机的距离，经纬度，竖直速度，水平速度
      */
@@ -1872,6 +1872,21 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 );
             }
         }
+    }
+
+    /**
+     * 获取航点控制权
+     * @param instance
+     * @return
+     */
+    public WaypointV2MissionOperator getWaypointMissionOperator(WaypointV2MissionOperator instance) {
+        if (instance == null) {
+            MissionControl missionControl = DJISDKManager.getInstance().getMissionControl();
+            if (missionControl != null) {
+                instance = missionControl.getWaypointMissionV2Operator();
+            }
+        }
+        return instance;
     }
 
     //endregion
@@ -2362,7 +2377,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         String question = "Analyze the vehicles in this image, determine their types, and provide a detailed explanation of the reasoning behind your classification.";
 
         // 初始化图片文件对象
-        File imageFile = null;
+        File imageFile = new File("test.jpg");
 
         try {
             // 从 TextureView 捕获视频流的一帧
@@ -2379,6 +2394,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
             // 反馈捕获成功
             addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析车辆信息...");
+            addChatMessage(Constant.OWNER_HUMAN,question.toString());
+            //TODO
+            //显示捕获的这一帧图像在对话框
+            // 如果图片文件成功生成，则发送至大模型
+            sendQuestionToAPI(question, imageFile);
+
         } catch (NullPointerException e) {
             addChatMessage(Constant.OWNER_BOT, "摄像头未连接或未准备好，请检查设备连接状态");
             Log.e("ObjectIdentifyError", "摄像头错误：" + e.getMessage());
@@ -2392,13 +2413,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             Log.e("ObjectIdentifyError", "未知错误：" + e.getMessage());
             return;
         }
-
-        addChatMessage(Constant.OWNER_HUMAN,question);
-        //TODO
-        //显示捕获的这一帧图像在对话框
-
-        // 如果图片文件成功生成，则发送至大模型
-        sendQuestionToAPI(question, imageFile);
     }
 
     private void handleDeleteMission(String place) {
