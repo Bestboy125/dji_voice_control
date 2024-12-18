@@ -5,6 +5,7 @@ import static com.dji.sdk.voice_control.internal.utils.ToastUtils.setResultToToa
 import android.content.Context;
 import android.util.Log;
 import android.view.View;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -63,32 +64,37 @@ public class Waypoint {
     }
 
     //region 数据结构
-    private boolean isAdd = false;
+    public final Map<Integer, Marker> mMarkers = new ConcurrentHashMap<Integer, Marker>();
+    public Marker droneMarker = null;
 
-    private final Map<Integer, Marker> mMarkers = new ConcurrentHashMap<Integer, Marker>();
-    private Marker droneMarker = null;
+    public float altitude = 100.0f;
+    public float mSpeed = 10.0f;
 
-    private float altitude = 100.0f;
-    private float mSpeed = 10.0f;
-
-    private List<WaypointV2> waypointList = new ArrayList<>();
+    public List<WaypointV2> waypointList = new ArrayList<>();
 
     public static WaypointV2Mission.Builder waypointMissionBuilder;
 
-    private WaypointV2MissionTypes.MissionFinishedAction mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.NO_ACTION;
-    private WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
-    private WaypointV2MissionTypes.MissionGotoWaypointMode firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
-    private boolean canUploadMission;
-    private boolean canStartMission;
-    private boolean ifNeedUploadAction;
-    private double mHomeLat = 181;
-    private double mHomeLng = 181;
-    private double mAircraftLat = 181;
-    private double mAircraftLng = 181;
-    private boolean useRTKLocation = false;
-    private RTK mRtk;
-    private float droneHeading;
-    private float droneHeight;
+    public FlightController mFlightController;
+    public WaypointV2MissionOperator instance;
+    public WaypointV2MissionTypes.MissionFinishedAction mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.NO_ACTION;
+    public WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
+    public WaypointV2MissionTypes.MissionGotoWaypointMode firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
+    public WaypointV2ActionDialog mActionDialog;
+    public List<WaypointV2Action> v2Actions;
+    public boolean canUploadAction;
+    public boolean canUploadMission;
+    public boolean canStartMission;
+    public boolean ifNeedUploadAction;
+    public double mHomeLat = 181;
+    public double mHomeLng = 181;
+    public double mAircraftLat = 181;
+    public double mAircraftLng = 181;
+    public boolean useRTKLocation = false;
+    public RTK mRtk;
+    public float droneHeading;
+    public float droneHeight;
+
+    private TextView logTv;
     //endregion
 
     public int getWaypointCount(WaypointV2MissionOperator instance){

@@ -5,6 +5,7 @@ import android.Manifest;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -26,6 +27,8 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -123,7 +126,9 @@ import dji.common.flightcontroller.virtualstick.FlightCoordinateSystem;
 import dji.common.flightcontroller.virtualstick.RollPitchControlMode;
 import dji.common.flightcontroller.virtualstick.VerticalControlMode;
 import dji.common.flightcontroller.virtualstick.YawControlMode;
+import dji.common.mission.waypoint.WaypointMissionHeadingMode;
 import dji.common.mission.waypointv2.WaypointV2;
+import dji.common.mission.waypointv2.WaypointV2MissionTypes;
 import dji.common.model.LocationCoordinate2D;
 import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
@@ -1955,17 +1960,17 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
-     * 根据点数据在地图上标记航点
+     * 根据点数据在地图上标记航点 并添加这个航点
      * @param point
      */
     private void markWaypoint(LatLng point) {
+        mWaypoint.AddWaypoint(point.latitude,point.longitude);
         //Create MarkerOptions object
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(point);
         markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
         Marker marker = aMap.addMarker(markerOptions);
         mMarkers.put(mMarkers.size(), marker);
-
     }
 
     /**
@@ -2041,12 +2046,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         int latInt = (int) lat;
         int lonInt = (int) lon;
 
-        mWaypoint.AddWaypoint(latInt,lonInt);
         markWaypoint(point);
-        if(mMissionOperator!=null){
-            mWaypoint.configWayPointMission(mMissionOperator);
-            mWaypoint.uploadWayPointMission(mMissionOperator);
-        }
         iswaypoint = true;
         cc1.google_map_search_string = null;
         showTaskDialog(findViewById(android.R.id.content));
@@ -2311,9 +2311,22 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         } else if (command.contains("执行任务")) {
             handleExecuteMission();
         } else if (command.contains("识别")) {
-            handleObjectIdentify();
+            // 获取 "识别" 后面的部分
+            int index = command.indexOf("识别");
+            String question = command.substring(index + 2);
+            handleObjectIdentify(question);
         } else if (command.contains("删除")){
             handleDeleteMission(command.replaceAll("删除",""));
+        } else if (command.contains("配置航点")){
+            handleConfigMission();
+        } else if (command.contains("上传航点")){
+            handleUploadMission();
+        } else if (command.contains("停止任务")){
+            handleStopMission();
+        } else if (command.contains("清除航点")){
+            handleDeleteWaypoint();
+        } else if (command.contains("手动添加")){
+            handleAddMission();
         } else {
             processCommand(command);
         }
@@ -2373,10 +2386,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
-    private void handleObjectIdentify() {
-        // 问题描述
-        String question = "Analyze the vehicles in this image, determine their types, and provide a detailed explanation of the reasoning behind your classification.";
-
+    private void handleObjectIdentify(String question) {
         // 初始化图片文件对象
         File imageFile = new File("test.jpg");
 
@@ -2394,7 +2404,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             }
 
             // 反馈捕获成功
-            addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析车辆信息...");
+            addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
             addChatMessage(Constant.OWNER_HUMAN,question.toString());
             //TODO
             //显示捕获的这一帧图像在对话框
@@ -2448,6 +2458,66 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    private void handleConfigMission() {
+        try {
+            showSettingDialog();
+            addChatMessage(Constant.OWNER_BOT, "已配置完航点任务");
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "配置航点任务时发生错误: " + e.getMessage());
+            e.printStackTrace();  // 打印详细的错误信息
+        }
+    }
+
+    private void handleUploadMission() {
+        try {
+            mWaypoint.uploadWayPointMission(mMissionOperator);
+            addChatMessage(Constant.OWNER_BOT, "已上传所有航点任务");
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "上传航点任务时发生错误: " + e.getMessage());
+            e.printStackTrace();  // 打印详细的错误信息
+        }
+    }
+
+    private void handleAddMission() {
+        try {
+            if (!isAdd) {
+                isAdd = true;
+                addChatMessage(Constant.OWNER_BOT, "现在是手动添加模式");
+            } else {
+                isAdd = false;
+                addChatMessage(Constant.OWNER_BOT, "手动添加模式已关闭");
+            }
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "切换手动添加模式时发生错误: " + e.getMessage());
+            e.printStackTrace();  // 打印详细的错误信息
+        }
+    }
+
+    private void handleStopMission() {
+        try {
+            mWaypoint.stopWaypointMission(mMissionOperator);
+            addChatMessage(Constant.OWNER_BOT, "已停止航点任务");
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "停止航点任务时发生错误: " + e.getMessage());
+            e.printStackTrace();  // 打印详细的错误信息
+        }
+    }
+
+    private void handleDeleteWaypoint() {
+        try {
+            int count = mWaypoint.getWaypointCount(mMissionOperator);
+            for (int i = 0; i < count; i++) {
+                mWaypoint.RemoveWaypoint(i);
+                mMarkers.get(i).remove();
+                mMarkers.remove(i);
+            }
+            addChatMessage(Constant.OWNER_BOT, "已成功删除所有航点");
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "删除航点时发生错误: " + e.getMessage());
+            e.printStackTrace();  // 打印详细的错误信息
+        }
+    }
+
     //endregion
 
     //region 辅助函数
@@ -2469,11 +2539,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "1. 开始推流:RTSP推流到局域网\n" +
                 "2. 定位:定位无人机当前位置\n" +
                 "3. 执行任务：执行航点任务\n" +
-                "4. 识别车辆类型：获取当前帧并识别其中的车辆\n" +
+                "4. 识别+问题：分析当前帧的图片内容\n" +
                 "5. 无人机控制命令：起飞，降落，向(方向)移动(路程值)米，向(方向)转(角度值)度\n" +
                 "6. 飞到+目的地:添加航点\n" +
                 "7. 删除+目的地:删除航点\n" +
-                "8. 未完待续";
+                "8. 配置航点：配置航点速度，高度，结束后的动作" +
+                "9. 清除航点: 清除所有的航点" +
+                "10. 停止任务：停止航点任务" +
+                "11. 手动添加：开启手动添加，点击地图即可添加航点";
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
@@ -2482,6 +2555,131 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
                 .setIcon(android.R.drawable.ic_dialog_info)
                 .show();
+    }
+
+    //配置航点
+    private void showSettingDialog() {
+        LinearLayout wayPointSettings = (LinearLayout) getLayoutInflater().inflate(R.layout.dialog_waypoint2setting, null);
+
+        final TextView wpAltitude_TV = (TextView) wayPointSettings.findViewById(R.id.altitude);
+        RadioGroup speed_RG = (RadioGroup) wayPointSettings.findViewById(R.id.speed);
+        RadioGroup actionAfterFinished_RG = (RadioGroup) wayPointSettings.findViewById(R.id.actionAfterFinished);
+        RadioGroup heading_RG = (RadioGroup) wayPointSettings.findViewById(R.id.heading);
+        RadioGroup firstModeRg = wayPointSettings.findViewById(R.id.go_to_first_mode);
+
+        firstModeRg.setOnCheckedChangeListener((group, checkedId) -> {
+            switch (checkedId) {
+                case R.id.rb_p2p:
+                    mWaypoint.firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.POINT_TO_POINT;
+                    break;
+                case R.id.rb_safely:
+                    mWaypoint.firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
+                    break;
+            }
+        });
+
+        speed_RG.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                if (checkedId == R.id.lowSpeed) {
+                    mWaypoint.mSpeed = 3.0f;
+                } else if (checkedId == R.id.MidSpeed) {
+                    mWaypoint.mSpeed = 5.0f;
+                } else if (checkedId == R.id.HighSpeed) {
+                    mWaypoint.mSpeed = 10.0f;
+                }
+            }
+
+        });
+
+        actionAfterFinished_RG.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                Log.d(TAG, "Select finish action");
+                if (checkedId == R.id.finishNone) {
+                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.NO_ACTION;
+                } else if (checkedId == R.id.finishGoHome) {
+                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.GO_HOME;
+                } else if (checkedId == R.id.finishAutoLanding) {
+                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.AUTO_LAND;
+                } else if (checkedId == R.id.finishToFirst) {
+                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.GO_FIRST_WAYPOINT;
+                }
+//                else if (checkedId == R.id.untilStop) {
+//                    mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.CONTINUE_UNTIL_STOP;
+//                }
+            }
+        });
+
+        heading_RG.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                Log.d(TAG, "Select heading");
+
+                if (checkedId == R.id.headingNext) {
+                    mWaypoint.mHeadingMode = WaypointMissionHeadingMode.AUTO;
+                } else if (checkedId == R.id.headingInitDirec) {
+                    mWaypoint.mHeadingMode = WaypointMissionHeadingMode.USING_INITIAL_DIRECTION;
+                } else if (checkedId == R.id.headingRC) {
+                    mWaypoint.mHeadingMode = WaypointMissionHeadingMode.CONTROL_BY_REMOTE_CONTROLLER;
+                } else if (checkedId == R.id.headingWP) {
+                    mWaypoint.mHeadingMode = WaypointMissionHeadingMode.USING_WAYPOINT_HEADING;
+                }
+            }
+        });
+
+        new AlertDialog.Builder(this)
+                .setTitle("")
+                .setView(wayPointSettings)
+                .setPositiveButton("Finish", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int id) {
+
+                        String altitudeString = wpAltitude_TV.getText().toString();
+                        mWaypoint.altitude = Integer.parseInt(nulltoIntegerDefalt(altitudeString));
+                        Log.e(TAG, "altitude " + mWaypoint.altitude);
+                        Log.e(TAG, "speed " + mWaypoint.mSpeed);
+                        Log.e(TAG, "mFinishedAction " + mWaypoint.mFinishedAction);
+                        Log.e(TAG, "mHeadingMode " + mWaypoint.mHeadingMode);
+                        try{
+                            mWaypoint.configWayPointMission(mMissionOperator);
+                        }
+                        catch (Exception e){
+                            addChatMessage(Constant.OWNER_BOT, "配置航点任务时发生错误: " + e.getMessage());
+                            e.printStackTrace();  // 打印详细的错误信息
+                        }
+                    }
+
+                })
+                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+
+                })
+                .create()
+                .show();
+    }
+
+    //转换函数
+    String nulltoIntegerDefalt(String value) {
+        if (!isIntValue(value)) {
+            value = "0";
+        }
+        return value;
+    }
+    boolean isIntValue(String val) {
+        try {
+            val = val.replace(" ", "");
+            Integer.parseInt(val);
+        } catch (Exception e) {
+            return false;
+        }
+        return true;
     }
     //endregion
 }
