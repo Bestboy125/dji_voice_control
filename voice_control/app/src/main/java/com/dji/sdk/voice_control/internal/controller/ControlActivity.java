@@ -2234,7 +2234,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private void sendQuestionToAPI(String question, File file) {
 
         MultipartBody.Builder builder = new MultipartBody.Builder();
-        if(getFileFormat(file)=="jpg"){
+        if(getFileFormat(file).equals("jpg")){
             // 创建请求体
             builder = new MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
@@ -2295,6 +2295,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 }
             }
         });
+
     }
 
     /**
