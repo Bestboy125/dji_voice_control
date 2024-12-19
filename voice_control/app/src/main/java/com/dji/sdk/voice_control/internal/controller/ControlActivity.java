@@ -2638,7 +2638,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         handler.post(updateFlightDataRunnable);
     }
 
-
     /**
      * 可视化配置航点界面
      */

@@ -36,21 +36,30 @@ import com.pedro.rtsp.rtsp.VideoCodec;
  * This class is designed for showing the fpv video feed from the camera or Lightbridge 2.
  * @maintainer Eddie Wang
  */
-public class BaseRtspFpvView extends RelativeLayout implements TextureView.SurfaceTextureListener,GetVideoData {
+public class BaseRtspFpvView extends RelativeLayout implements TextureView.SurfaceTextureListener, GetVideoData {
 
     private TextureView mVideoSurface = null;
     private DJICodecManager mCodecManager = null;
     private VideoFeeder.VideoDataListener videoDataListener = null;
     private RtspServer rtspServer;
-
     private VideoEncoder videoEncoder;
 
     public BaseRtspFpvView(Context context, RtspServer rtspServer) {
         super(context);
         this.rtspServer = rtspServer;
         initUI();
-        videoEncoder = new VideoEncoder(BaseRtspFpvView.this);
-        videoEncoder.prepareVideoEncoder();
+
+        // 初始化视频编码器
+        videoEncoder = new VideoEncoder(this);
+        videoEncoder.prepareVideoEncoder(
+                1280,            // width: 1280 pixels
+                720,             // height: 720 pixels
+                30,              // fps: 30 frames per second
+                2500 * 1024,     // bitRate: 2500 kbps
+                0,               // rotation: 0 degrees
+                1,               // iFrameInterval: 1 second
+                FormatVideoEncoder.YUV420Dynamical // formatVideoEncoder: YUV420
+        );
     }
 
     private void initUI() {
@@ -62,46 +71,67 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
 
         addView(content, rlParam);
 
-        Log.v("TAG","Start to test");
-
         mVideoSurface = (TextureView) findViewById(R.id.texture_video_previewer_surface);
 
         if (null != mVideoSurface) {
             mVideoSurface.setSurfaceTextureListener(this);
 
+            // 设置视频数据监听器
             videoDataListener = new VideoFeeder.VideoDataListener() {
                 @Override
                 public void onReceive(byte[] bytes, int size) {
-                    if (null != mCodecManager) {
+                    if (mCodecManager != null) {
                         mCodecManager.sendDataToDecoder(bytes,
                                 size,
                                 UsbAccessoryService.VideoStreamSource.Fpv.getIndex());
-
                     }
 
-                    // 将一帧原始数据进行编码 getVideoData进行接受编码回调 并将视频发送给Rtspserver
-                    int pts = (int) (System.nanoTime() / 1000);
-                    Frame frame = new Frame(bytes, pts, bytes.length);
-                    videoEncoder.inputYUVData(frame);
-                    videoEncoder.start();
+                    // 将一帧数据封装并编码，实时发送到 RTSP 服务器
+                    try {
+                        int pts = (int) (System.nanoTime() / 1000);
+                        Frame frame = new Frame(bytes, pts, size);
+                        videoEncoder.inputYUVData(frame);
+
+                        // 确保编码器处于运行状态
+                        if (!videoEncoder.isRunning()) {
+                            videoEncoder.start();
+                        }
+                    } catch (Exception e) {
+                        Log.e("BaseRtspFpvView", "Error encoding video frame: " + e.getMessage());
+                    }
                 }
             };
         }
 
         initSDKCallback();
-
     }
 
     public void onSpsPpsVpsRtp(ByteBuffer sps, ByteBuffer pps, ByteBuffer vps) {
-        ByteBuffer newSps = sps.duplicate();
-        ByteBuffer newPps = pps.duplicate();
-        ByteBuffer newVps = vps.duplicate();
+        // 确保 Sps 和 Pps 正确传递给 RTSP 服务器
+        ByteBuffer newSps = sps != null ? sps.duplicate() : null;
+        ByteBuffer newPps = pps != null ? pps.duplicate() : null;
+        ByteBuffer newVps = vps != null ? vps.duplicate() : null;
+
         rtspServer.setVideoInfo(newSps, newPps, newVps);
     }
 
     @Override
     public synchronized void onSpsPpsVps(ByteBuffer sps, ByteBuffer pps, ByteBuffer vps) {
-        onSpsPpsVpsRtp(sps.duplicate(), pps.duplicate(), vps != null ? vps.duplicate() : null);
+        if (sps == null || pps == null) {
+            Log.e("BaseRtspFpvView", "SPS or PPS is null. Retrying encoder initialization...");
+            videoEncoder.stop();
+            videoEncoder.prepareVideoEncoder(
+                    1280,            // width: 1280 pixels
+                    720,             // height: 720 pixels
+                    30,              // fps: 30 frames per second
+                    2500 * 1024,     // bitRate: 2500 kbps
+                    0,               // rotation: 0 degrees
+                    1,               // iFrameInterval: 1 second
+                    FormatVideoEncoder.YUV420Dynamical // formatVideoEncoder: YUV420
+            );
+            videoEncoder.start();
+        }
+        onSpsPpsVpsRtp(sps, pps, vps);
     }
 
     @Override
@@ -115,14 +145,14 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
 
     @Override
     public void onVideoFormat(MediaFormat mediaFormat) {
-
+        // 视频格式回调，必要时实现处理
     }
-
 
     private void initSDKCallback() {
         try {
             VideoFeeder.getInstance().getSecondaryVideoFeed().addVideoDataListener(videoDataListener);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            Log.e("BaseRtspFpvView", "Error initializing SDK callback: " + e.getMessage());
         }
     }
 
@@ -154,8 +184,6 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-
+        // 必要时处理纹理更新
     }
-
-
 }
