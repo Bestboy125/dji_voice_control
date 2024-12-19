@@ -2334,6 +2334,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 自动化执行逻辑
+
+    /**
+     * 自动化开始推流
+     */
     private void handleStartStreaming() {
         if (!isStreaming) {
             try {
@@ -2349,6 +2353,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动化停止推流
+     */
     private void handleStopStreaming() {
         if (isStreaming) {
             try {
@@ -2363,6 +2370,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动化定位现在飞机位置
+     */
     private void handleLocateDrone() {
         try {
             updateDroneLocation();
@@ -2373,6 +2383,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动化执行航点任务
+     */
     private void handleExecuteMission() {
         if (mMissionOperator != null) {
             try {
@@ -2386,6 +2399,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动执行目标识别任务
+     * @param question
+     */
     private void handleObjectIdentify(String question) {
         // 初始化图片文件对象
         File imageFile = new File("test.jpg");
@@ -2426,6 +2443,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动执行删除航点任务
+     * @param place
+     */
     private void handleDeleteMission(String place) {
         Iterator<Place> iterator = Places.iterator();
         int index = 0;
@@ -2458,6 +2479,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动执行配置任务
+     */
     private void handleConfigMission() {
         try {
             showSettingDialog();
@@ -2468,6 +2492,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动执行上传航点任务
+     */
     private void handleUploadMission() {
         try {
             mWaypoint.uploadWayPointMission(mMissionOperator);
@@ -2478,6 +2505,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动执行转变手动添加模式
+     */
     private void handleAddMission() {
         try {
             if (!isAdd) {
@@ -2493,6 +2523,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动执行停止航点任务
+     */
     private void handleStopMission() {
         try {
             mWaypoint.stopWaypointMission(mMissionOperator);
@@ -2503,6 +2536,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动执行删除航点
+     */
     private void handleDeleteWaypoint() {
         try {
             int count = mWaypoint.getWaypointCount(mMissionOperator);
@@ -2521,6 +2557,13 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 辅助函数
+
+    /**
+     * 保存为图像文件
+     * @param bitmap
+     * @param filename
+     * @return
+     */
     private File saveBitmapAsFile(Bitmap bitmap, String filename) {
         File file = new File(getCacheDir(), filename); // 保存到应用的缓存目录
         try (FileOutputStream out = new FileOutputStream(file)) {
@@ -2532,7 +2575,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         return file;
     }
 
-    //帮助界面
+    /**
+     * 帮助界面
+     */
     private void showHelpDialog() {
         // 创建指令示例内容
         String helpMessage = "这是你可以跟控制大模型对话的命令:\n\n" +
@@ -2543,9 +2588,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "5. 无人机控制命令：起飞，降落，向(方向)移动(路程值)米，向(方向)转(角度值)度\n" +
                 "6. 飞到+目的地:添加航点\n" +
                 "7. 删除+目的地:删除航点\n" +
-                "8. 配置航点：配置航点速度，高度，结束后的动作" +
-                "9. 清除航点: 清除所有的航点" +
-                "10. 停止任务：停止航点任务" +
+                "8. 配置航点：配置航点速度，高度，结束后的动作\n" +
+                "9. 清除航点: 清除所有的航点\n" +
+                "10. 停止任务：停止航点任务\n" +
                 "11. 手动添加：开启手动添加，点击地图即可添加航点";
 
         // 创建并显示消息框
@@ -2557,7 +2602,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 .show();
     }
 
-    //配置航点
+    /**
+     * 可视化配置航点界面
+     */
     private void showSettingDialog() {
         LinearLayout wayPointSettings = (LinearLayout) getLayoutInflater().inflate(R.layout.dialog_waypoint2setting, null);
 
@@ -2665,7 +2712,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 .show();
     }
 
-    //转换函数
+    /**
+     * 转换函数
+     * @param value
+     * @return
+     */
     String nulltoIntegerDefalt(String value) {
         if (!isIntValue(value)) {
             value = "0";
