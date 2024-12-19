@@ -301,8 +301,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //region 飞行控制的数据结构
     //飞行数据
     private FlightData mFlightData = new FlightData();
-    //飞行控制器
-    private FlightController mFlightController;
 
     //虚拟摇杆
     private OnScreenJoystick mScreenJoystickRight;
@@ -562,8 +560,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //初始化UI事件
         initUI();
 
-        //初始化无人机
-        initDrone();
+        initFlightController();
 
         //初始化chatgpt
         mRvChatList = (RecyclerView) findViewById(R.id.rv_chatlist);
@@ -912,53 +909,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
-     * 初始飞行控制器
-     */
-    private void initFlightController() {
-        //实例化飞控
-        Aircraft aircraft = DJISampleApplication.getAircraftInstance();
-        if (aircraft == null || !aircraft.isConnected()) {
-            showToast("Disconnected");
-            mFlightController = null;
-            return;
-        } else {
-            //初始化设置飞控模式
-            mFlightController = aircraft.getFlightController();
-            mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
-            mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
-            mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
-            mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
-            mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
-                //显示状态数据
-                @Override
-                public void onUpdate(final SimulatorState stateData) {
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            String yaw = String.format("%.2f", stateData.getYaw());
-                            String pitch = String.format("%.2f", stateData.getPitch());
-                            String roll = String.format("%.2f", stateData.getRoll());
-                            String positionX = String.format("%.2f", stateData.getPositionX());
-                            String positionY = String.format("%.2f", stateData.getPositionY());
-                            String positionZ = String.format("%.2f", stateData.getPositionZ());
-
-                            try {
-                                addChatMessage(Constant.OWNER_BOT, "Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", X坐标 : " + positionX +
-                                        ", Y坐标 : " + positionY +
-                                        ", Z坐标 : " + positionZ);
-                            }
-                            catch (Exception e){
-                                addChatMessage(Constant.OWNER_BOT, "现在未连接无人机");
-                            }
-                        }
-                    });
-                }
-            });
-        }
-    }
-
-    /**
      * 初始化UI
      */
     private void initUI() {
@@ -997,9 +947,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         openDrawerButton.setOnClickListener(v -> openDrawer());
         mBtnEnableVirtualStick.setOnClickListener(v -> {
             // 处理 Home 按钮点击逻辑
-            if (mFlightController != null){
+            if (mCI.mFlightController != null){
 
-                mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
+                mCI.mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onResult(DJIError djiError) {
                         if (djiError != null){
@@ -1015,8 +965,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             drawerLayout.closeDrawer(GravityCompat.START);
         });
         mBtnDisableVirtualStick.setOnClickListener(v -> {
-            if (mFlightController != null){
-                mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
+            if (mCI.mFlightController != null){
+                mCI.mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onResult(DJIError djiError) {
                         if (djiError != null) {
@@ -1689,16 +1639,54 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 飞行控制器
-
     /**
-     * 初始化无人机mFlightController
+     * 初始飞行控制器
      */
-    private void initDrone() {
+    private void initFlightController() {
+        //实例化飞控
         mCI.initFlightController();
         if (mCI.mFlightController != null) {
             mCI.setPhotoMode();
 //            showFpvToast("Set up call bacsk");
+        }
+        if (mCI.aircraft == null || !mCI.aircraft.isConnected()) {
+            showToast("Disconnected");
+            mCI.mFlightController = null;
+            return;
+        } else {
+            //初始化设置飞控模式
+            mCI.mFlightController = mCI.aircraft.getFlightController();
+            mCI.mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
+            mCI.mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
+            mCI.mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
+            mCI.mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
+            mCI.mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
+                //显示状态数据
+                @Override
+                public void onUpdate(final SimulatorState stateData) {
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
 
+                            String yaw = String.format("%.2f", stateData.getYaw());
+                            String pitch = String.format("%.2f", stateData.getPitch());
+                            String roll = String.format("%.2f", stateData.getRoll());
+                            String positionX = String.format("%.2f", stateData.getPositionX());
+                            String positionY = String.format("%.2f", stateData.getPositionY());
+                            String positionZ = String.format("%.2f", stateData.getPositionZ());
+
+                            try {
+                                addChatMessage(Constant.OWNER_BOT, "Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", X坐标 : " + positionX +
+                                        ", Y坐标 : " + positionY +
+                                        ", Z坐标 : " + positionZ);
+                            }
+                            catch (Exception e){
+                                addChatMessage(Constant.OWNER_BOT, "现在未连接无人机");
+                            }
+                        }
+                    });
+                }
+            });
             mCI.mFlightController.setStateCallback(new FlightControllerState.Callback() {
                 @Override
                 public void onUpdate(@NonNull FlightControllerState flightControllerState) {
@@ -1706,7 +1694,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     double mDroneLocationLng = flightControllerState.getAircraftLocation().getLongitude();
                     mDroneLocation = new LatLng(mDroneLocationLat, mDroneLocationLng);
                     mDroneHeading = mCI.mFlightController.getCompass().getHeading();
-//                    updateDroneLocation();
                     // set flight data
                     mAltitudeData = (double) flightControllerState.getAircraftLocation().getAltitude(); // - initAltitude;
 //                    if (mAltitudeData < 18) {
@@ -1715,21 +1702,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     mhs = Math.sqrt(flightControllerState.getVelocityX() * flightControllerState.getVelocityX()
                             + flightControllerState.getVelocityY() * flightControllerState.getVelocityY());
                     mvs = -1 * flightControllerState.getVelocityZ();
-                    droneHeading = flightControllerState.getAircraftHeadDirection();
                     mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
                     updateFlightData();
                     updateDroneLocation();
                 }
             });
-
-//            mTest.setOnClickListener(new View.OnClickListener() {
-//                @Override
-//                public void onClick(View v) {
-//                    mCI.shootPhoto();
-//                }
-//            });
-
-            // set up battery
             mCI.aircraft.getBattery().setStateCallback(new BatteryState.Callback() {
                 @Override
                 public void onUpdate(BatteryState batteryState) {
@@ -1739,7 +1716,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 }
             });
         }
-
     }
 
     /**
@@ -1779,14 +1755,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         public void onReceive(Context context, Intent intent) {
             updateConnection();
             if (mCI.mFlightController == null) {
-                initDrone();
+                initFlightController();
             }
             onProductConnectionChange();
         }
     };
 
     private void onProductConnectionChange() {
-        initDrone();
+        initFlightController();
     }
 
     /**
