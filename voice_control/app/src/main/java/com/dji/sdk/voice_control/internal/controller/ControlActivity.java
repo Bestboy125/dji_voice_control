@@ -72,6 +72,7 @@ import com.dji.sdk.voice_control.internal.controller.chatgpt.IChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.IJSONMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.JSONMessage;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.FlightData;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BaseRtspFpvView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
@@ -298,6 +299,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 飞行控制的数据结构
+    //飞行数据
+    private FlightData mFlightData = new FlightData();
     //飞行控制器
     private FlightController mFlightController;
 
@@ -935,6 +938,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         RelativeLayout mRlSend = (RelativeLayout) findViewById(R.id.rl_send);
         // 获取帮助按钮
         Button helpButton = findViewById(R.id.help_Btn);
+        Button dataButtion = findViewById(R.id.data_Btn);
         Button openDrawerButton = findViewById(R.id.btn_open_drawer);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
@@ -1062,6 +1066,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             iscontrol = !iscontrol;
         });
         helpButton.setOnClickListener(v -> showHelpDialog());
+        dataButtion.setOnClickListener(v -> showFlightDataDialog());
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
         mSendBtn.setOnClickListener(this);
@@ -2528,13 +2533,17 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "3. 执行任务：执行航点任务\n" +
                 "4. 识别+问题：分析当前帧的图片内容\n" +
                 "5. 无人机控制命令：起飞，降落，向(方向)移动(路程值)米，向(方向)转(角度值)度\n" +
-                "6. 飞到+目的地:添加航点\n" +
-                "7. 删除+目的地:删除航点\n" +
-                "8. 配置航点：配置航点速度，高度，结束后的动作\n" +
+                "6. 飞到+目的地:添加目的地航点\n" +
+                "7. 删除+目的地:删除目的地航点\n" +
+                "8. 配置航点：配置航点速度，高度，结束后的动作，航线方向\n" +
                 "9. 清除航点: 清除所有的航点\n" +
                 "11. 上传航点：上传航点到无人机\n" +
                 "12. 停止任务：停止航点任务\n" +
-                "13. 手动添加：开启手动添加，点击地图即可添加航点";
+                "13. 手动添加：开启手动添加，点击地图即可添加航点" +
+                "14. 高度+高度值：最大飞行高度设置\n" +
+                "15. 返航+高度值：返回起始点时的高度设置\n" +
+                "16. 速度+速度值：最大飞行速度设置\n" +
+                "17. 飞向+lat,lon：飞向指定点\n" ;
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
@@ -2544,6 +2553,91 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 .setIcon(android.R.drawable.ic_dialog_info)
                 .show();
     }
+
+    /**
+     * 展示飞行数据
+     */
+    private void showFlightDataDialog() {
+        // 创建一个新的 AlertDialog，并初始化一个 TextView 来显示数据
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("飞行数据实时更新");
+
+        // 创建一个 TextView，显示初始的飞行数据
+        final TextView textView = new TextView(this);
+        textView.setText("加载中...");
+        builder.setView(textView);
+
+        // 设置对话框的按钮
+        builder.setPositiveButton("关闭", (dialog, which) -> dialog.dismiss());
+
+        // 显示对话框
+        final AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // 创建一个 Handler 来定时更新飞行数据
+        final Handler handler = new Handler();
+
+        // 使用 Runnable 来定时更新数据
+        Runnable updateFlightDataRunnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 假设获取飞行数据
+                    if (mCI != null && mCI.getmSingletonVirtualStickExecutor() != null) {
+                        mCI.getmSingletonVirtualStickExecutor().getFlight(mFlightData);
+                    }
+
+                    // 检查飞行数据是否为空
+                    if (mFlightData == null) {
+                        throw new NullPointerException("飞行数据为空！");
+                    }
+
+                    // 确保其他飞行数据有效，防止为空
+                    double latitude = mDroneLocation != null ? mDroneLocation.latitude : 0.0;
+                    double longitude = mDroneLocation != null ? mDroneLocation.longitude : 0.0;
+                    double altitude = (mAltitudeData != -1) ? mAltitudeData : 0.0;
+                    double heading = (mDroneHeading != -1) ? mDroneHeading : 0.0;
+                    double horizontalSpeed = (mhs != -1) ? mhs : 0.0;
+                    double verticalSpeed = (mvs != -1) ? mvs : 0.0;
+                    double distanceToHome = (mdistToHome != -1) ? mdistToHome : 0.0;
+                    float pitch = (mFlightData != null) ? mFlightData.getPitch() : 0.0f;
+                    float roll = (mFlightData != null) ? mFlightData.getRoll() : 0.0f;
+                    float yaw = (mFlightData != null) ? mFlightData.getYaw() : 0.0f;
+                    float throttle = (mFlightData != null) ? mFlightData.getThrottle() : 0.0f;
+
+                    // 在每次更新时刷新飞行数据
+                    String flightDataMessage = String.format(
+                            "当前无人机位置: (%.6f, %.6f)\n" +
+                                    "当前高度: %.2f 米\n" +
+                                    "航向: %.2f 度\n" +
+                                    "水平速度: %.2f 米/秒\n" +
+                                    "垂直速度: %.2f 米/秒\n" +
+                                    "距离家点: %.2f 米\n" +
+                                    "俯仰角 (Pitch): %.2f 度\n" +
+                                    "滚转角 (Roll): %.2f 度\n" +
+                                    "偏航角 (Yaw): %.2f 度\n" +
+                                    "油门 (Throttle): %.2f",
+                            latitude, longitude, altitude, heading, horizontalSpeed, verticalSpeed, distanceToHome,
+                            pitch, roll, yaw, throttle
+                    );
+
+                    // 动态更新 TextView 中的飞行数据
+                    textView.setText(flightDataMessage);
+
+                } catch (Exception e) {
+                    // 捕获异常并显示错误信息
+                    textView.setText("无法获取飞行数据: " + e.getMessage());
+                }
+
+                // 每隔1秒更新一次飞行数据
+                handler.postDelayed(this, 1000);  // 每隔1秒刷新一次数据
+            }
+        };
+
+        // 开始定时更新
+        handler.post(updateFlightDataRunnable);
+    }
+
 
     /**
      * 可视化配置航点界面

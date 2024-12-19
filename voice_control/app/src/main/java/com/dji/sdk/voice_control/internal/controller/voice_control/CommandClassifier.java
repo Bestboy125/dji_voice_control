@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 //import cn.hutool.json.JSONException;
 //import cn.hutool.json.JSONObject;
@@ -380,14 +382,37 @@ public class CommandClassifier {
                 command = "拍照";
                 // 提取目标对象
                 object_detect_class_string = commandInText.replaceFirst(".*拍照", "").trim();
-            }  else if (commandInText.contains("位置")) {
-                command = "位置";
+            }  else if (commandInText.contains("飞向")) {
+                command = "飞向";
+                String keyword = "飞向";
+                int index = commandInText.indexOf(keyword);
+                // 获取 "飞向" 后面的内容
+                String coordinates = commandInText.substring(index + keyword.length()).trim();
+                unit = coordinates; // 将提取到的内容赋值给 unit
             } else if (commandInText.contains("返航")) {
                 command = "返航";
+                // 提取单位
+                unit = commandInText.replaceAll("[^\\d一二三四五六七八九十零百千]", "");
+                if (unit.matches(".*[一二三四五六七八九十零百千].*")) {
+                    // 包含中文数字时进行转换
+                    unit = convertChineseNumberToArabic(unit);
+                }// 提取文本中的数字作为单位
             } else if (commandInText.contains("高度")) {
                 command = "高度";
+                // 提取单位
+                unit = commandInText.replaceAll("[^\\d一二三四五六七八九十零百千]", "");
+                if (unit.matches(".*[一二三四五六七八九十零百千].*")) {
+                    // 包含中文数字时进行转换
+                    unit = convertChineseNumberToArabic(unit);
+                }// 提取文本中的数字作为单位
             } else if (commandInText.contains("速度")) {
                 command = "速度";
+                // 提取单位
+                unit = commandInText.replaceAll("[^\\d一二三四五六七八九十零百千]", "");
+                if (unit.matches(".*[一二三四五六七八九十零百千].*")) {
+                    // 包含中文数字时进行转换
+                    unit = convertChineseNumberToArabic(unit);
+                }// 提取文本中的数字作为单位
             }
 
             result = encode_string(command, direction, unit, object_detect_class_string, language);
@@ -407,7 +432,7 @@ public class CommandClassifier {
                     this.command_direction = command + ' ' + direction + ' ' + unit;
                     break;
                 case 5:
-                    this.command_direction = "执行任务: " + this.google_map_search_string;
+                    this.command_direction = "飞向" + unit;
                     break;
                 case 6:
                     this.command_direction = "设置更改: " + command;
@@ -664,7 +689,7 @@ public class CommandClassifier {
                         default:
                     }
                     break;
-                case "位置":
+                case "飞向":
                     encoded_string.add(107);
                     encoded_string.add(205);
                     switch_num = 5;
@@ -717,6 +742,23 @@ public class CommandClassifier {
                 encoded_string.add(204);
                 switch_num = 4;
                 encoded_string.add(Integer.parseInt(unit));
+            }
+            else if (switch_num == 5){// 获取经纬度值
+                double lati = Double.parseDouble(unit.split(",")[0].trim());
+                double logi = Double.parseDouble(unit.split(",")[1].trim());
+
+                // 提取经纬度的整数部分和小数部分
+                int latiInt = (int) lati; // 纬度整数部分
+                int latiDecimal = (int) ((lati - latiInt) * 100000); // 纬度小数部分（放大为 100000 倍）
+
+                int logiInt = (int) logi; // 经度整数部分
+                int logiDecimal = (int) ((logi - logiInt) * 100000); // 经度小数部分（放大为 100000 倍）
+
+                // 将整数部分和小数部分添加到 encoded_string 中
+                encoded_string.add(latiInt); // 纬度整数部分
+                encoded_string.add(latiDecimal); // 纬度小数部分
+                encoded_string.add(logiInt); // 经度整数部分
+                encoded_string.add(logiDecimal); // 经度小数部分
             }
             //settings
             else if (switch_num == 6) {

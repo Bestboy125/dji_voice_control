@@ -89,6 +89,17 @@ public class MyVirtualStickExecutor {
 
     //region 飞行数据获取
     /**
+     * 获取当前的速度，以及三个角，马力
+     */
+    public void getFlight(FlightData flightData){
+        flightData.setSpeed(mSpeed);
+        flightData.setPitch(mPitch);
+        flightData.setRoll(mRoll);
+        flightData.setYaw(mYaw);
+        flightData.setThrottle(mThrottle);
+    }
+
+    /**
      * 获取当前的高度
      */
     private double getCurrentAltitude() {

@@ -524,4 +524,11 @@ public class CommandInterpreter {
      * @assitants David Yang, Eddie Wang, Eric Xu
      */
 
+    /**
+     * 获取mSingletonVirtualStickExecutor
+     */
+    public MyVirtualStickExecutor getmSingletonVirtualStickExecutor(){
+        return this.mSingletonVirtualStickExecutor;
+    }
+
 }
