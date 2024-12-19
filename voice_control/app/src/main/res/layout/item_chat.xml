@@ -32,7 +32,6 @@
 
     </RelativeLayout>
 
-
     <ProgressBar
         android:id="@+id/pb_think"
         android:layout_width="28dp"
@@ -79,6 +78,15 @@
             android:layout_height="48dp"
             android:layout_alignParentRight="true"
             android:src="@drawable/icon_girl" />
+
+        <ImageView
+            android:id="@+id/iv_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="48dp"
+            android:visibility="gone" />
 
     </RelativeLayout>
 

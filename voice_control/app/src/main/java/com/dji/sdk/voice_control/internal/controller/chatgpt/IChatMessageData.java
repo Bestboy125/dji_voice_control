@@ -1,5 +1,7 @@
 package com.dji.sdk.voice_control.internal.controller.chatgpt;
 
+import android.graphics.Bitmap;
+
 public interface IChatMessageData {
 
     int getSize();
@@ -7,6 +9,8 @@ public interface IChatMessageData {
     ChatMessage getChatMessage(int position);
 
     void addChatMessage(String owner, String question);
+
+    void addChatMessage(String owner, String question, Bitmap image);
 
     String addWelcomeMessage();
 

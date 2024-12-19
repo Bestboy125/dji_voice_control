@@ -324,6 +324,7 @@ public class Waypoint2Activity extends FragmentActivity implements View.OnClickL
                 mFlightController = ((Aircraft) product).getFlightController();
             }
         }
+
     }
 
     //Add Listener for WaypointMissionOperator

@@ -3,6 +3,8 @@ package com.dji.sdk.voice_control.internal.controller.flightcontrol;
 
 import android.content.Context;
 import android.graphics.PointF;
+import android.util.Log;
+import android.widget.Toast;
 
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.HttpUtil;
@@ -75,7 +77,7 @@ public class CommandInterpreter {
      */
 
     /**
-     * Initialize flight controller 初始化控制器
+     * 初始化控制器
      */
     public void initFlightController() {
         aircraft = DJISampleApplication.getAircraftInstance();
@@ -92,28 +94,52 @@ public class CommandInterpreter {
     /**
      * Take off 起飞
      */
-    private void mTakeoff(){
-        if (mFlightController != null){
+    private void mTakeoff() {
+        if (mFlightController != null) {
             mFlightController.startTakeoff(new CommonCallbacks.CompletionCallback() {
                 @Override
                 public void onResult(DJIError djiError) {
-
+                    if (djiError == null) {
+                        // 成功起飞
+                        Toast.makeText(mContext, "起飞成功", Toast.LENGTH_SHORT).show();
+                        Log.d("DroneOperation", "Takeoff successful.");
+                    } else {
+                        // 起飞失败
+                        Toast.makeText(mContext, "起飞失败: " + djiError.getDescription(), Toast.LENGTH_LONG).show();
+                        Log.e("DroneOperation", "Takeoff failed: " + djiError.getDescription());
+                    }
                 }
             });
+        } else {
+            // 飞行控制器为空，提示用户检查
+            Toast.makeText(mContext, "飞行控制器未初始化", Toast.LENGTH_LONG).show();
+            Log.e("DroneOperation", "Flight controller is not initialized.");
         }
     }
 
     /**
      * Landing 着陆
      */
-    private void mLand(){
-        if (mFlightController != null){
+    private void mLand() {
+        if (mFlightController != null) {
             mFlightController.startLanding(new CommonCallbacks.CompletionCallback() {
                 @Override
                 public void onResult(DJIError djiError) {
-
+                    if (djiError == null) {
+                        // 成功着陆
+                        Toast.makeText(mContext, "着陆成功", Toast.LENGTH_SHORT).show();
+                        Log.d("DroneOperation", "Landing successful.");
+                    } else {
+                        // 着陆失败
+                        Toast.makeText(mContext, "着陆失败: " + djiError.getDescription(), Toast.LENGTH_LONG).show();
+                        Log.e("DroneOperation", "Landing failed: " + djiError.getDescription());
+                    }
                 }
             });
+        } else {
+            // 飞行控制器为空，提示用户检查
+            Toast.makeText(mContext, "飞行控制器未初始化", Toast.LENGTH_LONG).show();
+            Log.e("DroneOperation", "Flight controller is not initialized.");
         }
     }
 

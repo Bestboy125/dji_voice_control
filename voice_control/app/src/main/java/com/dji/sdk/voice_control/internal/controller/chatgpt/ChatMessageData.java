@@ -1,5 +1,7 @@
 package com.dji.sdk.voice_control.internal.controller.chatgpt;
 
+import android.graphics.Bitmap;
+
 import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
@@ -39,6 +41,12 @@ public class ChatMessageData implements IChatMessageData {
     @Override
     public void addChatMessage(@NonNull String owner, @NonNull String question) {
         ChatMessage chatMessage = new ChatMessage(owner, question);
+        mChatMessageList.add(chatMessage);
+    }
+
+    @Override
+    public void addChatMessage(@NonNull String owner, @NonNull String question, @NonNull Bitmap image) {
+        ChatMessage chatMessage = new ChatMessage(owner, question, image);
         mChatMessageList.add(chatMessage);
     }
 

@@ -89,7 +89,7 @@ public class MyVirtualStickExecutor {
 
     //region 飞行数据获取
     /**
-     * 获取当前的经纬度
+     * 获取当前的高度
      */
     private double getCurrentAltitude() {
         double alti = (double) mFlightController.getState().getAircraftLocation().getAltitude(); //-hpAltitude;

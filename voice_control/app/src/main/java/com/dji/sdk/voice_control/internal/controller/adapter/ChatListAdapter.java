@@ -1,5 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller.adapter;
 
+import android.graphics.Bitmap;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,6 +37,8 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         ChatMessage chatMessage = ChatMessageData.getInstance().getChatMessage(position);
         String msg = chatMessage.getMsg();
         String owner = chatMessage.getOwner();
+        Bitmap image = chatMessage.getImage();
+
         if (owner.equals(Constant.OWNER_BOT)) {
             holder.mPbThink.setVisibility(View.GONE);
             holder.mRlHuman.setVisibility(View.GONE);
@@ -58,6 +61,19 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
             holder.mRlBot.setVisibility(View.GONE);
             holder.mRlHuman.setVisibility(View.VISIBLE);
             holder.mTvMsgHuman.setText(msg);
+            // 显示用户的图像消息
+            if (image != null) {
+                holder.mIvImage.setVisibility(View.VISIBLE); // 假设你在布局中添加了 ImageView 用于显示图片
+                holder.mIvImage.setImageBitmap(image);
+
+                // 设置图片大小为200x100
+                ViewGroup.LayoutParams params = holder.mIvImage.getLayoutParams();
+                params.width = 200;  // 设置宽度为200
+                params.height = 100; // 设置高度为100
+                holder.mIvImage.setLayoutParams(params);
+            } else {
+                holder.mIvImage.setVisibility(View.GONE);
+            }
             holder.mIvCopy.setVisibility(View.GONE);
         } else if (owner.equals(Constant.OWNER_BOT_THINK)) {
             holder.mPbThink.setVisibility(View.VISIBLE);
@@ -81,6 +97,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
         private TextView mTvMsgHuman;
         private ProgressBar mPbThink;
         private ImageView mIvCopy;
+        private ImageView mIvImage;
 
         public MyViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -93,6 +110,7 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
 
             mPbThink = itemView.findViewById(R.id.pb_think);
             mIvCopy = itemView.findViewById(R.id.iv_icon_copy);
+            mIvImage = itemView.findViewById(R.id.iv_image);
         }
     }
 

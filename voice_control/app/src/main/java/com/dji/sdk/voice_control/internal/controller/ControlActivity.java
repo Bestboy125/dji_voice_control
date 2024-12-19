@@ -27,6 +27,7 @@ import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
@@ -553,11 +554,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         // 初始化命令交互控制器
         mCI = CommandInterpreter.getUniqueInstance(mContext);
 
-        //初始化UI事件
-        initUI();
-
         //初始化无人机
         initDrone();
+
+        //初始化UI事件
+        initUI();
 
         //初始化chatgpt
         mRvChatList = (RecyclerView) findViewById(R.id.rv_chatlist);
@@ -581,7 +582,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //更新状态栏
         updateTitleBar();
         //初始化飞控
-        initFlightController();
+        initDrone();
         //登录DJI账户
         loginAccount();
     }
@@ -906,53 +907,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
-     * 初始飞行控制器
-     */
-    private void initFlightController() {
-        //实例化飞控
-        Aircraft aircraft = DJISampleApplication.getAircraftInstance();
-        if (aircraft == null || !aircraft.isConnected()) {
-            showToast("Disconnected");
-            mFlightController = null;
-            return;
-        } else {
-            //初始化设置飞控模式
-            mFlightController = aircraft.getFlightController();
-            mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
-            mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
-            mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
-            mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
-            mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
-                //显示状态数据
-                @Override
-                public void onUpdate(final SimulatorState stateData) {
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                        @Override
-                        public void run() {
-
-                            String yaw = String.format("%.2f", stateData.getYaw());
-                            String pitch = String.format("%.2f", stateData.getPitch());
-                            String roll = String.format("%.2f", stateData.getRoll());
-                            String positionX = String.format("%.2f", stateData.getPositionX());
-                            String positionY = String.format("%.2f", stateData.getPositionY());
-                            String positionZ = String.format("%.2f", stateData.getPositionZ());
-
-                            try {
-                                addChatMessage(Constant.OWNER_BOT, "Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", X坐标 : " + positionX +
-                                        ", Y坐标 : " + positionY +
-                                        ", Z坐标 : " + positionZ);
-                            }
-                            catch (Exception e){
-                                addChatMessage(Constant.OWNER_BOT, "现在未连接无人机");
-                            }
-                        }
-                    });
-                }
-            });
-        }
-    }
-
-    /**
      * 初始化UI
      */
     private void initUI() {
@@ -990,9 +944,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         openDrawerButton.setOnClickListener(v -> openDrawer());
         mBtnEnableVirtualStick.setOnClickListener(v -> {
             // 处理 Home 按钮点击逻辑
-            if (mFlightController != null){
+            if (mCI.mFlightController != null){
 
-                mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
+                mCI.mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onResult(DJIError djiError) {
                         if (djiError != null){
@@ -1008,8 +962,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             drawerLayout.closeDrawer(GravityCompat.START);
         });
         mBtnDisableVirtualStick.setOnClickListener(v -> {
-            if (mFlightController != null){
-                mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
+            if (mCI.mFlightController != null){
+                mCI.mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onResult(DJIError djiError) {
                         if (djiError != null) {
@@ -1116,9 +1070,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
 
-                    if (mFlightController != null) {
+                    if (mCI.mFlightController != null) {
 
-                        mFlightController.getSimulator()
+                        mCI.mFlightController.getSimulator()
                                 .start(InitializationData.createInstance(new LocationCoordinate2D(23, 113), 10, 10),
                                         new CommonCallbacks.CompletionCallback() {
                                             @Override
@@ -1136,8 +1090,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 } else {
 
 
-                    if (mFlightController != null) {
-                        mFlightController.getSimulator()
+                    if (mCI.mFlightController != null) {
+                        mCI.mFlightController.getSimulator()
                                 .stop(new CommonCallbacks.CompletionCallback() {
                                           @Override
                                           public void onResult(DJIError djiError) {
@@ -1296,38 +1250,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             ).show());
         }
     };
-
-//    //TEST
-//    private void requestProjectionPermission() {
-//        Intent captureIntent = projectionManager.createScreenCaptureIntent();
-//        startActivityForResult(captureIntent, REQUEST_CODE_SCREEN_CAPTURE);
-//    }
-
-//    @Override
-//    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-//        super.onActivityResult(requestCode, resultCode, data);
-//        if (requestCode == REQUEST_CODE_SCREEN_CAPTURE && resultCode == RESULT_OK && data != null) {
-//            // 设置屏幕捕获权限到 RtspServerDisplay
-//            rtspServerDisplay.setProjectionResult(resultCode, data);
-//
-//            if (/*rtspServerCamera1.prepareAudio() && */
-//                    rtspServerDisplay.prepareVideo(
-//                            640,
-//                            480,
-//                            30,
-//                            1200 * 1024,
-//                            0,
-//                            320
-//                            )
-//                        ){
-//                // 启动流媒体推流
-//                rtspServerDisplay.startStream();
-//            }
-//        } else {
-//            Log.e("RTSP", "Screen capture permission denied.");
-//        }
-//    }
-
     //endregion
 
     //region 科大讯飞监视器
@@ -1715,7 +1637,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //region 飞行控制器
 
     /**
-     * 初始化无人机
+     * 初始化无人机mFlightController
      */
     private void initDrone() {
         mCI.initFlightController();
@@ -1805,8 +1727,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             if (mCI.mFlightController == null) {
                 initDrone();
             }
+            onProductConnectionChange();
         }
     };
+
+    private void onProductConnectionChange() {
+        initDrone();
+        loginAccount();
+    }
 
     /**
      * 更新无人机的距离，经纬度，竖直速度，水平速度
@@ -1867,8 +1795,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         @Override
         public void run() {
 
-            if (mFlightController != null) {
-                mFlightController.sendVirtualStickFlightControlData(
+            if (mCI.mFlightController != null) {
+                mCI.mFlightController.sendVirtualStickFlightControlData(
                         new FlightControlData(
                                 mPitch, mRoll, mYaw, mThrottle
                         ), djiError -> {
@@ -2207,6 +2135,19 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         });
     }
 
+    private void addChatMessage(String owner, Bitmap image) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (image != null) {
+                    mChatMessageData.addChatMessage(owner, null, image);
+                    mListAdapter.notifyDataSetChanged();
+                    mRvChatList.smoothScrollToPosition(mChatMessageData.getSize());
+                }
+            }
+        });
+    }
+
     /**
      * 获取文件格式（扩展名）
      *
@@ -2423,6 +2364,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             // 反馈捕获成功
             addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
             addChatMessage(Constant.OWNER_HUMAN,question.toString());
+            addChatMessage(Constant.OWNER_HUMAN,bitmap);
             //TODO
             //显示捕获的这一帧图像在对话框
             // 如果图片文件成功生成，则发送至大模型
@@ -2590,8 +2532,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "7. 删除+目的地:删除航点\n" +
                 "8. 配置航点：配置航点速度，高度，结束后的动作\n" +
                 "9. 清除航点: 清除所有的航点\n" +
-                "10. 停止任务：停止航点任务\n" +
-                "11. 手动添加：开启手动添加，点击地图即可添加航点";
+                "11. 上传航点：上传航点到无人机\n" +
+                "12. 停止任务：停止航点任务\n" +
+                "13. 手动添加：开启手动添加，点击地图即可添加航点";
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
