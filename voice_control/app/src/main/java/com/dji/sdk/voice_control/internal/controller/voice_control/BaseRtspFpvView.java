@@ -25,6 +25,7 @@ import dji.sdk.codec.DJICodecManager;
 import kr.co.makeitall.rtspserver.RtspServer;
 
 import com.pedro.encoder.Frame;
+import com.pedro.encoder.input.decoder.VideoDecoder;
 import com.pedro.encoder.utils.CodecUtil;
 import com.pedro.encoder.video.FormatVideoEncoder;
 import com.pedro.encoder.video.GetVideoData;
@@ -43,6 +44,7 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
     private VideoFeeder.VideoDataListener videoDataListener = null;
     private RtspServer rtspServer;
     private VideoEncoder videoEncoder;
+    private boolean isStreaming = false; // 添加isStreaming标志位
 
     public BaseRtspFpvView(Context context, RtspServer rtspServer) {
         super(context);
@@ -86,18 +88,16 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
                                 UsbAccessoryService.VideoStreamSource.Fpv.getIndex());
                     }
 
-                    // 将一帧数据封装并编码，实时发送到 RTSP 服务器
-                    try {
-                        int pts = (int) (System.nanoTime() / 1000);
-                        Frame frame = new Frame(bytes, pts, size);
-                        videoEncoder.inputYUVData(frame);
+                    if (isStreaming && rtspServer.isRunning() && rtspServer.getNumClients() > 0) {
+                        // 将一帧数据封装并编码，实时发送到 RTSP 服务器
+                        try {
+                            int pts = (int) (System.nanoTime() / 1000);
+                            Frame frame = new Frame(bytes, pts, size);
+                            videoEncoder.inputYUVData(frame);
 
-                        // 确保编码器处于运行状态
-                        if (!videoEncoder.isRunning()) {
-                            videoEncoder.start();
+                        } catch (Exception e) {
+                            Log.e("BaseRtspFpvView", "Error encoding video frame: " + e.getMessage());
                         }
-                    } catch (Exception e) {
-                        Log.e("BaseRtspFpvView", "Error encoding video frame: " + e.getMessage());
                     }
                 }
             };
@@ -113,6 +113,28 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
         ByteBuffer newVps = vps != null ? vps.duplicate() : null;
 
         rtspServer.setVideoInfo(newSps, newPps, newVps);
+    }
+
+    // 启动推流（启动编码器）
+    public void startStreaming() {
+        if (!isStreaming) {
+            isStreaming = true; // 设置标志位为true
+            Log.i("BaseRtspFpvView", "Streaming started. Starting encoder...");
+            videoEncoder.start(); // 启动编码器
+        } else {
+            Log.w("BaseRtspFpvView", "Streaming is already running.");
+        }
+    }
+
+    // 停止推流（停止编码器）
+    public void stopStreaming() {
+        if (isStreaming) {
+            isStreaming = false; // 设置标志位为false
+            Log.i("BaseRtspFpvView", "Streaming stopped. Stopping encoder...");
+            videoEncoder.stop(); // 停止编码器
+        } else {
+            Log.w("BaseRtspFpvView", "Streaming is not running.");
+        }
     }
 
     @Override

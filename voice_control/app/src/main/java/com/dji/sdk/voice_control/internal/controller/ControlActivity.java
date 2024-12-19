@@ -355,6 +355,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private ChatListAdapter mListAdapter;
     public OkHttpClient client;
     private Button mSendBtn;
+    private BaseRtspFpvView mBaseRtspFpvView;
 
     /**
      * 聊天信息数据
@@ -474,7 +475,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mContext = this;
         fpvTexture = new TextureView(mContext);
 //        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
-        fpvTexture.setSurfaceTextureListener(new BaseRtspFpvView(mContext,rtspServer));
+        mBaseRtspFpvView = new BaseRtspFpvView(mContext,rtspServer);
+        fpvTexture.setSurfaceTextureListener(mBaseRtspFpvView);
 
         //语音识别初始化
         SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
@@ -2288,6 +2290,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         if (!isStreaming) {
             try {
                 rtspServer.startServer();
+                mBaseRtspFpvView.startStreaming(); // 开始编码并推流
                 isStreaming = true;
                 String rtspUrl = rtspServer.getEndPointConnection();
                 addChatMessage(Constant.OWNER_BOT, "推流已启动，地址为：" + rtspUrl);
@@ -2306,6 +2309,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         if (isStreaming) {
             try {
                 rtspServer.stopServer();
+                mBaseRtspFpvView.stopStreaming();
                 isStreaming = false;
                 addChatMessage(Constant.OWNER_BOT, "推流已停止。");
             } catch (Exception e) {
