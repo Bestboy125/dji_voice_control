@@ -1,9 +1,13 @@
-package com.dji.sdk.voice_control.demo.camera;
+package com.dji.sdk.voice_control.internal.controller;
+
+import static com.dji.sdk.voice_control.internal.utils.ToastUtils.showToast;
 
 import android.app.AlertDialog;
 import android.app.Service;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -11,28 +15,27 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+
+import androidx.annotation.NonNull;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.utils.Helper;
 import com.dji.sdk.voice_control.internal.utils.PopupUtils;
 import com.dji.sdk.voice_control.internal.utils.ToastUtils;
 import com.dji.sdk.voice_control.internal.utils.VideoFeedView;
 import com.dji.sdk.voice_control.internal.view.PresentableView;
 
-import dji.sdk.sdkmanager.LiveVideoBitRateMode;
-import dji.sdk.sdkmanager.LiveVideoResolution;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-import androidx.annotation.NonNull;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.camera.VideoFeeder;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.sdkmanager.LiveStreamManager;
-
-import static com.dji.sdk.voice_control.internal.utils.ToastUtils.showToast;
+import dji.sdk.sdkmanager.LiveVideoBitRateMode;
+import dji.sdk.sdkmanager.LiveVideoResolution;
 
 /**
  * Class for live stream demo.
@@ -42,34 +45,19 @@ import static com.dji.sdk.voice_control.internal.utils.ToastUtils.showToast;
  * <p>
  * Copyright (c) 2019, DJI All Rights Reserved.
  */
-public class LiveStreamView extends LinearLayout implements PresentableView, View.OnClickListener {
+public class LiveStream extends RelativeLayout implements PresentableView, View.OnClickListener {
 
-    private String liveShowUrl = "please input your live show url here";
+    public String liveShowUrl = null;
 
     private VideoFeedView primaryVideoFeedView;
     private VideoFeedView fpvVideoFeedView;
-    private EditText showUrlInputEdit;
-
-    private Button startLiveShowBtn;
-    private Button enableVideoEncodingBtn;
-    private Button disableVideoEncodingBtn;
-    private Button stopLiveShowBtn;
-    private Button soundOnBtn;
-    private Button soundOffBtn;
-    private Button isLiveShowOnBtn;
-    private Button showInfoBtn;
-    private Button showLiveStartTimeBtn;
-    private Button showCurrentVideoSourceBtn;
-    private Button changeVideoSourceBtn;
-    private Button startAutoBitBtn;
-    private boolean firstTimetoStartAutoBitRate = true;
-    private int lastBitRate = 2048;
+    public int lastBitRate = 2048;
 
     private LiveStreamManager.OnLiveChangeListener listener;
     private LiveStreamManager.LiveStreamVideoSource currentVideoSource = LiveStreamManager.LiveStreamVideoSource.Primary;
     private static final String URL_KEY = "sp_stream_url";
 
-    public LiveStreamView(Context context) {
+    public LiveStream(Context context) {
         super(context);
         liveShowUrl = context.getSharedPreferences(context.getPackageName(), Context.MODE_PRIVATE).getString(URL_KEY, liveShowUrl);
         initUI(context);
@@ -77,8 +65,6 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
     }
 
     private void initUI(Context context) {
-        setClickable(true);
-        setOrientation(VERTICAL);
         LayoutInflater layoutInflater = (LayoutInflater) context.getSystemService(Service.LAYOUT_INFLATER_SERVICE);
         layoutInflater.inflate(R.layout.view_live_stream, this, true);
 
@@ -90,58 +76,9 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         if (Helper.isMultiStreamPlatform()){
             fpvVideoFeedView.setVisibility(VISIBLE);
         }
-
-        showUrlInputEdit = (EditText) findViewById(R.id.edit_live_show_url_input);
-        showUrlInputEdit.setText(liveShowUrl);
-
-        startLiveShowBtn = (Button) findViewById(R.id.btn_start_live_show);
-        enableVideoEncodingBtn = (Button) findViewById(R.id.btn_enable_video_encode);
-        disableVideoEncodingBtn = (Button) findViewById(R.id.btn_disable_video_encode);
-        stopLiveShowBtn = (Button) findViewById(R.id.btn_stop_live_show);
-        soundOnBtn = (Button) findViewById(R.id.btn_sound_on);
-        soundOffBtn = (Button) findViewById(R.id.btn_sound_off);
-        isLiveShowOnBtn = (Button) findViewById(R.id.btn_is_live_show_on);
-        showInfoBtn = (Button) findViewById(R.id.btn_show_info);
-        showLiveStartTimeBtn = (Button) findViewById(R.id.btn_show_live_start_time);
-        showCurrentVideoSourceBtn = (Button) findViewById(R.id.btn_show_current_video_source);
-        changeVideoSourceBtn = (Button) findViewById(R.id.btn_change_video_source);
-        Button setResolutionBtn = (Button) findViewById(R.id.btn_set_resolution);
-        Button setBitRateBtn = (Button) findViewById(R.id.btn_set_bit_rate);
-        startAutoBitBtn = (Button) findViewById(R.id.btn_auto_bitrate);
-        setResolutionBtn.setOnClickListener(this);
-        setBitRateBtn.setOnClickListener(this);
-        startAutoBitBtn.setOnClickListener(this);
-
-        startLiveShowBtn.setOnClickListener(this);
-        enableVideoEncodingBtn.setOnClickListener(this);
-        disableVideoEncodingBtn.setOnClickListener(this);
-        stopLiveShowBtn.setOnClickListener(this);
-        soundOnBtn.setOnClickListener(this);
-        soundOffBtn.setOnClickListener(this);
-        isLiveShowOnBtn.setOnClickListener(this);
-        showInfoBtn.setOnClickListener(this);
-        showLiveStartTimeBtn.setOnClickListener(this);
-        showCurrentVideoSourceBtn.setOnClickListener(this);
-        changeVideoSourceBtn.setOnClickListener(this);
     }
 
     private void initListener() {
-        showUrlInputEdit.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                liveShowUrl = s.toString();
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-
-            }
-        });
         listener = new LiveStreamManager.OnLiveChangeListener() {
             @Override
             public void onStatusChanged(int i) {
@@ -182,7 +119,25 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         return this.getClass().getSimpleName() + ".java";
     }
 
-    void startLiveShow() {
+
+    //region 控制直播的函数
+    public Bitmap getBitmap() {
+        if (primaryVideoFeedView != null) {
+            // 创建一个 Bitmap 来存储当前帧
+            Bitmap bitmap = Bitmap.createBitmap(
+                    primaryVideoFeedView.getWidth(),
+                    primaryVideoFeedView.getHeight(),
+                    Bitmap.Config.ARGB_8888
+            );
+            // 创建 Canvas 并让它绘制 primaryVideoFeedView
+            Canvas canvas = new Canvas(bitmap);
+            primaryVideoFeedView.draw(canvas);
+            return bitmap;
+        }
+        return null;
+    }
+
+    public void startLiveShow() {
         ToastUtils.setResultToToast("Start Live Show");
         if (!isLiveStreamManagerOn()) {
             return;
@@ -197,7 +152,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
                 DJISDKManager.getInstance().getLiveStreamManager().setLiveUrl(liveShowUrl);
                 int result = DJISDKManager.getInstance().getLiveStreamManager().startStream();
                 DJISDKManager.getInstance().getLiveStreamManager().setStartTime();
-                LiveStreamView.this.getContext().getSharedPreferences(LiveStreamView.this.getContext().getPackageName(),
+                LiveStream.this.getContext().getSharedPreferences(LiveStream.this.getContext().getPackageName(),
                                                                       Context.MODE_PRIVATE).edit().putString(URL_KEY,liveShowUrl).commit();
 
                 ToastUtils.setResultToToast("startLive:" + result +
@@ -207,7 +162,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         }.start();
     }
 
-    private void enableReEncoder() {
+    public void enableReEncoder() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -215,7 +170,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast("Force Re-Encoder Enabled!");
     }
 
-    private void disableReEncoder() {
+    public void disableReEncoder() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -223,7 +178,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast("Disable Force Re-Encoder!");
     }
 
-    private void stopLiveShow() {
+    public void stopLiveShow() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -231,7 +186,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast("Stop Live Show");
     }
 
-    private void soundOn() {
+    public void soundOn() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -239,7 +194,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast("Sound On");
     }
 
-    private void soundOff() {
+    public void soundOff() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -247,14 +202,14 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast("Sound Off");
     }
 
-    private void isLiveShowOn() {
+    public void isLiveShowOn() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
         ToastUtils.setResultToToast("Is Live Show On:" + DJISDKManager.getInstance().getLiveStreamManager().isStreaming());
     }
 
-    private void showInfo() {
+    public void showInfo() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -268,7 +223,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast(sb.toString());
     }
 
-    private void showLiveStartTime() {
+    public void showLiveStartTime() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -282,7 +237,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast("Live Start Time: " + sd);
     }
 
-    private void changeVideoSource() {
+    public void changeVideoSource() {
         if (!isLiveStreamManagerOn()) {
             return;
         }
@@ -301,11 +256,11 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         ToastUtils.setResultToToast("Change Success ! Video Source : " + currentVideoSource.name());
     }
 
-    private void showCurrentVideoSource(){
+    public void showCurrentVideoSource(){
         ToastUtils.setResultToToast("Video Source : " + currentVideoSource.name());
     }
 
-    private boolean isLiveStreamManagerOn() {
+    public boolean isLiveStreamManagerOn() {
         if (DJISDKManager.getInstance().getLiveStreamManager() == null) {
             ToastUtils.setResultToToast("No live stream manager!");
             return false;
@@ -313,7 +268,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         return true;
     }
 
-    private boolean isSupportSecondaryVideo(){
+    public boolean isSupportSecondaryVideo(){
         if (!Helper.isMultiStreamPlatform()) {
             ToastUtils.setResultToToast("No secondary video!");
             return false;
@@ -321,37 +276,17 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         return true;
     }
 
-    private void startOrStopAutoBitRate() {
-        if (firstTimetoStartAutoBitRate) {
-            DJISDKManager.getInstance().getLiveStreamManager().setLiveVideoBitRateMode(LiveVideoBitRateMode.AUTO);
-            showToast("Start Auto Video Bit Rate Success!!!");
-            startAutoBitBtn.setText("StopAutoBitRate");
-            firstTimetoStartAutoBitRate = false;
-            return;
-        }
-        if (!startAutoBitBtn.getText().toString().contains("Start")) {
-            DJISDKManager.getInstance().getLiveStreamManager().setLiveVideoBitRateMode(LiveVideoBitRateMode.MANUAL);
-            DJISDKManager.getInstance().getLiveStreamManager().setLiveVideoBitRate(lastBitRate);
-            showToast("Stop Auto Video Bit Rate Success!!!");
-            startAutoBitBtn.setText("StartAutoBitRate");
-        } else {
-            DJISDKManager.getInstance().getLiveStreamManager().setLiveVideoBitRateMode(LiveVideoBitRateMode.AUTO);
-            showToast("Start Auto Video Bit Rate Success!!!");
-            startAutoBitBtn.setText("StopAutoBitRate");
-        }
-    }
-
-    private void setBitRate() {
+    public void setBitRate() {
         final EditText inputServer = new EditText(this.getContext());
         inputServer.setText("2048");
-        inputServer.setOnClickListener(new View.OnClickListener() {
+        inputServer.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
                 inputServer.setHint(null);
             }
         });
         AlertDialog.Builder builder = new AlertDialog.Builder(this.getContext());
-        builder.setTitle("Set Live Video Bit Rate in Kpbs").setView(inputServer)
+        builder.setTitle("Set Live Video Bit Rate in Kpbs 默认为2048").setView(inputServer)
                .setNegativeButton("CANCEL", null);
         builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 
@@ -371,7 +306,7 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         builder.show();
     }
 
-    private void setResolution() {
+    public void setResolution() {
         LiveVideoResolution[] resolutions = {
             LiveVideoResolution.VIDEO_RESOLUTION_1920_1080,
             LiveVideoResolution.VIDEO_RESOLUTION_1440_1080,
@@ -392,53 +327,10 @@ public class LiveStreamView extends LinearLayout implements PresentableView, Vie
         },this);
     }
 
+    //endregion
+
     @Override
     public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.btn_start_live_show:
-                startLiveShow();
-                break;
-            case R.id.btn_enable_video_encode:
-                enableReEncoder();
-                break;
-            case R.id.btn_disable_video_encode:
-                disableReEncoder();
-                break;
-            case R.id.btn_stop_live_show:
-                stopLiveShow();
-                break;
-            case R.id.btn_sound_on:
-                soundOn();
-                break;
-            case R.id.btn_sound_off:
-                soundOff();
-                break;
-            case R.id.btn_is_live_show_on:
-                isLiveShowOn();
-                break;
-            case R.id.btn_show_info:
-                showInfo();
-                break;
-            case R.id.btn_show_live_start_time:
-                showLiveStartTime();
-                break;
-            case R.id.btn_show_current_video_source:
-                showCurrentVideoSource();
-                break;
-            case R.id.btn_change_video_source:
-                changeVideoSource();
-                break;
-            case R.id.btn_auto_bitrate:
-                startOrStopAutoBitRate();
-                break;
-            case R.id.btn_set_bit_rate:
-                setBitRate();
-                break;
-            case R.id.btn_set_resolution:
-                setResolution();
-                break;
-            default:
-                break;
-        }
+        switch (v.getId()) {}
     }
 }

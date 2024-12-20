@@ -18,7 +18,6 @@ import com.dji.sdk.voice_control.demo.battery.PushBatteryDataView;
 import com.dji.sdk.voice_control.demo.battery.SetGetDischargeDayView;
 import com.dji.sdk.voice_control.demo.camera.CameraCalibration;
 import com.dji.sdk.voice_control.demo.camera.FetchMediaView;
-import com.dji.sdk.voice_control.demo.camera.LiveStreamView;
 import com.dji.sdk.voice_control.demo.camera.MediaPlaybackView;
 import com.dji.sdk.voice_control.demo.camera.MultipleLensCameraView;
 import com.dji.sdk.voice_control.demo.camera.PlaybackCommandsView;

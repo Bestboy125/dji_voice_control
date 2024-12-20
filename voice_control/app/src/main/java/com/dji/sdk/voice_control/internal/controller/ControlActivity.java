@@ -20,6 +20,7 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -78,6 +79,7 @@ import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
+import dji.sdk.sdkmanager.LiveStreamManager;
 import com.dji.sdk.voice_control.internal.utils.AMapUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
 import com.dji.sdk.voice_control.internal.utils.ToastUtil;
@@ -340,6 +342,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //region 视频流RTSP数据结构
     private RtspServer rtspServer;
     private static final int RTSP_PORT = 5000;
+    private LiveStream mLiveStream;
 
     //TEST
 //    private MediaProjectionManager projectionManager;
@@ -466,15 +469,18 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //检查手机权限
         checkAndRequestPermissions();
 
-        //初始化RTSP推流
-        rtspServer = new RtspServer(connectCheckerRtsp, RTSP_PORT);
-
-        //初始化FPV推流
+        //初始化DJI推流和直播
         mContext = this;
-        fpvTexture = new TextureView(mContext);
-//        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
-        mBaseRtspFpvView = new BaseRtspFpvView(mContext,rtspServer);
-        fpvTexture.setSurfaceTextureListener(mBaseRtspFpvView);
+        mLiveStream = new LiveStream(mContext);
+
+//        //初始化RTSP推流
+//        rtspServer = new RtspServer(connectCheckerRtsp, RTSP_PORT);
+//
+////        //初始化FPV推流
+////        fpvTexture = new TextureView(mContext);
+//////        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
+////        mBaseRtspFpvView = new BaseRtspFpvView(mContext,rtspServer);
+////        fpvTexture.setSurfaceTextureListener(mBaseRtspFpvView);
 
         //语音识别初始化
         SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
@@ -504,7 +510,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 将 TextureView 添加到容器中
         FrameLayout fpvContainer = findViewById(R.id.fpv_container);
-        fpvContainer.addView(fpvTexture);
+        fpvContainer.addView(mLiveStream);
 
         // 设置 TabLayout 切换监听
         mTabLayout = (TabLayout) findViewById(R.id.tab_layout);
@@ -514,11 +520,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 switch (tab.getPosition()) {
                     case 0: // 地图视图
                         mMapView.setVisibility(View.VISIBLE);
-                        fpvTexture.setVisibility(View.GONE);
+                        mLiveStream.setVisibility(View.GONE);
                         break;
                     case 1: // FPV 视图
                         mMapView.setVisibility(View.GONE);
-                        fpvTexture.setVisibility(View.VISIBLE);
+                        mLiveStream.setVisibility(View.VISIBLE);
                         break;
                 }
             }
@@ -2300,41 +2306,89 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     //region 自动化执行逻辑
 
+//    /**
+//     * 自动化开始推流
+//     */
+//    private void handleStartStreaming() {
+//        if (!isStreaming) {
+//            try {
+//                rtspServer.startServer();
+//                mBaseRtspFpvView.startStreaming(); // 开始编码并推流
+//                isStreaming = true;
+//                String rtspUrl = rtspServer.getEndPointConnection();
+//                addChatMessage(Constant.OWNER_BOT, "推流已启动，地址为：" + rtspUrl);
+//            } catch (Exception e) {
+//                addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
+//            }
+//        } else {
+//            addChatMessage(Constant.OWNER_BOT, "推流已经在进行中，无需重复启动。");
+//        }
+//    }
+//
+//    /**
+//     * 自动化停止推流
+//     */
+//    private void handleStopStreaming() {
+//        if (isStreaming) {
+//            try {
+//                rtspServer.stopServer();
+//                mBaseRtspFpvView.stopStreaming();
+//                isStreaming = false;
+//                addChatMessage(Constant.OWNER_BOT, "推流已停止。");
+//            } catch (Exception e) {
+//                addChatMessage(Constant.OWNER_BOT, "推流停止失败，错误信息：" + e.getMessage());
+//            }
+//        } else {
+//            addChatMessage(Constant.OWNER_BOT, "推流尚未启动，无需停止。");
+//        }
+//    }
     /**
-     * 自动化开始推流
+     * 自动化完成直播设置并开始推流
      */
     private void handleStartStreaming() {
-        if (!isStreaming) {
-            try {
-                rtspServer.startServer();
-                mBaseRtspFpvView.startStreaming(); // 开始编码并推流
-                isStreaming = true;
-                String rtspUrl = rtspServer.getEndPointConnection();
-                addChatMessage(Constant.OWNER_BOT, "推流已启动，地址为：" + rtspUrl);
-            } catch (Exception e) {
-                addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
-            }
-        } else {
-            addChatMessage(Constant.OWNER_BOT, "推流已经在进行中，无需重复启动。");
+        // 检查直播管理器是否可用
+        if (!mLiveStream.isLiveStreamManagerOn()) {
+            addChatMessage(Constant.OWNER_BOT, "直播管理器未启用，无法启动推流。");
+            return;
+        }
+
+        // 检查是否已经在推流
+        if (DJISDKManager.getInstance().getLiveStreamManager().isStreaming()) {
+            addChatMessage(Constant.OWNER_BOT, "直播已经启动，无需重复操作。");
+            return;
+        }
+
+        // 自动设置直播 URL
+        if (mLiveStream.liveShowUrl == null || mLiveStream.liveShowUrl.isEmpty()) {
+            showSetLiveUrlDialog();// 替换为实际地址
+            addChatMessage(Constant.OWNER_BOT, "直播地址已设置为默认值：" + mLiveStream.liveShowUrl);
+        }
+
+        // 配置视频分辨率
+        mLiveStream.setResolution();
+        addChatMessage(Constant.OWNER_BOT, "直播视频分辨率设置成功");
+
+        // 配置视频比特率
+        mLiveStream.setBitRate();
+        addChatMessage(Constant.OWNER_BOT, "直播视频比特率设置为 " + mLiveStream.lastBitRate + " kbps。");
+
+        try {
+            // 开始推流
+            mLiveStream.startLiveShow();
+            isStreaming = true; // 记录推流状态
+            addChatMessage(Constant.OWNER_BOT, "直播推流已启动，地址：" + mLiveStream.liveShowUrl);
+            //开启编码器
+            mLiveStream.enableReEncoder();
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
         }
     }
 
     /**
      * 自动化停止推流
      */
-    private void handleStopStreaming() {
-        if (isStreaming) {
-            try {
-                rtspServer.stopServer();
-                mBaseRtspFpvView.stopStreaming();
-                isStreaming = false;
-                addChatMessage(Constant.OWNER_BOT, "推流已停止。");
-            } catch (Exception e) {
-                addChatMessage(Constant.OWNER_BOT, "推流停止失败，错误信息：" + e.getMessage());
-            }
-        } else {
-            addChatMessage(Constant.OWNER_BOT, "推流尚未启动，无需停止。");
-        }
+    private void handleStopStreaming(){
+        mLiveStream.stopLiveShow();
     }
 
     /**
@@ -2375,8 +2429,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         File imageFile = new File("test.jpg");
 
         try {
-            // 从 TextureView 捕获视频流的一帧
-            Bitmap bitmap = fpvTexture.getBitmap();
+            // 从 mLiveStream 捕获视频流的一帧
+            Bitmap bitmap = mLiveStream.getBitmap();
             if (bitmap == null) {
                 throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
             }
@@ -2525,6 +2579,43 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 辅助函数
+    /**
+     * 弹窗输入直播 URL
+     */
+    private void showSetLiveUrlDialog() {
+        // 创建 EditText 让用户输入 URL
+        final EditText input = new EditText(this);
+        input.setHint("请输入直播地址");
+        input.setText("rtmp://your-server-address/live/stream"); // 提供默认值
+
+        // 创建 AlertDialog
+        new AlertDialog.Builder(this)
+                .setTitle("设置直播地址")
+                .setView(input)
+                .setCancelable(false) // 防止用户直接取消弹窗
+                .setPositiveButton("确定", (dialog, which) -> {
+                    String newUrl = input.getText().toString().trim();
+                    if (isValidLiveUrl(newUrl)) { // 验证 URL 格式
+                        mLiveStream.liveShowUrl = newUrl;
+                        addChatMessage(Constant.OWNER_BOT, "直播地址已更新为：" + mLiveStream.liveShowUrl);
+                    } else {
+                        addChatMessage(Constant.OWNER_BOT, "无效的直播地址，请重新输入！");
+                        showSetLiveUrlDialog(); // 再次显示弹窗
+                    }
+                })
+                .setNegativeButton("取消", (dialog, which) -> {
+                    addChatMessage(Constant.OWNER_BOT, "未设置直播地址，无法继续！");
+                })
+                .show();
+    }
+
+    /**
+     * 验证直播 URL 的格式
+     */
+    private boolean isValidLiveUrl(String url) {
+        String regex = "^(rtmp|rtsp|http|https)://[a-zA-Z0-9._-]+(:[0-9]+)?(/[a-zA-Z0-9._-]+)*$";
+        return url.matches(regex);
+    }
 
     /**
      * 保存为图像文件
