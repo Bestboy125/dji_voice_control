@@ -112,9 +112,6 @@ public class DemoListView extends FrameLayout {
         builder.addGroup(R.string.component_listview_sdk_4_11,
                 false,
                 new GroupItem(R.string.component_listview_firmware_upgrade, FirmwareUpgradeView.class));
-        builder.addGroup(R.string.component_listview_sdk_4_9,
-                false,
-                new GroupItem(R.string.component_listview_live_stream, LiveStreamView.class));
         builder.addGroup(R.string.component_listview_sdk_4_8,
                 false,
                 new GroupItem(R.string.component_listview_access_locker, AccessLockerView.class),

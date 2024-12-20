@@ -2373,12 +2373,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         addChatMessage(Constant.OWNER_BOT, "直播视频比特率设置为 " + mLiveStream.lastBitRate + " kbps。");
 
         try {
+            //开启编码器
+            DJISDKManager.getInstance().getLiveStreamManager().setVideoEncodingEnabled(true);
             // 开始推流
             mLiveStream.startLiveShow();
             isStreaming = true; // 记录推流状态
             addChatMessage(Constant.OWNER_BOT, "直播推流已启动，地址：" + mLiveStream.liveShowUrl);
-            //开启编码器
-            mLiveStream.enableReEncoder();
         } catch (Exception e) {
             addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
         }
