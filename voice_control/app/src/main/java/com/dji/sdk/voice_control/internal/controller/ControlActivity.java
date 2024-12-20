@@ -46,6 +46,10 @@ import androidx.fragment.app.FragmentManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.amap.api.location.AMapLocation;
+import com.amap.api.location.AMapLocationClient;
+import com.amap.api.location.AMapLocationClientOption;
+import com.amap.api.location.AMapLocationListener;
 import com.amap.api.maps2d.AMap;
 import com.amap.api.maps2d.CameraUpdateFactory;
 import com.amap.api.maps2d.model.LatLng;
@@ -83,6 +87,7 @@ import dji.sdk.sdkmanager.LiveStreamManager;
 import com.dji.sdk.voice_control.internal.utils.AMapUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
 import com.dji.sdk.voice_control.internal.utils.ToastUtil;
+import com.dji.sdk.voice_control.internal.utils.ToastUtils;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.tabs.TabLayout;
 import com.iflytek.cloud.ErrorCode;
@@ -116,6 +121,7 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -146,6 +152,7 @@ import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
+import dji.sdk.base.DJIDiagnostics;
 
 //RTSP推流
 import kr.co.makeitall.rtspserver.RtspServer;
@@ -173,6 +180,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region UI数据结构
+    //诊断信息
+    private StringBuilder diagnosticsMessage = new StringBuilder();
     //日志
     private static final String TAG = MainActivity.class.getName();
     //权限列表
@@ -265,6 +274,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 地图数据结构
+    //手机定位
+    private AMapLocationClient mLocationClient;
+    private AMapLocationClientOption mLocationOption;
     // Mapui
     private MapView mMapView;
     //高德地图API
@@ -285,6 +297,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //航点
     private final Map<Integer, Marker> mMarkers = new ConcurrentHashMap<Integer, Marker>();
     private Marker droneMarker = null;
+    private Marker userMarker = null;
     private List<WaypointV2> waypointList = new ArrayList<>();
     private class Place{
         public String name;
@@ -301,6 +314,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 飞行控制的数据结构
+    //飞行数据更新任务
+    private DroneDataUpdater droneDataUpdater;
     //飞行数据
     private FlightData mFlightData = new FlightData();
 
@@ -566,7 +581,16 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //初始化UI事件
         initUI();
 
+        //初始化无人机飞控
         initFlightController();
+
+        //更新无人机数据
+        if(mCI.mFlightController!=null){
+            droneDataUpdater.startUpdatingData();
+        }
+
+        //初始化用户定位
+        initLocation();
 
         //初始化chatgpt
         mRvChatList = (RecyclerView) findViewById(R.id.rv_chatlist);
@@ -593,12 +617,16 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         initFlightController();
         //登录DJI账户
         loginAccount();
+        //更新定位
+        startLocation();
     }
 
     @Override
     public void onPause() {
         Log.e(TAG, "onPause");
         super.onPause();
+        //停止定位
+        stopLocation();
     }
 
     @Override
@@ -721,6 +749,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * requests runtime permission if needed.
      */
     private void checkAndRequestPermissions() {
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+        }
         // Check for permissions
         for (String eachPermission : REQUIRED_PERMISSION_LIST) {
             if (ContextCompat.checkSelfPermission(this, eachPermission) != PackageManager.PERMISSION_GRANTED) {
@@ -756,6 +790,16 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             startSDKRegistration();
         } else {
             showToast("Missing permissions!!!");
+        }
+
+        if (requestCode == 100) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // 权限被允许，启动定位
+                startLocation();
+            } else {
+                // 权限被拒绝，提示用户
+                Toast.makeText(this, "定位权限被拒绝", Toast.LENGTH_SHORT).show();
+            }
         }
     }
     private void notifyStatusChange() {
@@ -866,36 +910,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
-     * 更新状态栏
-     */
-    private void updateTitleBar() {
-        if(mConnectStatusTextView == null) return;
-        boolean ret = false;
-        BaseProduct product = DJISampleApplication.getProductInstance();
-        if (product != null) {
-            if(product.isConnected()) {
-                //The product is connected
-                mConnectStatusTextView.setText(DJISampleApplication.getProductInstance().getModel() + " Connected");
-                ret = true;
-            } else {
-                if(product instanceof Aircraft) {
-                    Aircraft aircraft = (Aircraft)product;
-                    if(aircraft.getRemoteController() != null && aircraft.getRemoteController().isConnected()) {
-                        // The product is not connected, but the remote controller is connected
-                        mConnectStatusTextView.setText("only RC Connected");
-                        ret = true;
-                    }
-                }
-            }
-        }
-
-        if(!ret) {
-            // The product or the remote controller are not connected.
-            mConnectStatusTextView.setText("Disconnected");
-        }
-    }
-
-    /**
      * 登录账户
      */
     private void loginAccount(){
@@ -940,6 +954,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mBtnWaypoint = (Button) navView.findViewById(R.id.btn_waypoint);
         drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         mFlightControlTab = (Button) findViewById(R.id.Flight_control_tab);
+
+        Button problemButton = findViewById(R.id.problem_buttion);
         RelativeLayout mRlSend = (RelativeLayout) findViewById(R.id.rl_send);
         // 获取帮助按钮
         Button helpButton = findViewById(R.id.help_Btn);
@@ -1072,6 +1088,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         });
         helpButton.setOnClickListener(v -> showHelpDialog());
         dataButtion.setOnClickListener(v -> showFlightDataDialog());
+        problemButton.setOnClickListener(v -> showDiagnosticsDialog(diagnosticsMessage.toString()));
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
         mSendBtn.setOnClickListener(this);
@@ -1184,6 +1201,39 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mScreenJoystickRight.setVisibility(View.GONE);
         mScreenJoystickLeft.setVisibility(View.GONE);
         mRlSend.setVisibility(View.VISIBLE);
+
+        //注册诊断信息回调
+        if(DJISDKManager.getInstance().getProduct()!=null){
+            DJISDKManager.getInstance().getProduct().setDiagnosticsInformationCallback(diagnosticsList -> {
+                try {
+                    if (diagnosticsList == null || diagnosticsList.isEmpty()) {
+                        showToast("没有诊断信息。");
+                        return;
+                    }
+
+                    // 遍历诊断信息列表
+                    diagnosticsMessage = new StringBuilder();
+                    for (DJIDiagnostics diagnostics : diagnosticsList) {
+                        diagnosticsMessage
+                                .append("模块: ").append(diagnostics.getComponentIndex()).append("\n")
+                                .append("类型：").append(diagnostics.getType()).append("\n")
+                                .append("错误码: ").append(diagnostics.getCode()).append("\n")
+                                .append("原因: ").append(diagnostics.getReason()).append("\n")
+                                .append("解决方案: ").append(diagnostics.getSolution()).append("\n\n");
+                    }
+
+                    // 打印日志（用于调试）
+                    System.out.println("诊断信息: " + diagnosticsMessage.toString());
+
+                    // 提示用户（例如通过 Toast 或 UI）
+                    showToast("收到新的诊断信息！");
+                } catch (Exception e) {
+                    showToast("处理诊断信息时发生错误：" + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+        }
+
     }
 
     // 打开侧边栏的方法
@@ -1767,7 +1817,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     };
 
     /**
-     * 更新无人机的距离，经纬度，竖直速度，水平速度
+     * 更新标题栏中无人机的距离，经纬度，竖直速度，水平速度
      */
     private void updateFlightData() {
         this.runOnUiThread(new Runnable() {
@@ -1852,9 +1902,140 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         return instance;
     }
 
+    /**
+     * 定时更新无人机飞行数据
+     */
+    public class DroneDataUpdater {
+
+        private ScheduledExecutorService scheduler;
+
+        public DroneDataUpdater() {
+            // 创建定时任务调度器
+            scheduler = Executors.newScheduledThreadPool(1);
+        }
+
+        public void startUpdatingData() {
+            // 每200毫秒执行一次数据更新
+            scheduler.scheduleWithFixedDelay(new Runnable() {
+                @Override
+                public void run() {
+                    // 定时更新飞行数据
+                    updateDroneData();
+                }
+            }, 0, 200, TimeUnit.MILLISECONDS); // 初始延迟0，200ms间隔
+        }
+
+        public void stopUpdatingData() {
+            // 停止定时任务
+            if (scheduler != null && !scheduler.isShutdown()) {
+                scheduler.shutdown();
+            }
+        }
+
+        private void updateDroneData() {
+            // 获取飞行控制器状态信息
+            double mDroneLocationLat = mCI.mFlightController.getState().getAircraftLocation().getLatitude();
+            double mDroneLocationLng = mCI.mFlightController.getState().getAircraftLocation().getLongitude();
+            mDroneLocation = new LatLng(mDroneLocationLat, mDroneLocationLng);
+            mDroneHeading = mCI.mFlightController.getCompass().getHeading();
+
+            // 获取高度数据
+            mAltitudeData = (double) mCI.mFlightController.getState().getAircraftLocation().getAltitude();
+
+            // 计算飞行速度
+            mhs = Math.sqrt(mCI.mFlightController.getState().getVelocityX() * mCI.mFlightController.getState().getVelocityX()
+                    + mCI.mFlightController.getState().getVelocityY() * mCI.mFlightController.getState().getVelocityY());
+            mvs = -1 * mCI.mFlightController.getState().getVelocityZ();
+
+            // 计算距离家
+            mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
+
+            // 更新数据
+            updateFlightData();
+            updateDroneLocation();
+        }
+    }
     //endregion
 
-    //region 在地图搜索指定目标点并存储在mTargetLocation
+    //region 高德地图定位，位置查询，用户位置，无人机位置交互相关
+
+    /**
+     * 初始化用户定位
+     */
+    private void initLocation() {
+        // 初始化定位
+        mLocationClient = new AMapLocationClient(getApplicationContext());
+        mLocationOption = new AMapLocationClientOption();
+
+        // 设置定位模式
+        mLocationOption.setLocationMode(AMapLocationClientOption.AMapLocationMode.Hight_Accuracy);
+        // 设置定位监听
+        mLocationClient.setLocationListener(new AMapLocationListener() {
+            @Override
+            public void onLocationChanged(AMapLocation aMapLocation) {
+                if (aMapLocation != null && aMapLocation.getErrorCode() == 0) {
+                    // 获取定位信息成功
+                    double latitude = aMapLocation.getLatitude();
+                    double longitude = aMapLocation.getLongitude();
+                    LatLng userLocation = new LatLng(latitude, longitude);
+                    updateUserLocation(userLocation, aMapLocation.getBearing());
+                } else {
+                    // 定位失败
+                    Log.e("AMap", "Location failed, error code: " + aMapLocation.getErrorCode());
+                }
+            }
+        });
+
+        // 设置定位参数
+        mLocationOption.setOnceLocation(false); // 设置为连续定位
+        mLocationOption.setInterval(1000); // 定位更新间隔时间，单位：毫秒
+        mLocationClient.setLocationOption(mLocationOption);
+    }
+
+    /**
+     * 开始用户定位
+     */
+    private void startLocation() {
+        // 启动定位
+        mLocationClient.startLocation();
+    }
+
+    /**
+     * 停止用户定位
+     */
+    private void stopLocation() {
+        // 停止定位
+        mLocationClient.stopLocation();
+    }
+
+    /**
+     * 更新用户位置
+     * @param userLocation
+     * @param bearing
+     */
+    private void updateUserLocation(LatLng userLocation, float bearing) {
+        // 创建 MarkerOptions 对象
+        final MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(userLocation);
+        markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_girl)); // 设置用户位置图标
+        markerOptions.anchor(0.5f, 0.5f); // 设置图标锚点
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                // 更新地图上的用户位置
+                if (userMarker != null) {
+                    userMarker.remove(); // 移除旧的 Marker
+                }
+
+                // 在地图上添加 Marker
+                userMarker = aMap.addMarker(markerOptions);
+
+                // 设置用户位置方向（如果需要根据方位角更新）
+                userMarker.setRotateAngle(bearing); // 根据实际需要设置旋转角度（例如朝向）
+            }
+        });
+    }
 
     /**
      * 更新无人机在地图上的标记
@@ -2857,6 +3038,18 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
                 })
                 .create()
+                .show();
+    }
+
+    /**
+     * 显示诊断信息框
+     */
+    private void showDiagnosticsDialog(String diagnosticsMessage) {
+        new AlertDialog.Builder(this)
+                .setTitle("设备诊断信息")
+                .setMessage(diagnosticsMessage)
+                .setPositiveButton("确定", null)
+                .setCancelable(true)
                 .show();
     }
 

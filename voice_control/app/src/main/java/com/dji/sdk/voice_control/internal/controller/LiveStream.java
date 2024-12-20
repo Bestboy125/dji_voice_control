@@ -68,14 +68,36 @@ public class LiveStream extends RelativeLayout implements PresentableView, View.
         LayoutInflater layoutInflater = (LayoutInflater) context.getSystemService(Service.LAYOUT_INFLATER_SERVICE);
         layoutInflater.inflate(R.layout.view_live_stream, this, true);
 
-        primaryVideoFeedView = (VideoFeedView) findViewById(R.id.video_view_primary_video_feed);
-        primaryVideoFeedView.registerLiveVideo(VideoFeeder.getInstance().getPrimaryVideoFeed(), true);
+        try {
+            // 初始化 primary 视频源
+            primaryVideoFeedView = (VideoFeedView) findViewById(R.id.video_view_primary_video_feed);
+            if (primaryVideoFeedView != null) {
+                primaryVideoFeedView.registerLiveVideo(VideoFeeder.getInstance().getPrimaryVideoFeed(), true);
+            } else {
+                throw new NullPointerException("Primary VideoFeedView is null");
+            }
 
-        fpvVideoFeedView = (VideoFeedView) findViewById(R.id.video_view_fpv_video_feed);
-        fpvVideoFeedView.registerLiveVideo(VideoFeeder.getInstance().getSecondaryVideoFeed(), false);
-        if (Helper.isMultiStreamPlatform()){
-            fpvVideoFeedView.setVisibility(VISIBLE);
+            // 初始化 fpv 视频源
+            fpvVideoFeedView = (VideoFeedView) findViewById(R.id.video_view_fpv_video_feed);
+            if (fpvVideoFeedView != null) {
+                fpvVideoFeedView.registerLiveVideo(VideoFeeder.getInstance().getSecondaryVideoFeed(), false);
+
+                // 如果支持多流平台，显示 fpv 视频源
+                if (Helper.isMultiStreamPlatform()) {
+                    fpvVideoFeedView.setVisibility(VISIBLE);
+                }
+            } else {
+                throw new NullPointerException("FPV VideoFeedView is null");
+            }
+        } catch (NullPointerException e) {
+            // 处理空指针异常
+            ToastUtils.setResultToToast("初始化视频视图失败: " + e.getMessage());
+        } catch (Exception e) {
+            // 捕获其他异常
+            ToastUtils.setResultToToast("初始化视频流时发生错误: " + e.getMessage());
+            e.printStackTrace(); // 打印堆栈信息，方便调试
         }
+
     }
 
     private void initListener() {

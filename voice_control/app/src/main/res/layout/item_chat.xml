@@ -54,8 +54,7 @@
         android:id="@+id/rl_human"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="48dp"
-        android:visibility="gone">
+        android:layout_marginStart="48dp">
 
 
         <TextView
@@ -81,12 +80,12 @@
 
         <ImageView
             android:id="@+id/iv_image"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="118dp"
+            android:layout_height="70dp"
             android:layout_alignParentRight="true"
             android:layout_marginTop="6dp"
             android:layout_marginEnd="48dp"
-            android:visibility="gone" />
+            android:layout_marginRight="52dp" />
 
     </RelativeLayout>
 

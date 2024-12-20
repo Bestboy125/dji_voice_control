@@ -1,6 +1,8 @@
 package com.dji.sdk.voice_control.internal.controller.adapter;
 
 import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +15,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
@@ -63,16 +66,22 @@ public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyView
             holder.mTvMsgHuman.setText(msg);
             // 显示用户的图像消息
             if (image != null) {
-                holder.mIvImage.setVisibility(View.VISIBLE); // 假设你在布局中添加了 ImageView 用于显示图片
-                holder.mIvImage.setImageBitmap(image);
-
+                Log.d("ImageDebug", "Bitmap size: " + image.getWidth() + "x" + image.getHeight());
+                holder.mTvMsgHuman.setVisibility(View.GONE);
+                holder.mIvImage.setVisibility(View.VISIBLE);// 假设你在布局中添加了 ImageView 用于显示图片
                 // 设置图片大小为200x100
-                ViewGroup.LayoutParams params = holder.mIvImage.getLayoutParams();
-                params.width = 200;  // 设置宽度为200
-                params.height = 100; // 设置高度为100
-                holder.mIvImage.setLayoutParams(params);
+                // 设置 ImageView 的大小为 Bitmap 的宽高
+                holder.mIvImage.getLayoutParams().width = image.getWidth();
+                holder.mIvImage.getLayoutParams().height = image.getHeight();
+                holder.mIvImage.requestLayout();
+                // 使用 Glide 加载图片
+                holder.mIvImage.setImageBitmap(null);
+                Glide.with(holder.mIvImage.getContext())
+                        .load(image)  // 传入 Bitmap 对象
+                        .into(holder.mIvImage);
             } else {
                 holder.mIvImage.setVisibility(View.GONE);
+                holder.mTvMsgHuman.setVisibility(View.VISIBLE);
             }
             holder.mIvCopy.setVisibility(View.GONE);
         } else if (owner.equals(Constant.OWNER_BOT_THINK)) {

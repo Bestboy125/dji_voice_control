@@ -217,6 +217,14 @@
             android:layout_marginLeft="170dp"
             android:text="语音控制" />
 
+        <Button
+            android:id="@+id/problem_buttion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/rv_chatlist"
+            android:layout_marginLeft="25dp"
+            android:text="诊断信息" />
+
         <com.dji.sdk.voice_control.internal.controller.OnScreenJoystick
             android:id="@+id/directionJoystickLeft"
             android:layout_width="124dp"
