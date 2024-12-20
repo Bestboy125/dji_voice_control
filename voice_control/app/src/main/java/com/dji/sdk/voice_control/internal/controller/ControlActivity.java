@@ -582,7 +582,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Log.e(TAG, "onResume");
         super.onResume();
         //更新状态栏
-        updateTitleBar();
+        updateConnection();
         //初始化飞控
         initFlightController();
         //登录DJI账户
@@ -1757,13 +1757,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             if (mCI.mFlightController == null) {
                 initFlightController();
             }
-            onProductConnectionChange();
         }
     };
-
-    private void onProductConnectionChange() {
-        initFlightController();
-    }
 
     /**
      * 更新无人机的距离，经纬度，竖直速度，水平速度
