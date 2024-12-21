@@ -311,6 +311,22 @@
                 android:textOff="开始模拟"
                 android:textOn="停止模拟" />
 
+            <Button
+                android:id="@+id/btn_nogps_takeoff"
+                style="@style/common_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/btn_start_simulator"
+                android:text="开启无GPS定位起飞" />
+
+            <Button
+                android:id="@+id/set_home_current"
+                style="@style/common_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/btn_nogps_takeoff"
+                android:text="设置返航点为当前飞机位置" />
+
         </LinearLayout>
     </com.google.android.material.navigation.NavigationView>
 

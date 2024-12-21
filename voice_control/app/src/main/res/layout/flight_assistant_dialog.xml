@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <CheckBox
+        android:id="@+id/cb_collision_avoidance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="启用前视避障 (Collision Avoidance)" />
+
+    <CheckBox
+        android:id="@+id/cb_active_avoidance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="启用主动避障 (Active Vision Obstacle)" />
+
+    <CheckBox
+        android:id="@+id/cb_rth_avoidance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="启用返航避障 (RTH Obstacle Avoidance)" />
+
+    <CheckBox
+        android:id="@+id/cb_landing_protection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="启用着陆保护 (Landing Protection)" />
+
+    <CheckBox
+        android:id="@+id/cb_vision_positioning"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="启用视觉定位 (Vision Assisted Positioning)" />
+
+
+</LinearLayout>

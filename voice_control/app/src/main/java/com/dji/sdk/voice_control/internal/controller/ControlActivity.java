@@ -25,6 +25,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -37,6 +38,7 @@ import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -83,6 +85,8 @@ import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
+
+import dji.sdk.flightcontroller.FlightAssistant;
 import dji.sdk.sdkmanager.LiveStreamManager;
 import com.dji.sdk.voice_control.internal.utils.AMapUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
@@ -488,14 +492,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mContext = this;
         mLiveStream = new LiveStream(mContext);
 
-//        //初始化RTSP推流
-//        rtspServer = new RtspServer(connectCheckerRtsp, RTSP_PORT);
-//
-////        //初始化FPV推流
-////        fpvTexture = new TextureView(mContext);
-//////        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
-////        mBaseRtspFpvView = new BaseRtspFpvView(mContext,rtspServer);
-////        fpvTexture.setSurfaceTextureListener(mBaseRtspFpvView);
+        //初始化RTSP推流
+        rtspServer = new RtspServer(connectCheckerRtsp, RTSP_PORT);
+
+        //初始化FPV推流
+        fpvTexture = new TextureView(mContext);
+//        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
+        mBaseRtspFpvView = new BaseRtspFpvView(mContext,rtspServer);
+        fpvTexture.setSurfaceTextureListener(mBaseRtspFpvView);
 
         //语音识别初始化
         SpeechUtility.createUtility(this, SpeechConstant.APPID +"=12cecf5e");
@@ -525,7 +529,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 将 TextureView 添加到容器中
         FrameLayout fpvContainer = findViewById(R.id.fpv_container);
-        fpvContainer.addView(mLiveStream);
+        fpvContainer.addView(fpvTexture);
 
         // 设置 TabLayout 切换监听
         mTabLayout = (TabLayout) findViewById(R.id.tab_layout);
@@ -535,10 +539,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 switch (tab.getPosition()) {
                     case 0: // 地图视图
                         mMapView.setVisibility(View.VISIBLE);
+                        fpvTexture.setVisibility(View.GONE);
                         mLiveStream.setVisibility(View.GONE);
                         break;
                     case 1: // FPV 视图
                         mMapView.setVisibility(View.GONE);
+                        fpvTexture.setVisibility(View.VISIBLE);
                         mLiveStream.setVisibility(View.VISIBLE);
                         break;
                 }
@@ -584,6 +590,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //初始化无人机飞控
         initFlightController();
 
+        droneDataUpdater = new DroneDataUpdater();
         //更新无人机数据
         if(mCI.mFlightController!=null){
             droneDataUpdater.startUpdatingData();
@@ -617,7 +624,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         initFlightController();
         //登录DJI账户
         loginAccount();
-        //更新定位
+        //开始定位
         startLocation();
     }
 
@@ -961,6 +968,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button helpButton = findViewById(R.id.help_Btn);
         Button dataButtion = findViewById(R.id.data_Btn);
         Button openDrawerButton = findViewById(R.id.btn_open_drawer);
+        Button nogps_takeoff = findViewById(R.id.btn_nogps_takeoff);
+        Button set_home_current = findViewById(R.id.set_home_current);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
 
@@ -1086,6 +1095,37 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             }
             iscontrol = !iscontrol;
         });
+        set_home_current.setOnClickListener(v ->{
+           if(mCI.mFlightController!=null){
+               mCI.mFlightController.setHomeLocationUsingAircraftCurrentLocation(new CommonCallbacks.CompletionCallback() {
+                   @Override
+                   public void onResult(DJIError djiError) {
+                       if (djiError != null) {
+                           showToast(djiError.getDescription());
+                       }else
+                       {
+                           showToast("设置返航点成功");
+                       }
+                   }
+               });
+           }
+        });
+        nogps_takeoff.setOnClickListener(v ->{
+            if(mCI.mFlightController!=null){
+                boolean lock = false;
+                mCI.mFlightController.lockTakeoffWithoutGPS(lock,new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onResult(DJIError djiError) {
+                        if (djiError != null) {
+                            showToast(djiError.getDescription());
+                        }else
+                        {
+                            showToast("开启无GPS起飞成功");
+                        }
+                    }
+                });
+            }
+        });
         helpButton.setOnClickListener(v -> showHelpDialog());
         dataButtion.setOnClickListener(v -> showFlightDataDialog());
         problemButton.setOnClickListener(v -> showDiagnosticsDialog(diagnosticsMessage.toString()));
@@ -1207,7 +1247,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             DJISDKManager.getInstance().getProduct().setDiagnosticsInformationCallback(diagnosticsList -> {
                 try {
                     if (diagnosticsList == null || diagnosticsList.isEmpty()) {
-                        showToast("没有诊断信息。");
                         return;
                     }
 
@@ -1225,8 +1264,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     // 打印日志（用于调试）
                     System.out.println("诊断信息: " + diagnosticsMessage.toString());
 
-                    // 提示用户（例如通过 Toast 或 UI）
-                    showToast("收到新的诊断信息！");
                 } catch (Exception e) {
                     showToast("处理诊断信息时发生错误：" + e.getMessage());
                     e.printStackTrace();
@@ -1713,9 +1750,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             //初始化设置飞控模式
             mCI.mFlightController = mCI.aircraft.getFlightController();
             mCI.mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
-            mCI.mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
+            mCI.mFlightController.setYawControlMode(YawControlMode.ANGLE);
             mCI.mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
-            mCI.mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
+            //设置坐标系为地面坐标系
+            mCI.mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.GROUND);
             mCI.mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
                 //显示状态数据
                 @Override
@@ -2479,6 +2517,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             handleDeleteWaypoint();
         } else if (command.contains("手动添加")){
             handleAddMission();
+        } else if (command.contains("开启智能飞行助手")){
+            handleFlightAssistant();
         } else {
             processCommand(command);
         }
@@ -2541,17 +2581,21 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 自动设置直播 URL
         if (mLiveStream.liveShowUrl == null || mLiveStream.liveShowUrl.isEmpty()) {
-            showSetLiveUrlDialog();// 替换为实际地址
+            showSetLiveUrlDialog(new OnDialogCompleteListener() {
+                @Override
+                public void onComplete() {
+                    // 用户设置完 URL 后，在这里继续后续逻辑
+                    // 配置视频分辨率
+                    mLiveStream.setResolution();
+                    addChatMessage(Constant.OWNER_BOT, "直播视频分辨率设置成功");
+
+                    // 配置视频比特率
+                    mLiveStream.setBitRate();
+                    addChatMessage(Constant.OWNER_BOT, "直播视频比特率设置为 " + mLiveStream.lastBitRate + " kbps。");
+                }
+            });// 替换为实际地址
             addChatMessage(Constant.OWNER_BOT, "直播地址已设置为默认值：" + mLiveStream.liveShowUrl);
         }
-
-        // 配置视频分辨率
-        mLiveStream.setResolution();
-        addChatMessage(Constant.OWNER_BOT, "直播视频分辨率设置成功");
-
-        // 配置视频比特率
-        mLiveStream.setBitRate();
-        addChatMessage(Constant.OWNER_BOT, "直播视频比特率设置为 " + mLiveStream.lastBitRate + " kbps。");
 
         try {
             //开启编码器
@@ -2608,10 +2652,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private void handleObjectIdentify(String question) {
         // 初始化图片文件对象
         File imageFile = new File("test.jpg");
-
+        mTabLayout.getTabAt(1).select();
         try {
             // 从 mLiveStream 捕获视频流的一帧
-            Bitmap bitmap = mLiveStream.getBitmap();
+            Bitmap bitmap = fpvTexture.getBitmap();
             if (bitmap == null) {
                 throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
             }
@@ -2626,6 +2670,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
             addChatMessage(Constant.OWNER_HUMAN,question.toString());
             addChatMessage(Constant.OWNER_HUMAN,bitmap);
+            // 3. 思考中...
+            addChatMessage(Constant.OWNER_BOT, "思考中...");
             //TODO
             //显示捕获的这一帧图像在对话框
             // 如果图片文件成功生成，则发送至大模型
@@ -2757,13 +2803,189 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 自动开启出现避障，视觉定位，返航避障等功能筛选的消息框，以打对钩的形式进行选择，点击确定完成设置
+     */
+    private void handleFlightAssistant() {
+        if (mCI.mFlightController == null) {
+            Toast.makeText(this, "无法获取FlightController，设备可能未连接或不支持", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        FlightAssistant flightAssistant = mCI.mFlightController.getFlightAssistant();
+        if (flightAssistant == null) {
+            Toast.makeText(this, "无法获取FlightAssistant，设备不支持智能飞行助手", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 2. 加载自定义布局
+        LayoutInflater inflater = LayoutInflater.from(this);
+        View dialogView = inflater.inflate(R.layout.flight_assistant_dialog, null);
+
+        // 获取布局中的 CheckBox
+        CheckBox cbCollisionAvoidance       = dialogView.findViewById(R.id.cb_collision_avoidance);
+        CheckBox cbRthObstacleAvoidance     = dialogView.findViewById(R.id.cb_rth_avoidance);
+        CheckBox cbActiveObstacleAvoidance  = dialogView.findViewById(R.id.cb_active_avoidance);
+        CheckBox cbLandingProtection        = dialogView.findViewById(R.id.cb_landing_protection);
+        CheckBox cbVisionPositioning        = dialogView.findViewById(R.id.cb_vision_positioning);
+
+        // 在对话框显示前，将已有设置同步到 CheckBox，以便看到当前启用状态
+        flightAssistant.getCollisionAvoidanceEnabled(new CommonCallbacks.CompletionCallbackWith<Boolean>() {
+            @Override
+            public void onSuccess(Boolean enabled) {
+                // 注意，这里的 enabled 就是 true/false
+                runOnUiThread(() -> {
+                    // 在主线程更新 UI
+                    cbCollisionAvoidance.setChecked(enabled);
+                });
+            }
+
+            @Override
+            public void onFailure(DJIError error) {
+                // 获取失败，例如功能不支持，或者无人机没连接等
+                Log.e("FlightAssistant", "getCollisionAvoidanceEnabled failed: " + error.getDescription());
+            }
+        });
+        flightAssistant.getRTHObstacleAvoidanceEnabled(new CommonCallbacks.CompletionCallbackWith<Boolean>() {
+            @Override
+            public void onSuccess(Boolean enabled) {
+                // 注意，这里的 enabled 就是 true/false
+                runOnUiThread(() -> {
+                    // 在主线程更新 UI
+                    cbRthObstacleAvoidance.setChecked(enabled);
+                });
+            }
+
+            @Override
+            public void onFailure(DJIError error) {
+                // 获取失败，例如功能不支持，或者无人机没连接等
+                Log.e("FlightAssistant", "getCollisionAvoidanceEnabled failed: " + error.getDescription());
+            }
+        });
+        flightAssistant.getActiveObstacleAvoidanceEnabled(new CommonCallbacks.CompletionCallbackWith<Boolean>() {
+            @Override
+            public void onSuccess(Boolean enabled) {
+                // 注意，这里的 enabled 就是 true/false
+                runOnUiThread(() -> {
+                    // 在主线程更新 UI
+                    cbActiveObstacleAvoidance.setChecked(enabled);
+                });
+            }
+
+            @Override
+            public void onFailure(DJIError error) {
+                // 获取失败，例如功能不支持，或者无人机没连接等
+                Log.e("FlightAssistant", "getCollisionAvoidanceEnabled failed: " + error.getDescription());
+            }
+        });
+        flightAssistant.getVisionAssistedPositioningEnabled(new CommonCallbacks.CompletionCallbackWith<Boolean>() {
+            @Override
+            public void onSuccess(Boolean enabled) {
+                // 注意，这里的 enabled 就是 true/false
+                runOnUiThread(() -> {
+                    // 在主线程更新 UI
+                    cbLandingProtection.setChecked(enabled);
+                });
+            }
+
+            @Override
+            public void onFailure(DJIError error) {
+                // 获取失败，例如功能不支持，或者无人机没连接等
+                Log.e("FlightAssistant", "getCollisionAvoidanceEnabled failed: " + error.getDescription());
+            }
+        });
+        flightAssistant.getLandingProtectionEnabled(new CommonCallbacks.CompletionCallbackWith<Boolean>() {
+            @Override
+            public void onSuccess(Boolean enabled) {
+                // 注意，这里的 enabled 就是 true/false
+                runOnUiThread(() -> {
+                    // 在主线程更新 UI
+                    cbVisionPositioning.setChecked(enabled);
+                });
+            }
+
+            @Override
+            public void onFailure(DJIError error) {
+                // 获取失败，例如功能不支持，或者无人机没连接等
+                Log.e("FlightAssistant", "getCollisionAvoidanceEnabled failed: " + error.getDescription());
+            }
+        });
+
+        // 3. 构建对话框
+        new AlertDialog.Builder(this)
+                .setTitle("智能飞行助手设置")
+                .setView(dialogView)
+                .setPositiveButton("确定", (dialog, which) -> {
+                    // 用户点击“确定”，开始设置选项
+                    boolean collision = cbCollisionAvoidance.isChecked();
+                    boolean rthAvoid  = cbRthObstacleAvoidance.isChecked();
+                    boolean landing   = cbLandingProtection.isChecked();
+                    boolean visionPos = cbVisionPositioning.isChecked();
+                    boolean activeAvoid = cbActiveObstacleAvoidance.isChecked();
+
+                    // 设置避障模式
+                    flightAssistant.setCollisionAvoidanceEnabled(collision, djiError -> {
+                        if (djiError == null) {
+                            Log.d("FlightAssistant", "Collision Avoidance 设置成功: " + collision);
+                        } else {
+                            Log.e("FlightAssistant", "Collision Avoidance 设置失败: " + djiError.getDescription());
+                        }
+                    });
+
+                    // 设置返航避障
+                    flightAssistant.setRTHObstacleAvoidanceEnabled(rthAvoid, djiError -> {
+                        if (djiError == null) {
+                            Log.d("FlightAssistant", "RTH 避障 设置成功: " + rthAvoid);
+                        } else {
+                            Log.e("FlightAssistant", "RTH 避障 设置失败: " + djiError.getDescription());
+                        }
+                    });
+
+                    //设置主动避障
+                    flightAssistant.setActiveObstacleAvoidanceEnabled(rthAvoid, djiError -> {
+                        if (djiError == null) {
+                            Log.d("FlightAssistant", "RTH 避障 设置成功: " + activeAvoid);
+                        } else {
+                            Log.e("FlightAssistant", "RTH 避障 设置失败: " + djiError.getDescription());
+                        }
+                    });
+
+                    // 设置着陆保护
+                    flightAssistant.setLandingProtectionEnabled(landing, djiError -> {
+                        if (djiError == null) {
+                            Log.d("FlightAssistant", "Landing Protection 设置成功: " + landing);
+                        } else {
+                            Log.e("FlightAssistant", "Landing Protection 设置失败: " + djiError.getDescription());
+                        }
+                    });
+
+                    // 设置视觉定位
+                    flightAssistant.setVisionAssistedPositioningEnabled(visionPos, djiError -> {
+                        if (djiError == null) {
+                            Log.d("FlightAssistant", "Vision Positioning 设置成功: " + visionPos);
+                        } else {
+                            Log.e("FlightAssistant", "Vision Positioning 设置失败: " + djiError.getDescription());
+                        }
+                    });
+
+
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+
     //endregion
 
     //region 辅助函数
+    public interface OnDialogCompleteListener {
+        void onComplete();
+    }
+
     /**
      * 弹窗输入直播 URL
      */
-    private void showSetLiveUrlDialog() {
+    private void showSetLiveUrlDialog(@Nullable OnDialogCompleteListener listener) {
         // 创建 EditText 让用户输入 URL
         final EditText input = new EditText(this);
         input.setHint("请输入直播地址");
@@ -2779,9 +3001,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     if (isValidLiveUrl(newUrl)) { // 验证 URL 格式
                         mLiveStream.liveShowUrl = newUrl;
                         addChatMessage(Constant.OWNER_BOT, "直播地址已更新为：" + mLiveStream.liveShowUrl);
+
+                        // 如果外面传了 listener，就通知它
+                        if (listener != null) {
+                            listener.onComplete();
+                        }
                     } else {
                         addChatMessage(Constant.OWNER_BOT, "无效的直播地址，请重新输入！");
-                        showSetLiveUrlDialog(); // 再次显示弹窗
+                        showSetLiveUrlDialog(listener); // 再次显示弹窗
                     }
                 })
                 .setNegativeButton("取消", (dialog, which) -> {
@@ -2832,11 +3059,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "9. 清除航点: 清除所有的航点\n" +
                 "11. 上传航点：上传航点到无人机\n" +
                 "12. 停止任务：停止航点任务\n" +
-                "13. 手动添加：开启手动添加，点击地图即可添加航点" +
+                "13. 手动添加：开启手动添加，点击地图即可添加航点\n" +
                 "14. 高度+高度值：最大飞行高度设置\n" +
                 "15. 返航+高度值：返回起始点时的高度设置\n" +
                 "16. 速度+速度值：最大飞行速度设置\n" +
-                "17. 飞向+lat,lon：飞向指定点\n" ;
+                "17. 开启智能飞行助手：开启避障，视觉定位等功能\n" +
+                "18. 飞向+lat,lon：飞向指定点" ;
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
@@ -2893,10 +3121,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     double horizontalSpeed = (mhs != -1) ? mhs : 0.0;
                     double verticalSpeed = (mvs != -1) ? mvs : 0.0;
                     double distanceToHome = (mdistToHome != -1) ? mdistToHome : 0.0;
-                    float pitch = (mFlightData != null) ? mFlightData.getPitch() : 0.0f;
-                    float roll = (mFlightData != null) ? mFlightData.getRoll() : 0.0f;
-                    float yaw = (mFlightData != null) ? mFlightData.getYaw() : 0.0f;
-                    float throttle = (mFlightData != null) ? mFlightData.getThrottle() : 0.0f;
+                    float  takeoffLocationAltitude = (mCI.mFlightController != null) ? mCI.mFlightController.getState().getTakeoffLocationAltitude() : 0.0f;
+                    double pitch = (mCI.mFlightController != null) ? mCI.mFlightController.getState().getAttitude().pitch : 0.0f;
+                    double roll = (mCI.mFlightController != null) ? mCI.mFlightController.getState().getAttitude().roll : 0.0f;
+                    double yaw = (mCI.mFlightController != null) ? mCI.mFlightController.getState().getAttitude().yaw : 0.0f;
+                    double throttle = (mFlightData != null) ? mFlightData.getThrottle() : 0.0f;
 
                     // 在每次更新时刷新飞行数据
                     String flightDataMessage = String.format(
@@ -2906,12 +3135,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                                     "水平速度: %.2f 米/秒\n" +
                                     "垂直速度: %.2f 米/秒\n" +
                                     "距离家点: %.2f 米\n" +
-                                    "俯仰角 (Pitch): %.2f 度\n" +
-                                    "滚转角 (Roll): %.2f 度\n" +
+                                    "俯仰角 (Pitch): %.2f 米/s\n" +
+                                    "滚转角 (Roll): %.2f 米/s\n" +
                                     "偏航角 (Yaw): %.2f 度\n" +
-                                    "油门 (Throttle): %.2f",
+                                    "油门 (Throttle): %.2f\n" +
+                                    "起飞高度(altitude): %.2f 米\n" +
+                                    "电机是否打开: %s \n",
                             latitude, longitude, altitude, heading, horizontalSpeed, verticalSpeed, distanceToHome,
-                            pitch, roll, yaw, throttle
+                            pitch, roll, yaw, throttle,takeoffLocationAltitude,mCI.mFlightController.getState().areMotorsOn()
                     );
 
                     // 动态更新 TextView 中的飞行数据
