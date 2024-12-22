@@ -70,6 +70,7 @@ import com.amap.api.maps2d.CameraUpdate;
 import com.amap.api.maps2d.MapView;
 import com.amap.api.maps2d.model.BitmapDescriptorFactory;
 import com.amap.api.maps2d.model.MarkerOptions;
+import com.amap.apis.utils.core.api.AMapUtilCoreApi;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.demo.camera.PlaybackCommandsView;
 import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
@@ -676,7 +677,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         switch (v.getId()) {
             case R.id.locate:
                 updateDroneLocation();
-                cameraUpdate(); // Locate the drone's place
+                cameraUpdate(new LatLng(mDroneLocation.latitude,mDroneLocation.longitude)); // Locate the drone's place
                 break;
             case R.id.btn_control_recognize:
                 buffer.setLength(0);//长度清空
@@ -797,16 +798,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             startSDKRegistration();
         } else {
             showToast("Missing permissions!!!");
-        }
-
-        if (requestCode == 100) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // 权限被允许，启动定位
-                startLocation();
-            } else {
-                // 权限被拒绝，提示用户
-                Toast.makeText(this, "定位权限被拒绝", Toast.LENGTH_SHORT).show();
-            }
         }
     }
     private void notifyStatusChange() {
@@ -2001,6 +1992,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * 初始化用户定位
      */
     private void initLocation() {
+        boolean collectEnable = true;
+        AMapUtilCoreApi.setCollectInfoEnable(collectEnable);
         // 初始化定位
         mLocationClient = new AMapLocationClient(getApplicationContext());
         mLocationOption = new AMapLocationClientOption();
@@ -2057,6 +2050,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         markerOptions.position(userLocation);
         markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_girl)); // 设置用户位置图标
         markerOptions.anchor(0.5f, 0.5f); // 设置图标锚点
+        mUserLocation = userLocation;
 
         runOnUiThread(new Runnable() {
             @Override
@@ -2115,8 +2109,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     /**
      * 更新地图上的无人机位置，并鹰眼放大
      */
-    private void cameraUpdate() {
-        LatLng pos = new LatLng(mDroneLocation.latitude, mDroneLocation.longitude);
+    private void cameraUpdate(LatLng pos) {
         float zoomlevel = (float) 18.0;
         CameraUpdate cu = CameraUpdateFactory.newLatLngZoom(pos, zoomlevel);
         aMap.moveCamera(cu);
@@ -2519,7 +2512,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             handleAddMission();
         } else if (command.contains("开启智能飞行助手")){
             handleFlightAssistant();
-        } else {
+        } else if (command.contains("用户追踪")){
+            handleUserLocation();
+        }else {
             processCommand(command);
         }
     }
@@ -2622,7 +2617,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private void handleLocateDrone() {
         try {
             updateDroneLocation();
-            cameraUpdate();
+            cameraUpdate(new LatLng(mDroneLocation.latitude,mDroneLocation.longitude));
             addChatMessage(Constant.OWNER_BOT, "无人机位置已更新，并定位至地图视图。");
         } catch (Exception e) {
             addChatMessage(Constant.OWNER_BOT, "定位失败，错误信息：" + e.getMessage());
@@ -2974,6 +2969,13 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 .show();
     }
 
+    /**
+     * 自动定位到手机和遥控器位置
+     */
+    private void handleUserLocation(){
+
+        cameraUpdate(new LatLng(mUserLocation.latitude,mUserLocation.longitude));
+    }
 
     //endregion
 
@@ -3064,7 +3066,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "15. 返航+高度值：返回起始点时的高度设置\n" +
                 "16. 速度+速度值：最大飞行速度设置\n" +
                 "17. 开启智能飞行助手：开启避障，视觉定位等功能\n" +
-                "18. 飞向+lat,lon：飞向指定点" ;
+                "18. 用户追踪：定位到用户所在的位置\n" +
+                "19. 飞向+lat,lon：飞向指定点" ;
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
