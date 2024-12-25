@@ -530,6 +530,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 将 TextureView 添加到容器中
         FrameLayout fpvContainer = findViewById(R.id.fpv_container);
+        fpvContainer.addView(mLiveStream);
         fpvContainer.addView(fpvTexture);
 
         // 设置 TabLayout 切换监听
