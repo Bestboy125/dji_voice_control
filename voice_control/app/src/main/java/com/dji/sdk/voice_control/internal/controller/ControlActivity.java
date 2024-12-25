@@ -2563,34 +2563,38 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * 自动化完成直播设置并开始推流
      */
     private void handleStartStreaming() {
-        // 检查直播管理器是否可用
-        if (!mLiveStream.isLiveStreamManagerOn()) {
-            addChatMessage(Constant.OWNER_BOT, "直播管理器未启用，无法启动推流。");
-            return;
-        }
-
-        // 检查是否已经在推流
-        if (DJISDKManager.getInstance().getLiveStreamManager().isStreaming()) {
-            addChatMessage(Constant.OWNER_BOT, "直播已经启动，无需重复操作。");
-            return;
-        }
-
         // 自动设置直播 URL
         if (mLiveStream.liveShowUrl == null || mLiveStream.liveShowUrl.isEmpty()) {
             showSetLiveUrlDialog(new OnDialogCompleteListener() {
                 @Override
                 public void onComplete() {
-                    // 用户设置完 URL 后，在这里继续后续逻辑
-                    // 配置视频分辨率
-                    mLiveStream.setResolution();
-                    addChatMessage(Constant.OWNER_BOT, "直播视频分辨率设置成功");
+                    if (mLiveStream.liveShowUrl != null && !mLiveStream.liveShowUrl.isEmpty()) {
+                        addChatMessage(Constant.OWNER_BOT, "直播地址已设置为：" + mLiveStream.liveShowUrl);
 
-                    // 配置视频比特率
-                    mLiveStream.setBitRate();
-                    addChatMessage(Constant.OWNER_BOT, "直播视频比特率设置为 " + mLiveStream.lastBitRate + " kbps。");
+                        // 配置视频分辨率
+                        mLiveStream.setResolution();
+                        addChatMessage(Constant.OWNER_BOT, "直播视频分辨率设置成功");
+
+                        // 配置视频比特率
+                        mLiveStream.setBitRate();
+                        addChatMessage(Constant.OWNER_BOT, "直播视频比特率设置为 " + mLiveStream.lastBitRate + " kbps。");
+
+                        try {
+                            //开启编码器
+                            DJISDKManager.getInstance().getLiveStreamManager().setVideoEncodingEnabled(true);
+                            // 开始推流
+                            mLiveStream.startLiveShow();
+                            isStreaming = true; // 记录推流状态
+                            addChatMessage(Constant.OWNER_BOT, "直播推流已启动，地址：" + mLiveStream.liveShowUrl);
+                        } catch (Exception e) {
+                            addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
+                        }
+                    } else {
+                        addChatMessage(Constant.OWNER_BOT, "未设置有效的直播地址，无法启动推流。");
+                    }
                 }
-            });// 替换为实际地址
-            addChatMessage(Constant.OWNER_BOT, "直播地址已设置为默认值：" + mLiveStream.liveShowUrl);
+            });
+            return; // 等待用户设置直播地址后再继续
         }
 
         try {
@@ -2604,6 +2608,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
         }
     }
+
 
     /**
      * 自动化停止推流
