@@ -2515,7 +2515,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             handleFlightAssistant();
         } else if (command.contains("用户追踪")){
             handleUserLocation();
-        }else {
+        } else if (command.contains("修改地址")){
+            handleModiferurl();
+        } else {
             processCommand(command);
         }
     }
@@ -2609,6 +2611,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    /**
+     * 修改弹窗
+     */
+    private void handleModiferurl(){
+        showModifyLiveUrlDialog();
+    }
 
     /**
      * 自动化停止推流
@@ -2986,8 +2994,81 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 辅助函数
+
+    /**
+     * 完成回调接口
+     */
     public interface OnDialogCompleteListener {
         void onComplete();
+    }
+
+    /**
+     * 弹窗修改直播 URL
+     */
+    private void showModifyLiveUrlDialog() {
+        // 创建 EditText 让用户输入新的 URL
+        final EditText input = new EditText(this);
+        input.setHint("请输入新的直播地址");
+        input.setText(mLiveStream.liveShowUrl); // 显示当前的直播地址作为默认值
+
+        // 创建 AlertDialog
+        new AlertDialog.Builder(this)
+                .setTitle("修改直播地址")
+                .setView(input)
+                .setCancelable(false) // 防止用户直接取消弹窗
+                .setPositiveButton("确定", (dialog, which) -> {
+                    String newUrl = input.getText().toString().trim();
+                    if (isValidLiveUrl(newUrl)) { // 验证 URL 格式
+                        modifyLiveUrl(newUrl);
+                    } else {
+                        addChatMessage(Constant.OWNER_BOT, "无效的直播地址，请重新输入！");
+                        showModifyLiveUrlDialog(); // 再次显示弹窗
+                    }
+                })
+                .setNegativeButton("取消", (dialog, which) -> {
+                    addChatMessage(Constant.OWNER_BOT, "直播地址修改已取消。");
+                })
+                .show();
+    }
+
+    /**
+     * 修改直播地址的方法
+     * @param newUrl 新的直播地址
+     */
+    private void modifyLiveUrl(String newUrl) {
+        // 停止当前的直播推流
+        if (isStreaming) {
+            try {
+                mLiveStream.stopLiveShow();
+                isStreaming = false;
+                addChatMessage(Constant.OWNER_BOT, "当前推流已停止，准备修改直播地址。");
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "停止推流失败，错误信息：" + e.getMessage());
+                return;
+            }
+        }
+
+        // 更新直播地址
+        mLiveStream.liveShowUrl = newUrl;
+        addChatMessage(Constant.OWNER_BOT, "直播地址已更新为：" + mLiveStream.liveShowUrl);
+
+        // 重新配置视频参数
+        mLiveStream.setResolution();
+        addChatMessage(Constant.OWNER_BOT, "直播视频分辨率设置成功");
+
+        mLiveStream.setBitRate();
+        addChatMessage(Constant.OWNER_BOT, "直播视频比特率设置为 " + mLiveStream.lastBitRate + " kbps。");
+
+        try {
+            // 开启编码器
+            DJISDKManager.getInstance().getLiveStreamManager().setVideoEncodingEnabled(true);
+            // 重新开始推流
+            mLiveStream.startLiveShow();
+            isStreaming = true;
+            addChatMessage(Constant.OWNER_BOT, "直播推流已重新启动，新的地址：" + mLiveStream.liveShowUrl);
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "重新启动推流失败，错误信息：" + e.getMessage());
+        }
     }
 
     /**
@@ -3073,6 +3154,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "16. 速度+速度值：最大飞行速度设置\n" +
                 "17. 开启智能飞行助手：开启避障，视觉定位等功能\n" +
                 "18. 用户追踪：定位到用户所在的位置\n" +
+                "19. 修改地址:停止推流，修改直播地址并重新开启推流\n" +
                 "19. 飞向+lat,lon：飞向指定点" ;
 
         // 创建并显示消息框
