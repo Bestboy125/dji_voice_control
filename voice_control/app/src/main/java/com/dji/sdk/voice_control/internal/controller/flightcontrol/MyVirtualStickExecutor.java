@@ -332,7 +332,7 @@ public class MyVirtualStickExecutor {
     /**
      * Stop
      */
-    protected void mStop() {
+    public void mStop() {
         mMode = MyVirtualStickExecutorMode.STOP;
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
@@ -344,7 +344,7 @@ public class MyVirtualStickExecutor {
     /**
      * Up
      */
-    protected void mUp(int dis) {
+    public void mUp(int dis) {
         mMode = MyVirtualStickExecutorMode.UP_WITHOUT_DIS;
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
@@ -361,7 +361,7 @@ public class MyVirtualStickExecutor {
     /**
      * Down
      */
-    protected void mDown(int dis) {
+    public void mDown(int dis) {
         mMode = MyVirtualStickExecutorMode.DOWN_WITHOUT_DIS;
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
@@ -388,7 +388,7 @@ public class MyVirtualStickExecutor {
     /**
      * Turn
      */
-    protected void mTurn(int turningDirection, int optionalTurningDegree) {
+    public void mTurn(int turningDirection, int optionalTurningDegree) {
         mMode = MyVirtualStickExecutorMode.TURN;
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
@@ -410,7 +410,7 @@ public class MyVirtualStickExecutor {
     /**
      * Move
      */
-    protected void mGo(int movingDirection, double optionalDis) {
+    public void mGo(int movingDirection, double optionalDis) {
         mMode = MyVirtualStickExecutorMode.MOVE_WITHOUT_DIS;
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
@@ -448,7 +448,7 @@ public class MyVirtualStickExecutor {
     /**
      * Fly to a specific location
      */
-    protected void mFlyto(double tarLat, double tarLog) {
+    public void mFlyto(double tarLat, double tarLog) {
         final double initLati = mFlightController.getState().getAircraftLocation().getLatitude();
         final double initLongi = mFlightController.getState().getAircraftLocation().getLongitude();
         final double destLati = tarLat;

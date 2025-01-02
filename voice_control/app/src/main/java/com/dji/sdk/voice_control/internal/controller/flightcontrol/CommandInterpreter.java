@@ -94,7 +94,7 @@ public class CommandInterpreter {
     /**
      * Take off 起飞
      */
-    private void mTakeoff() {
+    public void mTakeoff() {
         if (mFlightController != null) {
             mFlightController.startTakeoff(new CommonCallbacks.CompletionCallback() {
                 @Override
@@ -120,7 +120,7 @@ public class CommandInterpreter {
     /**
      * Landing 着陆
      */
-    private void mLand() {
+    public void mLand() {
         if (mFlightController != null) {
             mFlightController.startLanding(new CommonCallbacks.CompletionCallback() {
                 @Override
@@ -313,102 +313,6 @@ public class CommandInterpreter {
                 break;
         }
     }
-
-    /**
-     * Photo Shooting Module 拍照
-     * @assitants David Yang, Eddie Wang, Eric Xu
-     */
-
-    /**
-     * Take a photo
-     *  Melody Cai
-     */
-//    public void shootPhoto() {
-//        DJISampleApplication.getProductInstance().getCamera().startShootPhoto(new CommonCallbacks.CompletionCallback() {
-//            @Override
-//            public void onResult(DJIError error) {
-//                if (error == null) {
-////                    Utils.setResultToToast(mContext, "shoot photo: success");
-//                    try{
-//                        TimeUnit.SECONDS.sleep((long) 2.5);
-//                    }catch (Exception e){
-//
-//                    }
-//                    getPhoto();
-//                } else {
-//                    Utils.setResultToToast(mContext, "shoot error:" + error.getDescription()); //TODO
-//                }
-//            }
-//        });
-//    }
-
-    /**
-     * Get media list from the drone
-     *  Melody Cai
-     */
-//    public void getPhoto() {
-//        mMediaManager = DJISampleApplication.getProductInstance().getCamera().getMediaManager();
-//        MediaRequest.Builder builder = MediaRequest.Builder.aMediaRequest();
-//        // fetch photo from SD card
-//        if (mMediaManager == null) {
-//            Utils.setResultToToast(mContext, "error get media manager");
-//        }else{
-//            // get the photo at top and set camera to download mode
-//
-//            mMediaManager.fetchFileList(builder.build(), new CommonCallbacks.CompletionCallbackWith<List<MediaFile>>() {
-//
-//                @Override
-//                public void onSuccess(List<MediaFile> djiMedias) {
-//                    if(djiMedias == null) {
-//                        Utils.setResultToToast(mContext, "no media in SD card");
-//                    }
-//                    else {
-//                        //Utils.setResultToToast(mContext, "get photo: success");
-//                        media = djiMedias.get(djiMedias.size()-1);
-//
-//                        fetchPhoto();
-//                    }
-//
-//                }
-//
-//                @Override
-//                public void onFailure(DJIError djiError) {
-//                    //Log.e(TAG, djiError.getDescription());
-//                }
-//            });
-//        }
-//    }
-
-    /**
-     * Download the latest photo from the drone and save it on SD card
-     *  Melody Cai
-     */
-//    public void fetchPhoto() {
-//
-//        final File destDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toString()
-//                + "/Camera");
-//        DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-//        Date date = new Date();
-//        final String Name = "test" + Integer.toString(count) + "_" + dateFormat.format(date);
-//        count ++;
-//        // download photo to dir to achieve image processing
-//        if(media == null) {
-//            Utils.setResultToToast(mContext, "fetch photo: error"); //TODO
-//        }else{
-////            Utils.setResultToToast(mContext, "fetched photo: "+ media.getFileName());
-//            DownloadHandler<String> downloadHandler = new DownloadHandler<>(mContext, destDir+Name, uniqueInstance);
-//            DJISampleApplication.getProductInstance().getCamera().getMediaManager().fetchThumbnail(media,destDir,Name,downloadHandler);
-//
-//            try{
-//                TimeUnit.SECONDS.sleep(3);
-//            }catch (Exception e){
-//
-//            }
-//            shoot();
-//
-//        }
-//
-//    }
 
     /**
      * Prepare for taking photo

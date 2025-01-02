@@ -327,6 +327,15 @@
                 android:layout_below="@+id/btn_nogps_takeoff"
                 android:text="设置返航点为当前飞机位置" />
 
+            <ToggleButton
+                android:id="@+id/is_GPT_Serve"
+                style="@style/common_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/btn_to_download"
+                android:textOff="使用服务器"
+                android:textOn="使用GPT" />
+
         </LinearLayout>
     </com.google.android.material.navigation.NavigationView>
 

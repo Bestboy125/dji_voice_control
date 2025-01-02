@@ -74,13 +74,17 @@ import com.amap.apis.utils.core.api.AMapUtilCoreApi;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.demo.camera.PlaybackCommandsView;
 import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
+import com.dji.sdk.voice_control.internal.controller.agent.JsonUtils;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTS;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTSCallback;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.IChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.IJSONMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.JSONMessage;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.FlightData;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.MyVirtualStickExecutor;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BaseRtspFpvView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
@@ -88,6 +92,7 @@ import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfir
 import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
 
 import dji.sdk.flightcontroller.FlightAssistant;
+import dji.sdk.gimbal.Gimbal;
 import dji.sdk.sdkmanager.LiveStreamManager;
 import com.dji.sdk.voice_control.internal.utils.AMapUtil;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
@@ -106,15 +111,19 @@ import com.iflytek.cloud.SpeechUtility;
 import com.iflytek.cloud.ui.RecognizerDialog;
 import com.iflytek.cloud.ui.RecognizerDialogListener;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.security.acl.Owner;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -154,6 +163,7 @@ import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.mission.MissionControl;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
+import 	dji.common.gimbal.*;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
@@ -173,11 +183,6 @@ import okhttp3.Response;
 import com.pedro.rtsp.utils.ConnectCheckerRtsp;
 
 public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator {
-
-    //region agent 数据结构
-    private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
-    private static final String TEMPLATE="Please answer the following question: {question}";
-    //endregion
 
     //region 标记
     private boolean iscommond = false;
@@ -318,7 +323,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private String mTargetDes;
     //endregion
 
-    //region 飞行控制的数据结构
+    //region 飞行控制数据结构
+    //飞行控制
+    private MyVirtualStickExecutor mSingletonVirtualStickExecutor;
     //飞行数据更新任务
     private DroneDataUpdater droneDataUpdater;
     //飞行数据
@@ -386,6 +393,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * JSON类型的上下文聊天数据
      */
     private IJSONMessage mJSONMessage;
+    private JSONObject GPThistory;
+
+    //是否启用GPT
+    private Boolean isGPT =true;
 
     // 用于保存当前待确认的任务信息
     private String pendingCommand;
@@ -962,6 +973,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button openDrawerButton = findViewById(R.id.btn_open_drawer);
         Button nogps_takeoff = findViewById(R.id.btn_nogps_takeoff);
         Button set_home_current = findViewById(R.id.set_home_current);
+        ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
 
@@ -1121,6 +1133,20 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         helpButton.setOnClickListener(v -> showHelpDialog());
         dataButtion.setOnClickListener(v -> showFlightDataDialog());
         problemButton.setOnClickListener(v -> showDiagnosticsDialog(diagnosticsMessage.toString()));
+        is_Gpt_Serve.setTextOn("GPT已开启");
+        is_Gpt_Serve.setTextOff("GPT已关闭");
+        is_Gpt_Serve.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    // 当 Switch 被打开，会显示 textOn，同时 isChecked = true
+                    isGPT = true;
+                } else {
+                    // 当 Switch 被关闭，会显示 textOff，同时 isChecked = false
+                    isGPT = false;
+                }
+            }
+        });
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
         mSendBtn.setOnClickListener(this);
@@ -1395,7 +1421,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             // Change arraylist to string
             mStrIntention = TextUtils.join(" ", tokenedCommand);
             // Execute NLC
-            new ControlActivity.ClassificationTask(ControlActivity.this).execute(tokenedCommand);
+            new ClassificationTask(ControlActivity.this).execute(tokenedCommand);
         }
 
         @Override
@@ -1723,6 +1749,248 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     //endregion
 
+    //region 云台相关
+    List<Gimbal> gimbals;
+    //endregion
+
+    //region agent 数据结构
+    private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
+    private static final String TEMPLATE="Please answer the following question: {question}";
+    //提示词
+    private String direction_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
+            "\n" +
+            "推理过程：\n" +
+            "- 描述您如何判断图中是否有白色轿车,置信度水平如何。\n" +
+            "- 解释您对白色轿车位置（左、中、右）的判断依据。\n" +
+            "- 描述您如何估算白色轿车占据图像的比例。\n" +
+            "\n" +
+            "请在推理过程之后，输出JSON格式的答案：\n" +
+            "\n" +
+            "{\n" +
+            "  \"has_white_car\": 布尔值（true或false），\n" +
+            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有白色轿车的把握，\n" +
+            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述白色轿车在图像中的位置\",\n" +
+            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计白色轿车占据图像的比例，\n" +
+            "}\n" +
+            "\n" +
+            "**注意：**\n" +
+            "- 请先输出推理过程，然后在下一行输出JSON对象。\n" +
+            "- 不要在JSON对象之外添加额外的文本或注释。\n" +
+            "- 请避免使用诸如“抱歉，我无法查看或分析图片内容”的句子，尽可能基于图像提供回答。\n" +
+            "- 只需要判断目标在图像的左、右或者中间，不要回复类似左中(center-left)的回答。\n" +
+            "- 请注意轿车通常具有完整白色轿车轮廓。";
+    private String Gpt_result;
+    //endregion
+
+    //region Agent控制
+    /**
+     * 进行一次（多次循环）搜索
+     * @return true 表示在本轮搜索中找到了目标；false 表示没找到
+     */
+    private boolean doSearch() {
+        boolean isFind = false;
+
+        // 假设搜 6 次
+        for (int i = 0; i < 6; i++) {
+            // 如果已经找到就提前退出
+            if (isFind) {
+                break;
+            }
+
+            File imageFile = new File("test.jpg");
+
+            // 拍照 + 调用模型识别 + 解析结果的逻辑
+            // ==================================================
+            try {
+                Bitmap bitmap = fpvTexture.getBitmap();
+                if (bitmap == null) {
+                    throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
+                }
+
+                // 保存帧为图片文件
+                imageFile = saveBitmapAsFile(bitmap, "frame.jpg");
+                if (imageFile == null) {
+                    throw new IOException("图片保存失败");
+                }
+
+                addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
+                addChatMessage(Constant.OWNER_HUMAN, bitmap);
+                addChatMessage(Constant.OWNER_BOT, "思考中...");
+
+                // 调用大模型/接口
+                if (isGPT) {
+                    sendQuestionToGPT(direction_prompt, imageFile, true);
+                } else {
+                    sendQuestionToAPI(direction_prompt, imageFile);
+                }
+
+                // 解析返回结果
+                JsonUtils.ParseResult mParseResult = JsonUtils.robustJsonParser(Gpt_result);
+                String response = mParseResult.getInferenceProcess();
+
+                // 如果解析为空，就跳过本轮循环，继续下一轮
+                if (mParseResult.getJsonData() == null) {
+                    addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
+                    continue;
+                }
+
+                boolean hasWhiteCar = mParseResult.getJsonData().optBoolean("has_white_car", false);
+                int confidence      = mParseResult.getJsonData().optInt("confidence_percentage", 0);
+
+                // 判断是否找到
+                if (hasWhiteCar && confidence >= 80) {
+                    isFind = true;
+                    response = response + "\n" + "车辆已锁定!";
+                    addChatMessage(Constant.OWNER_BOT, response);
+
+                    // 执行“靠近”动作
+                    Close_to(mParseResult.getJsonData());
+                } else {
+                    // 没找到或置信度不够，执行“继续搜索”或“旋转”
+                    response = response + "\n未能识别到目标车辆，继续搜索...";
+                    addChatMessage(Constant.OWNER_BOT, response);
+
+                    // 转动视角
+                    mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+                    mSingletonVirtualStickExecutor.mTurn(303, 45);
+                }
+            } catch (NullPointerException e) {
+                addChatMessage(Constant.OWNER_BOT, "摄像头未连接或未准备好，请检查设备连接状态");
+                Log.e("ObjectIdentifyError", "摄像头错误：" + e.getMessage());
+                return false;  // 直接结束本轮搜索，返回没找到
+            } catch (IOException e) {
+                addChatMessage(Constant.OWNER_BOT, "无法保存图片，请检查存储权限或存储空间");
+                Log.e("ObjectIdentifyError", "保存图片失败：" + e.getMessage());
+                return false;
+            } catch (Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "未知错误：" + e.getMessage());
+                Log.e("ObjectIdentifyError", "未知错误：" + e.getMessage());
+                return false;
+            }
+
+            // 睡 10 秒后再进行下一次尝试
+            try {
+                Thread.sleep(6_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        return isFind;
+    }
+
+    /**
+     * 根据识别到的车辆信息，进行“靠近”操作。
+     * @param carData 包含车辆位置信息 (left/center/right)、置信度、占比等字段的 JSON
+     */
+    public void Close_to(JSONObject carData) {
+        // 1. 从 carData 中获取关键信息
+        String locationDesc = carData.optString("location_description", "center");
+        int confidence      = carData.optInt("confidence_percentage", 0);
+        int proportion      = carData.optInt("estimated_proportion_percentage", 0);
+
+        addChatMessage(Constant.OWNER_BOT,
+                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                        locationDesc, confidence, proportion)
+        );
+
+        // 2. 先进行位置微调（左右旋转或移动），尽量让车辆位于画面中央；在此处也可决定是否向前移动
+        adjustDronePosition(locationDesc, proportion);
+
+        // 3. 如果占比 >= 70，则说明已经比较接近车辆了，尝试识别车标
+        if (proportion >= 70) {
+            addChatMessage(Constant.OWNER_BOT, "目标较大，可能已靠近车辆，准备识别车标...");
+            recognizeCarBrand();
+            addChatMessage(Constant.OWNER_BOT, "Close_to 流程完成。");
+        }
+
+        // 4. 稍等一会儿，让无人机稳定
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * 调整无人机的位置或视角，使车辆更居中。
+     * 当车辆已在中心 (center) 时，若占比 < 70，则向前移动一点。
+     * @param locationDesc 车辆在画面中的位置描述 (left/right/center)
+     * @param proportion   车辆在画面中的占比
+     */
+    private void adjustDronePosition(String locationDesc, int proportion) {
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+
+        switch (locationDesc) {
+            case "left":
+                addChatMessage(Constant.OWNER_BOT, "车辆在图像左侧，向左旋转/移动...");
+                mSingletonVirtualStickExecutor.mTurn(302, 15);
+                break;
+
+            case "right":
+                addChatMessage(Constant.OWNER_BOT, "车辆在图像右侧，向右旋转/移动...");
+                mSingletonVirtualStickExecutor.mTurn(303, 15);
+                break;
+
+            case "center":
+            default:
+                // 如果车辆已经处于画面中央，但占比 < 70，说明还比较远，可以向前飞一点
+                if (proportion < 70) {
+                    addChatMessage(Constant.OWNER_BOT,
+                            "车辆已大致位于中心，但仍较远，向前移动靠近...");
+                    // 参数示例：mGo(301, 5) => 通道 301，移动 5 米(或其他自定义单位)
+                    mSingletonVirtualStickExecutor.mGo(301, 5);
+                } else {
+                    addChatMessage(Constant.OWNER_BOT, "车辆已居中且接近，不需要移动。");
+                }
+                break;
+        }
+    }
+
+    /**
+     * 拍照并识别车标品牌。
+     * 如果使用 GPT，会调用 sendQuestionToGPT()；否则调用 sendQuestionToAPI()。
+     */
+    private void recognizeCarBrand() {
+        // 1. 拍照
+        Bitmap bitmap = fpvTexture.getBitmap();
+        if (bitmap == null) {
+            throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
+        }
+
+        File brandImgFile = saveBitmapAsFile(bitmap, "frame.jpg");
+        if (brandImgFile == null) {
+            addChatMessage(Constant.OWNER_BOT, "拍照失败，无法识别车标...");
+            return;
+        }
+
+        // 2. 构造识别请求
+        String brandPrompt = "请识别图片中白色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
+        addChatMessage(Constant.OWNER_BOT, "正在识别车标，请稍候...");
+
+        // 3. 调用 GPT 或 API
+        if (isGPT) {
+            sendQuestionToGPT(brandPrompt, brandImgFile, true);
+        } else {
+            sendQuestionToAPI(brandPrompt, brandImgFile);
+        }
+
+        // 4. 解析响应结果
+        JsonUtils.ParseResult brandParse = JsonUtils.robustJsonParser(Gpt_result);
+        if (brandParse.getJsonData() == null) {
+            addChatMessage(Constant.OWNER_BOT, "未能识别车标，JSON 数据为空。");
+            return;
+        }
+
+        String brandProcess = brandParse.getInferenceProcess();
+        String brandName    = brandParse.getJsonData().optString("brand_name", "未知品牌");
+
+        addChatMessage(Constant.OWNER_BOT, "车标识别推理过程: " + brandProcess);
+        addChatMessage(Constant.OWNER_BOT, "识别到的品牌: " + brandName);
+    }
+
+    //endregion
+
     //region 飞行控制器
     /**
      * 初始飞行控制器
@@ -1985,6 +2253,23 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             updateDroneLocation();
         }
     }
+
+//    /**
+//     * 云台控制
+//     */
+//    private void ControlGimbal(double Angle){
+//        BaseProduct product = DJISampleApplication.getProductInstance();
+//        if (product != null) {
+//            if (product instanceof Aircraft) {
+//                Aircraft aircraft = (Aircraft) product;
+//                gimbals = aircraft.getGimbals();
+//            }
+//        }
+//        for(int i =0;i<gimbals.size();i++){
+//            Gimbal gb = gimbals.get(i);
+//            gb.
+//        }
+//    }
     //endregion
 
     //region 高德地图定位，位置查询，用户位置，无人机位置交互相关
@@ -2257,7 +2542,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mStrIntention = TextUtils.join(" ", tokenedCommand);
 
         // 执行分类任务（假设是执行 NLC 的核心逻辑）
-        ControlActivity.ClassificationTask cft = new ControlActivity.ClassificationTask(ControlActivity.this);
+        ClassificationTask cft = new ClassificationTask(ControlActivity.this);
         cft.execute(tokenedCommand);
     }
 
@@ -2469,6 +2754,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
                         // 将提取的内容显示在对话框中
                         addChatMessage(Constant.OWNER_BOT, responseMessage.trim());
+                        Gpt_result = responseMessage.trim();
                     } catch (JSONException e) {
                         // JSON 解析失败
                         addChatMessage(Constant.OWNER_BOT, "响应解析错误：" + e.getMessage());
@@ -2480,6 +2766,50 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             }
         });
 
+    }
+
+    /**
+     * 向gpt语言大模型发送问题
+     * @param question
+     */
+    private void sendQuestionToGPT(String question, File file, boolean isHistory) {
+        // 构造 GPTS 实例
+        GPTS gpts = new GPTS(
+                "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
+                "gpt-4o",
+                0.8f,
+                0.9f,
+                300
+        );
+
+        // 异步调用
+        gpts.chatAsync(
+                question,
+                file.getPath(),        // 如果需要传图片，可以传文件路径
+                null,        // 自定义 system prompt
+                isHistory ? GPThistory : null,  // 若多轮对话，需要把上一次的 history 传进来
+                new GPTSCallback() {
+                    @Override
+                    public void onSuccess(GPTS.GPTSResult result) {
+                        // 这里是子线程回调，如果需要更新UI，请切回主线程
+                        runOnUiThread(() -> {
+                            // 例如添加对话内容到列表
+                            addChatMessage("OWNER_BOT", result.output);
+                            Gpt_result = result.output;
+                            // 保存新的上下文，以便下一次多轮对话
+                            GPThistory = result.history;
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        runOnUiThread(() -> {
+                            addChatMessage("OWNER_BOT", "出错了: " + e.getMessage());
+                            e.printStackTrace();
+                        });
+                    }
+                }
+        );
     }
 
     /**
@@ -2517,6 +2847,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             handleUserLocation();
         } else if (command.contains("修改地址")){
             handleModiferurl();
+        } else if (command.contains("自动搜索")){
+            agentFindCar();
         } else {
             processCommand(command);
         }
@@ -2524,43 +2856,48 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 自动化执行逻辑
+    /**
+     * 自动寻找车辆
+     */
+    public void agentFindCar() {
+        // 0. 起飞逻辑
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+        addChatMessage(Constant.OWNER_BOT, "准备起飞...");
+        try {
+            mCI.mTakeoff();
+            addChatMessage(Constant.OWNER_BOT, "已起飞，进入空中悬停...");
+        } catch (Exception e) {
+            addChatMessage(Constant.OWNER_BOT, "起飞失败，原因：" + e.getMessage());
+            return; // 若起飞失败，直接结束
+        }
 
-//    /**
-//     * 自动化开始推流
-//     */
-//    private void handleStartStreaming() {
-//        if (!isStreaming) {
-//            try {
-//                rtspServer.startServer();
-//                mBaseRtspFpvView.startStreaming(); // 开始编码并推流
-//                isStreaming = true;
-//                String rtspUrl = rtspServer.getEndPointConnection();
-//                addChatMessage(Constant.OWNER_BOT, "推流已启动，地址为：" + rtspUrl);
-//            } catch (Exception e) {
-//                addChatMessage(Constant.OWNER_BOT, "推流启动失败，错误信息：" + e.getMessage());
-//            }
-//        } else {
-//            addChatMessage(Constant.OWNER_BOT, "推流已经在进行中，无需重复启动。");
-//        }
-//    }
-//
-//    /**
-//     * 自动化停止推流
-//     */
-//    private void handleStopStreaming() {
-//        if (isStreaming) {
-//            try {
-//                rtspServer.stopServer();
-//                mBaseRtspFpvView.stopStreaming();
-//                isStreaming = false;
-//                addChatMessage(Constant.OWNER_BOT, "推流已停止。");
-//            } catch (Exception e) {
-//                addChatMessage(Constant.OWNER_BOT, "推流停止失败，错误信息：" + e.getMessage());
-//            }
-//        } else {
-//            addChatMessage(Constant.OWNER_BOT, "推流尚未启动，无需停止。");
-//        }
-//    }
+        // 1. 第一次搜索
+        boolean isFind = doSearch();
+
+        if (!isFind) {
+            // 如果第一次搜索就没找到
+            addChatMessage(Constant.OWNER_BOT, "第一次搜索未找到，开始下降 5 米...");
+            mSingletonVirtualStickExecutor.mDown(5); // 下降 5 米
+            // 再搜索一次
+            isFind = doSearch();
+        }
+
+        if (!isFind) {
+            // 依旧没找到
+            addChatMessage(Constant.OWNER_BOT, "下降后依旧未找到，开始上升 10 米...");
+            mSingletonVirtualStickExecutor.mUp(10); // 上升 10 米
+            // 再搜索一次
+            isFind = doSearch();
+        }
+
+        if (!isFind) {
+            // 到这里还没找到
+            addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。");
+            // 伪方法，表示可以返回初始位置，或执行其他逻辑
+            // mSingletonVirtualStickExecutor.goHome();
+        }
+    }
+
     /**
      * 自动化完成直播设置并开始推流
      */
@@ -2684,8 +3021,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             //TODO
             //显示捕获的这一帧图像在对话框
             // 如果图片文件成功生成，则发送至大模型
-            sendQuestionToAPI(question, imageFile);
-
+            if(isGPT){
+                sendQuestionToGPT(question, imageFile,true);
+            }
+            else {
+                sendQuestionToAPI(question,imageFile);
+            }
         } catch (NullPointerException e) {
             addChatMessage(Constant.OWNER_BOT, "摄像头未连接或未准备好，请检查设备连接状态");
             Log.e("ObjectIdentifyError", "摄像头错误：" + e.getMessage());
@@ -2990,11 +3331,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         cameraUpdate(new LatLng(mUserLocation.latitude,mUserLocation.longitude));
     }
-
     //endregion
 
     //region 辅助函数
-
     /**
      * 完成回调接口
      */
@@ -3155,7 +3494,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "17. 开启智能飞行助手：开启避障，视觉定位等功能\n" +
                 "18. 用户追踪：定位到用户所在的位置\n" +
                 "19. 修改地址:停止推流，修改直播地址并重新开启推流\n" +
-                "19. 飞向+lat,lon：飞向指定点" ;
+                "20. 飞向+lat,lon：飞向指定点\n" +
+                "21. 自动搜索白车靠近并识别车标：自动搜索白车靠近并识别车标";
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
