@@ -91,10 +91,12 @@ import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassi
 import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
 
+import dji.common.util.DJIParamMinMaxCapability;
 import dji.sdk.flightcontroller.FlightAssistant;
 import dji.sdk.gimbal.Gimbal;
 import dji.sdk.sdkmanager.LiveStreamManager;
 import com.dji.sdk.voice_control.internal.utils.AMapUtil;
+import com.dji.sdk.voice_control.internal.utils.CallbackHandlers;
 import com.dji.sdk.voice_control.internal.utils.JsonParser;
 import com.dji.sdk.voice_control.internal.utils.ToastUtil;
 import com.dji.sdk.voice_control.internal.utils.ToastUtils;
@@ -1750,7 +1752,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 云台相关
-    List<Gimbal> gimbals;
+    private Gimbal gimbal = null;
+    private int currentGimbalId = 0;
     //endregion
 
     //region agent 数据结构
@@ -2849,7 +2852,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             handleModiferurl();
         } else if (command.contains("自动搜索")){
             agentFindCar();
-        } else {
+        } else if (command.contains("俯视图")){
+            rotateGimbalDownwardView();
+        } else if (command.contains("前视图")){
+            rotateGimbalForwardView();
+        }else {
             processCommand(command);
         }
     }
@@ -3495,7 +3502,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "18. 用户追踪：定位到用户所在的位置\n" +
                 "19. 修改地址:停止推流，修改直播地址并重新开启推流\n" +
                 "20. 飞向+lat,lon：飞向指定点\n" +
-                "21. 自动搜索白车靠近并识别车标：自动搜索白车靠近并识别车标";
+                "21. 俯视图：切换俯视\n" +
+                "22. 前视图：切换前视\n" +
+                "23. 自动搜索白车靠近并识别车标：自动搜索白车靠近并识别车标";
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
@@ -3734,6 +3743,83 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             return false;
         }
         return true;
+    }
+    //endregion
+
+    //region 云台控制
+
+    /**
+     * 让云台俯视（垂直向下）
+     */
+    private void rotateGimbalDownwardView() {
+        // 对于绝大多数 DJI 云台来说，-90° 表示正对地面
+        rotateGimbal(-90.0f, 0.0f, 0.0f);
+    }
+
+    /**
+     * 让云台前视（水平向前）
+     */
+    private void rotateGimbalForwardView() {
+        // 0° 表示水平前视
+        rotateGimbal(0.0f, 0.0f, 0.0f);
+    }
+
+    /**
+     * 以绝对坐标系旋转相机云台
+     * @param pitchValue
+     * @param yawValue
+     * @param rollValue
+     */
+    private void rotateGimbal(float pitchValue,float yawValue,float rollValue) {
+
+        Rotation rotation = new Rotation.Builder().pitch(pitchValue)
+                .mode(RotationMode.ABSOLUTE_ANGLE)
+                .yaw(yawValue)
+                .roll(rollValue)
+                .time(0)
+                .build();
+
+        sendRotateGimbalCommand(rotation);
+    }
+
+    /**
+     * 发送旋转命令到云台
+     * @param rotation
+     */
+    private void sendRotateGimbalCommand(Rotation rotation) {
+
+        Gimbal gimbal = getGimbalInstance();
+        if (gimbal == null) {
+            return;
+        }
+        gimbal.rotate(rotation, new CallbackHandlers.CallbackToastHandler());
+    }
+
+    /**
+     * 得到云台对象实例
+     * @return
+     */
+    private Gimbal getGimbalInstance() {
+        if (gimbal == null) {
+            initGimbal();
+        }
+        return gimbal;
+    }
+
+    /**
+     * 初始化云台
+     */
+    private void initGimbal() {
+        if (DJISDKManager.getInstance() != null) {
+            BaseProduct product = DJISDKManager.getInstance().getProduct();
+            if (product != null) {
+                if (product instanceof Aircraft) {
+                    gimbal = ((Aircraft) product).getGimbals().get(currentGimbalId);
+                } else {
+                    gimbal = product.getGimbal();
+                }
+            }
+        }
     }
     //endregion
 }
