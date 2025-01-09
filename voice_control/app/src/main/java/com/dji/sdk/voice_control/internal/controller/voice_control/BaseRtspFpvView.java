@@ -192,7 +192,6 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
             mCodecManager = null;
         }
         mCodecManager = new DJICodecManager(getContext(), surface, width, height);
-        initUI();
     }
 
     @Override

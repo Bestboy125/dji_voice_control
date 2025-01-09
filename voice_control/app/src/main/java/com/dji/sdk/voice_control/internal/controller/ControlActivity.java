@@ -3504,7 +3504,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "20. 飞向+lat,lon：飞向指定点\n" +
                 "21. 俯视图：切换俯视\n" +
                 "22. 前视图：切换前视\n" +
-                "23. 自动搜索白车靠近并识别车标：自动搜索白车靠近并识别车标";
+                "23. 自动搜索：自动搜索白车靠近并识别车标";
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
