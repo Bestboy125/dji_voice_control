@@ -1785,93 +1785,156 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private String Gpt_result;
     //endregion
 
+    boolean isCenterAndClose = false; // 是否满足“在中心且占比>=70”
     //region Agent控制
     /**
      * 进行一次（多次循环）搜索
      * @return true 表示在本轮搜索中找到了目标；false 表示没找到
      */
     private boolean doSearch() {
-        boolean isFind = false;
+        final boolean[] isFind = {false};
 
-        // 假设搜 6 次
-        for (int i = 0; i < 6; i++) {
-            // 如果已经找到就提前退出
-            if (isFind) {
+        for (int i = 0; i < 7; i++) {
+            if (isCenterAndClose) break;
+
+            // 1. 拍照 + 保存图片
+            Bitmap bitmap = fpvTexture.getBitmap();
+            if (bitmap == null) {
+                addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
+                return false;
+            }
+            File imageFile = saveBitmapAsFile(bitmap, "frame.jpg");
+            if (imageFile == null) {
+                addChatMessage(Constant.OWNER_BOT, "图片保存失败");
+                return false;
+            }
+
+            addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
+            addChatMessage(Constant.OWNER_HUMAN, bitmap);
+            addChatMessage(Constant.OWNER_BOT, "思考中...");
+
+            // 2. 异步调用大模型 (使用回调方式)
+            //   注意：如果此处是for循环，需要考虑等待回调完成后再进入下一次循环
+            final Object lock = new Object(); // 用于锁
+            final boolean[] finished = new boolean[1]; // 标记回调是否结束
+            finished[0] = false;
+
+            if(isGPT){
+                sendQuestionToGPT(direction_prompt, imageFile, true, new OnGptResultListener() {
+                    @Override
+                    public void onSuccess(String gptResult) {
+                        // ---- 回调里进行解析 ----
+                        JsonUtils.ParseResult mParseResult = JsonUtils.robustJsonParser(gptResult);
+                        String response = mParseResult.getInferenceProcess();
+
+                        if (mParseResult.getJsonData() == null) {
+                            addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
+                        } else {
+                            boolean hasWhiteCar = mParseResult.getJsonData().optBoolean("has_white_car", false);
+                            int confidence      = mParseResult.getJsonData().optInt("confidence_percentage", 0);
+
+                            if (hasWhiteCar && confidence >= 80) {
+                                response = response + "\n" + "车辆已锁定!";
+                                addChatMessage(Constant.OWNER_BOT, response);
+                                Close_to(mParseResult.getJsonData());
+                                // 这里标记 isFind = true
+                                isFind[0] = true;
+                            } else {
+                                response = response + "\n未能识别到目标车辆，继续搜索...";
+                                addChatMessage(Constant.OWNER_BOT, response);
+
+                                // 转动视角
+                                MyVirtualStickExecutor mSingletonVirtualStickExecutor
+                                        = MyVirtualStickExecutor.getUniqueInstance();
+                                mSingletonVirtualStickExecutor.mTurn(303, 45);
+                            }
+                        }
+
+                        // 回调结束，唤醒主线程
+                        synchronized (lock) {
+                            finished[0] = true;
+                            lock.notify();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+                        // 出错处理
+                        addChatMessage(Constant.OWNER_BOT, "调用 GPT 出错: " + e.getMessage());
+                        synchronized (lock) {
+                            finished[0] = true;
+                            lock.notify();
+                        }
+                    }
+                });
+            }
+            else{
+                sendQuestionToAPI(direction_prompt, imageFile,new OnGptResultListener() {
+                    @Override
+                    public void onSuccess(String gptResult) {
+                        // ---- 回调里进行解析 ----
+                        JsonUtils.ParseResult mParseResult = JsonUtils.robustJsonParser(gptResult);
+                        String response = mParseResult.getInferenceProcess();
+
+                        if (mParseResult.getJsonData() == null) {
+                            addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
+                        } else {
+                            boolean hasWhiteCar = mParseResult.getJsonData().optBoolean("has_white_car", false);
+                            int confidence      = mParseResult.getJsonData().optInt("confidence_percentage", 0);
+
+                            if (hasWhiteCar && confidence >= 80) {
+                                response = response + "\n" + "车辆已锁定!";
+                                addChatMessage(Constant.OWNER_BOT, response);
+                                Close_to(mParseResult.getJsonData());
+                                // 这里标记 isFind = true
+                                isFind[0] = true;
+                            } else {
+                                response = response + "\n未能识别到目标车辆，继续搜索...";
+                                addChatMessage(Constant.OWNER_BOT, response);
+
+                                // 转动视角
+                                MyVirtualStickExecutor mSingletonVirtualStickExecutor
+                                        = MyVirtualStickExecutor.getUniqueInstance();
+                                mSingletonVirtualStickExecutor.mTurn(303, 45);
+                            }
+                        }
+
+                        // 回调结束，唤醒主线程
+                        synchronized (lock) {
+                            finished[0] = true;
+                            lock.notify();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+                        // 出错处理
+                        addChatMessage(Constant.OWNER_BOT, "调用 GPT 出错: " + e.getMessage());
+                        synchronized (lock) {
+                            finished[0] = true;
+                            lock.notify();
+                        }
+                    }
+                });
+            }
+
+            // --- 等待回调执行完毕，再进入下一次循环 ---
+            synchronized (lock) {
+                while (!finished[0]) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+
+            // 如果已经找到，就可以 break
+            if (isCenterAndClose) {
                 break;
             }
 
-            File imageFile = new File("test.jpg");
-
-            // 拍照 + 调用模型识别 + 解析结果的逻辑
-            // ==================================================
-            try {
-                Bitmap bitmap = fpvTexture.getBitmap();
-                if (bitmap == null) {
-                    throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
-                }
-
-                // 保存帧为图片文件
-                imageFile = saveBitmapAsFile(bitmap, "frame.jpg");
-                if (imageFile == null) {
-                    throw new IOException("图片保存失败");
-                }
-
-                addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
-                addChatMessage(Constant.OWNER_HUMAN, bitmap);
-                addChatMessage(Constant.OWNER_BOT, "思考中...");
-
-                // 调用大模型/接口
-                if (isGPT) {
-                    sendQuestionToGPT(direction_prompt, imageFile, true);
-                } else {
-                    sendQuestionToAPI(direction_prompt, imageFile);
-                }
-
-                // 解析返回结果
-                JsonUtils.ParseResult mParseResult = JsonUtils.robustJsonParser(Gpt_result);
-                String response = mParseResult.getInferenceProcess();
-
-                // 如果解析为空，就跳过本轮循环，继续下一轮
-                if (mParseResult.getJsonData() == null) {
-                    addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
-                    continue;
-                }
-
-                boolean hasWhiteCar = mParseResult.getJsonData().optBoolean("has_white_car", false);
-                int confidence      = mParseResult.getJsonData().optInt("confidence_percentage", 0);
-
-                // 判断是否找到
-                if (hasWhiteCar && confidence >= 80) {
-                    isFind = true;
-                    response = response + "\n" + "车辆已锁定!";
-                    addChatMessage(Constant.OWNER_BOT, response);
-
-                    // 执行“靠近”动作
-                    Close_to(mParseResult.getJsonData());
-                } else {
-                    // 没找到或置信度不够，执行“继续搜索”或“旋转”
-                    response = response + "\n未能识别到目标车辆，继续搜索...";
-                    addChatMessage(Constant.OWNER_BOT, response);
-
-                    // 转动视角
-                    mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
-                    mSingletonVirtualStickExecutor.mTurn(303, 45);
-                }
-            } catch (NullPointerException e) {
-                addChatMessage(Constant.OWNER_BOT, "摄像头未连接或未准备好，请检查设备连接状态");
-                Log.e("ObjectIdentifyError", "摄像头错误：" + e.getMessage());
-                return false;  // 直接结束本轮搜索，返回没找到
-            } catch (IOException e) {
-                addChatMessage(Constant.OWNER_BOT, "无法保存图片，请检查存储权限或存储空间");
-                Log.e("ObjectIdentifyError", "保存图片失败：" + e.getMessage());
-                return false;
-            } catch (Exception e) {
-                addChatMessage(Constant.OWNER_BOT, "未知错误：" + e.getMessage());
-                Log.e("ObjectIdentifyError", "未知错误：" + e.getMessage());
-                return false;
-            }
-
-            // 睡 10 秒后再进行下一次尝试
+            // 睡 6 秒再搜下一次
             try {
                 Thread.sleep(6_000);
             } catch (InterruptedException e) {
@@ -1879,7 +1942,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             }
         }
 
-        return isFind;
+        return isFind[0];
     }
 
     /**
@@ -1902,6 +1965,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 3. 如果占比 >= 70，则说明已经比较接近车辆了，尝试识别车标
         if (proportion >= 70) {
+            isCenterAndClose = true;
             addChatMessage(Constant.OWNER_BOT, "目标较大，可能已靠近车辆，准备识别车标...");
             recognizeCarBrand();
             addChatMessage(Constant.OWNER_BOT, "Close_to 流程完成。");
@@ -2699,6 +2763,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    // 用于在异步获取 GPT 结果后通知主流程
+    public interface OnGptResultListener {
+        void onSuccess(String gptResult);
+        void onFailure(Exception e);
+    }
+
     /**
      * 向服务器诗句语言大模型发送问题
      * @param question
@@ -2771,6 +2841,75 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     }
 
+    private void sendQuestionToAPI(String question, File file,OnGptResultListener listener) {
+
+        MultipartBody.Builder builder = new MultipartBody.Builder();
+        if(getFileFormat(file).equals("jpg")){
+            // 创建请求体
+            builder = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
+                    .addFormDataPart("format", "jpg") // 文件格式
+                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("image/jpg"), file)); // 上传文件
+        }
+        else{
+            // 创建请求体
+            builder = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
+                    .addFormDataPart("format", "mp4") // 文件格式
+                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("video/mp4"), file)); // 上传文件
+        }
+
+        // 创建请求
+        RequestBody requestBody = builder.build();
+        Request request = new Request.Builder()
+                .url(AGENT_URL)
+                .post(requestBody)
+                .build();
+
+        // 设置 OkHttp 客户端
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+                addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + e.getMessage());
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
+
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        // 将响应体解析为 JSON 对象
+                        String responseBody = response.body().string();
+                        JSONObject jsonResponse = new JSONObject(responseBody);
+
+                        // 提取 'response' 字段内容
+                        String responseMessage = jsonResponse.optString("response", "未找到响应内容");
+
+                        // 将提取的内容显示在对话框中
+                        addChatMessage(Constant.OWNER_BOT, responseMessage.trim());
+                        Gpt_result = responseMessage.trim();
+                        listener.onSuccess(Gpt_result);
+                    } catch (JSONException e) {
+                        // JSON 解析失败
+                        addChatMessage(Constant.OWNER_BOT, "响应解析错误：" + e.getMessage());
+                    }
+                } else {
+                    // 请求失败或无响应体
+                    addChatMessage(Constant.OWNER_BOT, "请求失败，错误信息是：" + (response.body() != null ? response.body().string() : "无响应体"));
+                }
+            }
+        });
+
+    }
+
     /**
      * 向gpt语言大模型发送问题
      * @param question
@@ -2801,6 +2940,51 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                             Gpt_result = result.output;
                             // 保存新的上下文，以便下一次多轮对话
                             GPThistory = result.history;
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        runOnUiThread(() -> {
+                            addChatMessage("OWNER_BOT", "出错了: " + e.getMessage());
+                            e.printStackTrace();
+                        });
+                    }
+                }
+        );
+    }
+
+    /**
+     * 向gpt语言大模型发送问题
+     * @param question
+     */
+    private void sendQuestionToGPT(String question, File file, boolean isHistory,OnGptResultListener listener) {
+        // 构造 GPTS 实例
+        GPTS gpts = new GPTS(
+                "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
+                "gpt-4o",
+                0.8f,
+                0.9f,
+                300
+        );
+
+        // 异步调用
+        gpts.chatAsync(
+                question,
+                file.getPath(),        // 如果需要传图片，可以传文件路径
+                null,        // 自定义 system prompt
+                isHistory ? GPThistory : null,  // 若多轮对话，需要把上一次的 history 传进来
+                new GPTSCallback() {
+                    @Override
+                    public void onSuccess(GPTS.GPTSResult result) {
+                        // 这里是子线程回调，如果需要更新UI，请切回主线程
+                        runOnUiThread(() -> {
+                            // 例如添加对话内容到列表
+                            addChatMessage("OWNER_BOT", result.output);
+                            Gpt_result = result.output;
+                            // 保存新的上下文，以便下一次多轮对话
+                            GPThistory = result.history;
+                            listener.onSuccess(Gpt_result);
                         });
                     }
 
