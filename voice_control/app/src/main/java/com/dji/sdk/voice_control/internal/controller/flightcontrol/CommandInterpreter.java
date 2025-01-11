@@ -419,6 +419,32 @@ public class CommandInterpreter {
     }
 
     /**
+     * Set focusing point
+     * @author Melody Cai
+     */
+    public void focusLen(float[] focusCoordinates) {
+
+        PointF targ = new PointF(focusCoordinates[0], focusCoordinates[1]);
+
+        if (DJISampleApplication.getProductInstance().getCamera() != null) {
+            DJISampleApplication.getProductInstance().getCamera().setFocusTarget(targ, new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onResult(DJIError error) {
+                            if (error == null) {
+                                //if(mTrigger.value()) {
+                                //shootPhoto();
+                                Utils.setResultToToast(mContext, "Focus and Shooting Succeed" ); // TODO: shooting not succeed yet
+                            } else {
+                                Utils.setResultToToast(mContext, "focus " + error.getDescription());
+                            }
+
+                        }
+                    }
+            );
+        }
+    }
+
+    /**
      * Prepare for taking photo
      * @maintainer Melody Cai
      */
