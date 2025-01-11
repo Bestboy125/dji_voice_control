@@ -3,6 +3,7 @@ package com.dji.sdk.voice_control.internal.controller.flightcontrol;
 
 import android.content.Context;
 import android.graphics.PointF;
+import android.os.Environment;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -10,12 +11,19 @@ import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.HttpUtil;
 import com.dji.sdk.voice_control.internal.controller.Utils;
 
+import java.io.File;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;
 import dji.common.util.CommonCallbacks;
 import dji.sdk.base.BaseProduct;
+import dji.sdk.camera.PlaybackManager;
 import dji.sdk.media.MediaFile;
 import dji.sdk.media.MediaManager;
 import dji.sdk.flightcontroller.FlightController;
@@ -39,6 +47,7 @@ public class CommandInterpreter {
     //private Trigger mTrigger;
     private MediaManager mMediaManager;
     private MediaFile media;
+    private PlaybackManager playbackManager;
 
     private int object_id;
     int count = 1;
@@ -315,6 +324,101 @@ public class CommandInterpreter {
     }
 
     /**
+     * 获取mSingletonVirtualStickExecutor
+     */
+    public MyVirtualStickExecutor getmSingletonVirtualStickExecutor(){
+        return this.mSingletonVirtualStickExecutor;
+    }
+
+
+
+    //region 拍照
+
+    /**
+     * Take a photo
+     * @author Melody Cai
+     */
+    public void shootPhoto() {
+        setPhotoMode();
+
+        DJISampleApplication.getProductInstance().getCamera().startShootPhoto(new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onResult(DJIError error) {
+                if (error == null) {
+//                    Utils.setResultToToast(mContext, "shoot photo: success");
+                    try{
+                        TimeUnit.SECONDS.sleep((long) 2.5);
+                    }catch (Exception e){
+
+                    }
+                    getPhoto(0);
+                    fetchPhoto();
+                } else {
+                    Utils.setResultToToast(mContext, "shoot error:" + error.getDescription()); //TODO
+                }
+            }
+        });
+    }
+
+    /**
+     * Get media list from the drone
+     * @author Melody Cai
+     */
+    public void getPhoto(int index) {
+        playbackManager = DJISampleApplication.getProductInstance().getCamera().getPlaybackManager();
+        // fetch photo from SD card
+        if (playbackManager == null) {
+            Utils.setResultToToast(mContext, "error get playback manager");
+        }else{
+            // get the photo at top and set camera to download mode
+            playbackManager.toggleFileSelectionAtIndex(index);
+        }
+    }
+
+    /**
+     * Download the latest photo from the drone and save it on SD card
+     * @author Melody Cai
+     */
+    public void fetchPhoto() {
+        setDownloadMode();
+        final File destDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toString()
+                + "/Camera");
+        // download photo to dir to achieve image processing
+        if(media == null) {
+            Utils.setResultToToast(mContext, "fetch photo: error"); //TODO
+        }else{
+
+            playbackManager.downloadSelectedFiles(destDir, new PlaybackManager.FileDownloadCallback() {
+
+                @Override
+                public void onStart() {
+                }
+
+                @Override
+                public void onEnd() {
+
+                }
+
+                @Override
+                public void onError(Exception e) {
+                }
+
+                @Override
+                public void onProgressUpdate(int progress) {
+
+                }
+            });
+
+            try{
+                TimeUnit.SECONDS.sleep(3);
+            }catch (Exception e){
+
+            }
+        }
+
+    }
+
+    /**
      * Prepare for taking photo
      * @maintainer Melody Cai
      */
@@ -379,60 +483,7 @@ public class CommandInterpreter {
 
     }
 
-    /**
-     * Set focusing point
-     *  Melody Cai
-     */
-    public void focusLen(float[] focusCoordinates) {
 
-        PointF targ = new PointF(focusCoordinates[0], focusCoordinates[1]);
-
-        if (DJISampleApplication.getProductInstance().getCamera() != null) {
-            DJISampleApplication.getProductInstance().getCamera().setFocusTarget(targ, new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError error) {
-                            if (error == null) {
-                                //if(mTrigger.value()) {
-                                //shootPhoto();
-                                Utils.setResultToToast(mContext, "Focus and Shooting Succeed" ); // TODO: shooting not succeed yet
-                            } else {
-                                Utils.setResultToToast(mContext, "focus " + error.getDescription());
-                            }
-
-                        }
-                    }
-            );
-        }
-    }
-
-    /**
-     * Take a photo with focusing on the specific object
-     *  Melody Cai
-     */
-    public void shoot(){
-        DJISampleApplication.getProductInstance().getCamera().startShootPhoto(new CommonCallbacks.CompletionCallback() {
-            @Override
-            public void onResult(DJIError error) {
-                if (error == null) {
-//                    Utils.setResultToToast(mContext, "Shooting Photo Succeed"); //TODO
-                } else {
-                    Utils.setResultToToast(mContext, "shoot error:" + error.getDescription()); //TODO
-                }
-            }
-        });
-    }
-
-    /**
-     * END of Photo Shooting Module
-     *  Melody Cai
-     * @assitants David Yang, Eddie Wang, Eric Xu
-     */
-
-    /**
-     * 获取mSingletonVirtualStickExecutor
-     */
-    public MyVirtualStickExecutor getmSingletonVirtualStickExecutor(){
-        return this.mSingletonVirtualStickExecutor;
-    }
+    //endregion
 
 }
