@@ -1767,7 +1767,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private static final int ANGLE_INCREMENT_FACTOR = 2;
     private static final int SEARCH_TIMEOUT_SECONDS = 30;
     private static final int SLEEP_BETWEEN_SEARCH_MS = 6000;
-    private static final int SLEEP_AFTER_CLOSE_MS = 2000;
+    private static final int SLEEP_AFTER_CLOSE_MS = 6000;
     private static final int CLOSE_POSITION_PROPORTION_THRESHOLD = 60;
     private static final int COMMAND_UP_ANGLE = 5;
     private static final String IMAGE_FILE_NAME = "frame.jpg";
