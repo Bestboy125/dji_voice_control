@@ -1959,7 +1959,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
     private void performCloseToSearch(int currentAttempt, int maxAttempts) {
-        if (isCenterAndClose || currentAttempt>maxAttempts) {
+        if( currentAttempt>maxAttempts ){
+            recognizeCarBrand();
+        }
+        if (isCenterAndClose) {
             return;
         }
 
