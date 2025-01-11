@@ -1818,29 +1818,47 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             // 初始化虚拟摇杆执行器
             mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
 
-            // 创建起飞和上升命令
-            MyVirtualStickExecutor.DroneCommand takeoff = mSingletonVirtualStickExecutor.new TakeoffCommand();
-            MyVirtualStickExecutor.DroneCommand up = mSingletonVirtualStickExecutor.new UpCommand(COMMAND_UP_ANGLE);
+//            // 创建起飞和上升命令
+//            MyVirtualStickExecutor.DroneCommand takeoff = mSingletonVirtualStickExecutor.new TakeoffCommand();
+//            MyVirtualStickExecutor.DroneCommand up = mSingletonVirtualStickExecutor.new UpCommand(COMMAND_UP_ANGLE);
+//
+//            // 将命令添加到队列
+//            mSingletonVirtualStickExecutor.enqueueCommand(takeoff);
+//            mSingletonVirtualStickExecutor.enqueueCommand(up);
+//
+//            // 执行命令队列并设置回调
+//            mSingletonVirtualStickExecutor.executeCommandQueue(new MyVirtualStickExecutor.CommandCompletionCallback() {
+//                @Override
+//                public void onComplete(DJIError error) {
+//                    if (error != null) {
+//                        // 处理命令执行失败的情况
+//                        addChatMessage(Constant.OWNER_BOT, "起飞或上升失败: " + error.getDescription());
+//                        Log.e("agentFindCar", "起飞或上升失败: " + error.getDescription());
+//                        return;
+//                    }
+//
+//                    // 执行第一次搜索
+//                    performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
+//                }
+//            });
+            mCI.mTakeoff();
+            // 睡 6 秒再搜下一次
+            try {
+                Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                addChatMessage(Constant.OWNER_BOT, "线程被中断");
+            }
+            mSingletonVirtualStickExecutor.mUp(8);
+            try {
+                Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                addChatMessage(Constant.OWNER_BOT, "线程被中断");
+            }
+            // 执行第一次搜索
+            performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
 
-            // 将命令添加到队列
-            mSingletonVirtualStickExecutor.enqueueCommand(takeoff);
-            mSingletonVirtualStickExecutor.enqueueCommand(up);
-
-            // 执行命令队列并设置回调
-            mSingletonVirtualStickExecutor.executeCommandQueue(new MyVirtualStickExecutor.CommandCompletionCallback() {
-                @Override
-                public void onComplete(DJIError error) {
-                    if (error != null) {
-                        // 处理命令执行失败的情况
-                        addChatMessage(Constant.OWNER_BOT, "起飞或上升失败: " + error.getDescription());
-                        Log.e("agentFindCar", "起飞或上升失败: " + error.getDescription());
-                        return;
-                    }
-
-                    // 执行第一次搜索
-                    performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
-                }
-            });
         }
     }
 
@@ -2168,40 +2186,31 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * @param ascendHeight   每次上升的高度
      */
     private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) {
-        // 在后台线程中执行搜索
-        executorService.submit(() -> {
+        executorService.execute(() -> {
             boolean isFind = doSearch();
+            if (isFind) {
+                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
+                mSingletonVirtualStickExecutor.mStop();
+                return;
+            }
 
-            runOnUiThread(() -> {
-                if (isFind) {
-                    addChatMessage(Constant.OWNER_BOT, "车辆已锁定！");
-                    mSingletonVirtualStickExecutor.mStop();
-                } else if (currentAttempt < maxAttempts) {
-                    addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米...");
-                    MyVirtualStickExecutor.DroneCommand up = mSingletonVirtualStickExecutor.new UpCommand(ascendHeight);
-                    mSingletonVirtualStickExecutor.enqueueCommand(up);
-
-                    mSingletonVirtualStickExecutor.executeCommandQueue(new MyVirtualStickExecutor.CommandCompletionCallback() {
-                        @Override
-                        public void onComplete(DJIError error) {
-                            if (error != null) {
-                                addChatMessage(Constant.OWNER_BOT, "上升失败: " + error.getDescription());
-                                Log.e("performSearch", "上升失败: " + error.getDescription());
-                                return;
-                            }
-
-                            // 递归调用进行下一次搜索
-                            performSearch(currentAttempt + 1, maxAttempts, ascendHeight);
-                        }
-                    });
-                } else {
-                    addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。");
-                    mSingletonVirtualStickExecutor.mStop();
+            if (currentAttempt < maxAttempts) {
+                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米..."));
+                mSingletonVirtualStickExecutor.mUp(5);
+                // 睡 6 秒再搜下一次
+                try {
+                    Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    addChatMessage(Constant.OWNER_BOT, "线程被中断");
                 }
-            });
+                performSearch(currentAttempt+1,maxAttempts,ascendHeight);
+            } else {
+                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
+                mSingletonVirtualStickExecutor.mStop();
+            }
         });
     }
-
 
     //endregion
 
