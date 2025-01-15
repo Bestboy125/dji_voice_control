@@ -1,9 +1,13 @@
 package com.dji.sdk.voice_control.internal.controller;
 
 
+import android.app.Dialog;
+import android.content.res.Resources;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,6 +16,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Point;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -977,6 +983,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button openDrawerButton = findViewById(R.id.btn_open_drawer);
         Button nogps_takeoff = findViewById(R.id.btn_nogps_takeoff);
         Button set_home_current = findViewById(R.id.set_home_current);
+        Button test = findViewById(R.id.test);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
@@ -1102,6 +1109,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 mFlightControlTab.setText("语音控制");
             }
             iscontrol = !iscontrol;
+        });
+        test.setOnClickListener(v -> {
+            agentFindCar();
         });
         set_home_current.setOnClickListener(v ->{
            if(mCI.mFlightController!=null){
@@ -1759,6 +1769,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region agent 数据结构
+    // 构造 GPTS 实例
+    private GPTS gpts = new GPTS(
+            "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
+            "gpt-4o",
+            0.8f,
+            0.9f,
+            300
+    );
     private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
     private static final String TEMPLATE="Please answer the following question: {question}";
     // 常量定义
@@ -1803,424 +1821,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             "- 只需要判断目标在图像的左、右或者中间，不要回复类似左中(center-left)的回答。\n" +
             "- 请注意轿车通常具有完整白色轿车轮廓。";
     private String Gpt_result;
-    //endregion
-
-    //region Agent控制
-
-    /**
-     * 入口函数
-     */
-    public void agentFindCar() {
-        if(mCI.mFlightController == null){
-            addChatMessage(Constant.OWNER_BOT, "飞控未初始化");
-        }
-        else{
-            // 初始化虚拟摇杆执行器
-            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
-
-//            // 创建起飞和上升命令
-//            MyVirtualStickExecutor.DroneCommand takeoff = mSingletonVirtualStickExecutor.new TakeoffCommand();
-//            MyVirtualStickExecutor.DroneCommand up = mSingletonVirtualStickExecutor.new UpCommand(COMMAND_UP_ANGLE);
-//
-//            // 将命令添加到队列
-//            mSingletonVirtualStickExecutor.enqueueCommand(takeoff);
-//            mSingletonVirtualStickExecutor.enqueueCommand(up);
-//
-//            // 执行命令队列并设置回调
-//            mSingletonVirtualStickExecutor.executeCommandQueue(new MyVirtualStickExecutor.CommandCompletionCallback() {
-//                @Override
-//                public void onComplete(DJIError error) {
-//                    if (error != null) {
-//                        // 处理命令执行失败的情况
-//                        addChatMessage(Constant.OWNER_BOT, "起飞或上升失败: " + error.getDescription());
-//                        Log.e("agentFindCar", "起飞或上升失败: " + error.getDescription());
-//                        return;
-//                    }
-//
-//                    // 执行第一次搜索
-//                    performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
-//                }
-//            });
-            mCI.mTakeoff();
-            // 睡 6 秒再搜下一次
-            try {
-                Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                addChatMessage(Constant.OWNER_BOT, "线程被中断");
-            }
-            mSingletonVirtualStickExecutor.mUp(8);
-            try {
-                Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                addChatMessage(Constant.OWNER_BOT, "线程被中断");
-            }
-            // 执行第一次搜索
-            performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
-
-        }
-    }
-
-    /**
-     * 在场景中自动搜索车辆
-     * @return
-     */
-    private boolean doSearch() {
-        final boolean[] isFind = {false};
-        int angle = INITIAL_ANGLE;
-        mTabLayout.getTabAt(1).select();
-
-        for (int i = 0; i < MAX_SEARCH_ATTEMPTS; i++) {
-            if (isFind[0]) break;
-
-            Bitmap bitmap = fpvTexture.getBitmap();
-            if (bitmap == null) {
-                addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
-                return false;
-            }
-
-            File imageFile = saveBitmapAsFile(bitmap, IMAGE_FILE_NAME);
-            if (imageFile == null) {
-                addChatMessage(Constant.OWNER_BOT, "图片保存失败");
-                return false;
-            }
-
-            addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
-            addChatMessage(Constant.OWNER_HUMAN, bitmap);
-            addChatMessage(Constant.OWNER_BOT, "思考中...");
-
-            int finalAngle = angle;
-            String Result = sendQuestionToGPTS(direction_prompt, imageFile,true);
-//            sendQuestion(isGPT, direction_prompt, imageFile, new OnGptResultListener() {
-//                @Override
-//                public void onSuccess(String gptResult) {
-//                    try {
-//                        JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
-//                        String response = parseResult.getInferenceProcess();
-//
-//                        if (parseResult.getJsonData() == null) {
-//                            addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
-//                        } else {
-//                            boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_white_car", false);
-//                            int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
-//
-//                            if (hasWhiteCar && confidence >= 80) {
-//                                response += "\n车辆已锁定!";
-//                                addChatMessage(Constant.OWNER_BOT, response);
-//                                Close_to();
-//                                isFind[0] = true;
-//                            } else {
-//                                response += "\n未能识别到目标车辆，继续搜索...";
-//                                addChatMessage(Constant.OWNER_BOT, response);
-//
-//                                // 转动视角
-//                                MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
-//                                executor.mTurn(303, finalAngle);
-//                            }
-//                        }
-//
-//                    } catch (Exception e) {
-//                        addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
-//                    } finally {
-//                    }
-//                }
-//
-//                @Override
-//                public void onFailure(Exception e) {
-//                    addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
-//                }
-//            });
-
-            JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(Result);
-            String response = parseResult.getInferenceProcess();
-
-            if (parseResult.getJsonData() == null) {
-                addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
-            } else {
-                boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_white_car", false);
-                int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
-
-                if (hasWhiteCar && confidence >= 80) {
-                    response += "\n车辆已锁定!";
-                    addChatMessage(Constant.OWNER_BOT, response);
-                    Close_to();
-                    isFind[0] = true;
-                } else {
-                    response += "\n未能识别到目标车辆，继续搜索...";
-                    addChatMessage(Constant.OWNER_BOT, response);
-
-                    // 转动视角
-                    MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
-                    executor.mTurn(303, finalAngle);
-                }
-            }
-            if (isFind[0]) {
-                break;
-            }
-
-            angle *= ANGLE_INCREMENT_FACTOR;
-
-            // 睡 6 秒再搜下一次
-            try {
-                Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                addChatMessage(Constant.OWNER_BOT, "线程被中断");
-                return false;
-            }
-
-        }
-
-        return isFind[0];
-    }
-
-    /**
-     * 根据识别到的车辆信息，进行“靠近”操作。
-     */
-    public void Close_to() {
-        performCloseToSearch(1, MAX_SEARCH_ATTEMPTS);
-    }
-
-    /**
-     * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
-     */
-    private void performCloseToSearch(int currentAttempt, int maxAttempts) {
-        if( currentAttempt>maxAttempts ){
-            recognizeCarBrand();
-        }
-        if (isCenterAndClose) {
-            return;
-        }
-
-        Bitmap bitmap = fpvTexture.getBitmap();
-        if (bitmap == null) {
-            addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
-            return;
-        }
-
-        File imageFile = saveBitmapAsFile(bitmap, IMAGE_FILE_NAME);
-        if (imageFile == null) {
-            addChatMessage(Constant.OWNER_BOT, "图片保存失败");
-            return;
-        }
-
-        addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
-        addChatMessage(Constant.OWNER_HUMAN, bitmap);
-        addChatMessage(Constant.OWNER_BOT, "思考中...");
-
-        CountDownLatch latch = new CountDownLatch(1);
-
-        sendQuestion(isGPT, direction_prompt, imageFile, new OnGptResultListener() {
-            @Override
-            public void onSuccess(String gptResult) {
-                try {
-                    JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
-                    String response = parseResult.getInferenceProcess();
-
-                    if (parseResult.getJsonData() == null) {
-                        addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
-                    } else {
-                        String locationDesc = parseResult.getJsonData().optString("location_description", "center");
-                        int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
-                        int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-
-                        addChatMessage(Constant.OWNER_BOT,
-                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
-                                        locationDesc, confidence, proportion)
-                        );
-
-                        // 调整无人机位置
-                        adjustDronePosition(locationDesc, proportion);
-
-                        // 如果占比 >= 70，则尝试识别车标
-                        if (proportion >= CLOSE_POSITION_PROPORTION_THRESHOLD) {
-                            isCenterAndClose = true;
-                            addChatMessage(Constant.OWNER_BOT, "目标较大，可能已靠近车辆，准备识别车标...");
-                            recognizeCarBrand();
-                            addChatMessage(Constant.OWNER_BOT, "Close_to 流程完成。");
-                        }
-                    }
-                } catch (Exception e) {
-                    addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
-                } finally {
-                    latch.countDown();
-                }
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
-                latch.countDown();
-            }
-        });
-
-        // 等待回调完成，最多等待一定时间以防止无限阻塞
-        try {
-            boolean completed = latch.await(SEARCH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            if (!completed) {
-                addChatMessage(Constant.OWNER_BOT, "等待模型响应超时，尝试下一帧...");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            addChatMessage(Constant.OWNER_BOT, "线程被中断");
-        }
-
-        if (!isCenterAndClose) {
-            // 稍等一会儿，让无人机稳定
-            try {
-                Thread.sleep(SLEEP_AFTER_CLOSE_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                addChatMessage(Constant.OWNER_BOT, "线程被中断");
-            }
-
-            // 递归调用，继续靠近搜索
-            performCloseToSearch(currentAttempt+1,maxAttempts);
-        }
-    }
-
-    /**
-     * 调整无人机的位置或视角，使车辆更居中。
-     * 当车辆已在中心 (center) 时，若占比 < 阈值，则向前移动一定距离。
-     * @param locationDesc 车辆在画面中的位置描述 (left/right/center)
-     * @param proportion   车辆在画面中的占比
-     */
-    private void adjustDronePosition(String locationDesc, int proportion) {
-        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
-
-        switch (locationDesc) {
-            case "left":
-                addChatMessage(Constant.OWNER_BOT, "车辆在图像左侧，向左移动...");
-                double moveLeftDistance = calculateMoveDistance(proportion);
-                mSingletonVirtualStickExecutor.mGo(302, moveLeftDistance);
-                break;
-
-            case "right":
-                addChatMessage(Constant.OWNER_BOT, "车辆在图像右侧，向右移动...");
-                double moveRightDistance = calculateMoveDistance(proportion);
-                mSingletonVirtualStickExecutor.mGo(303, moveRightDistance);
-                break;
-
-            case "center":
-            default:
-                // 如果车辆已经处于画面中央，但占比 < 阈值，说明还比较远，可以向前飞一定距离
-                if (proportion < PROPORTION_THRESHOLD) {
-                    double moveDistance = calculateMoveDistance(proportion);
-                    addChatMessage(Constant.OWNER_BOT,
-                            String.format("车辆已大致位于中心，但占比为 %d%%，向前移动 %.2f 米靠近...", proportion, moveDistance));
-                    mSingletonVirtualStickExecutor.mGo(301, moveDistance);
-                } else {
-                    isCenterAndClose=true;
-                    addChatMessage(Constant.OWNER_BOT, "车辆已居中且接近，不需要移动。");
-                }
-                break;
-        }
-    }
-
-    /**
-     * 根据车辆在图像中的占比计算移动距离。
-     * @param proportion 车辆占比（0-100）
-     * @return 需要移动的距离（米）
-     */
-    private double calculateMoveDistance(int proportion) {
-        if (proportion < MAX_MOVE_DISTANCE) {
-            double distanceRange = MAX_MOVE_DISTANCE - MIN_MOVE_DISTANCE;
-            double proportionRatio = (double)(PROPORTION_THRESHOLD - proportion) / PROPORTION_THRESHOLD;
-            double moveDistance = MIN_MOVE_DISTANCE + (distanceRange * proportionRatio);
-            moveDistance = Math.max(MIN_MOVE_DISTANCE, Math.min(moveDistance, MAX_MOVE_DISTANCE));
-            return moveDistance;
-        } else {
-            return 0.0;
-        }
-    }
-
-    /**
-     * 拍照并识别车标品牌。
-     * 如果使用 GPT，会调用 sendQuestionToGPT()；否则调用 sendQuestionToAPI()。
-     */
-    private void recognizeCarBrand() {
-        // 1. 拍照
-        Bitmap bitmap = fpvTexture.getBitmap();
-        if (bitmap == null) {
-            addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 可能未准备好");
-            return;
-        }
-
-        File brandImgFile = saveBitmapAsFile(bitmap, "frame.jpg");
-        if (brandImgFile == null) {
-            addChatMessage(Constant.OWNER_BOT, "拍照失败，无法识别车标...");
-            return;
-        }
-
-        // 2. 构造识别请求
-        String brandPrompt = "请识别图片中白色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
-        addChatMessage(Constant.OWNER_BOT, "正在识别车标，请稍候...");
-
-        // 3. 调用 GPT 或 API
-        sendQuestion(isGPT, brandPrompt, brandImgFile, new OnGptResultListener() {
-            @Override
-            public void onSuccess(String gptResult) {
-                runOnUiThread(() -> {
-                    // 4. 解析响应结果
-                    JsonUtils.ParseResult brandParse = JsonUtils.robustJsonParser(gptResult);
-                    if (brandParse.getJsonData() == null) {
-                        addChatMessage(Constant.OWNER_BOT, "未能识别车标，JSON 数据为空。");
-                        return;
-                    }
-
-                    String brandProcess = brandParse.getInferenceProcess();
-                    String brandName = brandParse.getJsonData().optString("brand_name", "未知品牌");
-
-                    addChatMessage(Constant.OWNER_BOT, "车标识别推理过程: " + brandProcess);
-                    addChatMessage(Constant.OWNER_BOT, "识别到的品牌: " + brandName);
-                });
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                runOnUiThread(() -> {
-                    addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
-                    Log.e("recognizeCarBrand", "调用模型出错：" + e.getMessage());
-                });
-            }
-        });
-    }
-
-    /**
-     * 执行搜索并根据结果决定是否上升和继续搜索
-     *
-     * @param currentAttempt 当前尝试次数
-     * @param maxAttempts    最大尝试次数
-     * @param ascendHeight   每次上升的高度
-     */
-    private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) {
-        executorService.execute(() -> {
-            boolean isFind = doSearch();
-            if (isFind) {
-                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
-                mSingletonVirtualStickExecutor.mStop();
-                return;
-            }
-
-            if (currentAttempt < maxAttempts) {
-                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米..."));
-                mSingletonVirtualStickExecutor.mUp(5);
-                // 睡 6 秒再搜下一次
-                try {
-                    Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    addChatMessage(Constant.OWNER_BOT, "线程被中断");
-                }
-                performSearch(currentAttempt+1,maxAttempts,ascendHeight);
-            } else {
-                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
-                mSingletonVirtualStickExecutor.mStop();
-            }
-        });
-    }
-
     //endregion
 
     //region 飞行控制器
@@ -3194,15 +2794,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * @param question
      */
     private void sendQuestionToGPT(String question, File file, boolean isHistory,OnGptResultListener listener) {
-        // 构造 GPTS 实例
-        GPTS gpts = new GPTS(
-                "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
-                "gpt-4o",
-                0.8f,
-                0.9f,
-                300
-        );
-
         // 异步调用
         gpts.chatAsync(
                 question,
@@ -3214,8 +2805,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     public void onSuccess(GPTS.GPTSResult result) {
                         // 这里是子线程回调，如果需要更新UI，请切回主线程
                         runOnUiThread(() -> {
-//                            // 例如添加对话内容到列表
-//                            addChatMessage("OWNER_BOT", result.output);
+    //                            // 例如添加对话内容到列表
+    //                            addChatMessage("OWNER_BOT", result.output);
                             Gpt_result = result.output;
                             // 保存新的上下文，以便下一次多轮对话
                             GPThistory = result.history;
@@ -3280,6 +2871,340 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             processCommand(command);
         }
     }
+    //endregion
+
+    //region Agent控制
+
+    /**
+     * 入口函数
+     */
+    public void agentFindCar() {
+//        // 初始化虚拟摇杆执行器
+//        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+//        //起飞
+//        mCI.mTakeoff();
+//        SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+//        //向上飞8米
+//        mSingletonVirtualStickExecutor.mUp(8);
+//        SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+        // 执行第一次搜索
+        new Thread(() -> {
+            performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
+        }).start();
+    }
+
+    /**
+     * 在场景中自动搜索车辆
+     * @return
+     */
+    private boolean doSearch(int attemptIndex) {
+        // 如果超出最大次数，就结束
+        if (attemptIndex >= MAX_SEARCH_ATTEMPTS) {
+            runOnUiThread(() -> {
+                addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。");
+            });
+            return false;
+        }
+        File imageFile = CaptureImage();
+        Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+        runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");});
+        runOnUiThread(() -> {addChatMessage(Constant.OWNER_HUMAN, bitmap);});
+        runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, "思考中...");});
+
+        sendQuestionToGPT(direction_prompt, imageFile,true, new OnGptResultListener() {
+            @Override
+            public void onSuccess(String gptResult) {
+                runOnUiThread(() -> {showToast("成功");});
+                JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
+                String response = parseResult.getInferenceProcess();
+
+                if (parseResult.getJsonData() == null) {
+                    runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");});
+                } else {
+                    boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_white_car", false);
+                    int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
+
+                    if (hasWhiteCar && confidence >= 80) {
+                        response += "\n车辆已锁定!";
+                        String finalResponse = response;
+                        runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, finalResponse);});
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Close_to();
+                            }
+                        }).start();
+                    } else {
+                        response += "\n未能识别到目标车辆，继续搜索...";
+                        String finalResponse1 = response;
+                        runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, finalResponse1);});
+//                            // 转动视角
+//                            MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
+//                            executor.mTurn(303, finalAngle);
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            // 回到主线程继续下一次搜索
+                            runOnUiThread(() -> doSearch(attemptIndex + 1));
+                        }).start();
+                    }
+                }
+
+                // 睡 6 秒再搜下一次
+                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+            }
+            @Override
+            public void onFailure(Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
+                doSearch(attemptIndex + 1);
+            }
+        });
+
+        return true;
+    }
+
+    /**
+     * 根据识别到的车辆信息，进行“靠近”操作。
+     */
+    public void Close_to() {
+        performCloseToSearch(1, MAX_SEARCH_ATTEMPTS);
+    }
+
+    /**
+     * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
+     */
+    private void performCloseToSearch(int currentAttempt, int maxAttempts) {
+        if( currentAttempt>maxAttempts ){
+            recognizeCarBrand();
+        }
+        if (isCenterAndClose) {
+            return;
+        }
+
+        Bitmap bitmap = fpvTexture.getBitmap();
+        if (bitmap == null) {
+            addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
+            return;
+        }
+
+        File imageFile = saveBitmapAsFile(bitmap, IMAGE_FILE_NAME);
+        if (imageFile == null) {
+            addChatMessage(Constant.OWNER_BOT, "图片保存失败");
+            return;
+        }
+
+        addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
+        addChatMessage(Constant.OWNER_HUMAN, bitmap);
+        addChatMessage(Constant.OWNER_BOT, "思考中...");
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        sendQuestion(isGPT, direction_prompt, imageFile, new OnGptResultListener() {
+            @Override
+            public void onSuccess(String gptResult) {
+                try {
+                    JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
+                    String response = parseResult.getInferenceProcess();
+
+                    if (parseResult.getJsonData() == null) {
+                        addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
+                    } else {
+                        String locationDesc = parseResult.getJsonData().optString("location_description", "center");
+                        int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
+                        int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
+
+                        addChatMessage(Constant.OWNER_BOT,
+                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                                        locationDesc, confidence, proportion)
+                        );
+
+                        // 调整无人机位置
+                        adjustDronePosition(locationDesc, proportion);
+
+                        // 如果占比 >= 70，则尝试识别车标
+                        if (proportion >= CLOSE_POSITION_PROPORTION_THRESHOLD) {
+                            isCenterAndClose = true;
+                            addChatMessage(Constant.OWNER_BOT, "目标较大，可能已靠近车辆，准备识别车标...");
+                            recognizeCarBrand();
+                            addChatMessage(Constant.OWNER_BOT, "Close_to 流程完成。");
+                        }
+                    }
+                } catch (Exception e) {
+                    addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+                } finally {
+                    latch.countDown();
+                }
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
+                latch.countDown();
+            }
+        });
+
+        // 等待回调完成，最多等待一定时间以防止无限阻塞
+        try {
+            boolean completed = latch.await(SEARCH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!completed) {
+                addChatMessage(Constant.OWNER_BOT, "等待模型响应超时，尝试下一帧...");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            addChatMessage(Constant.OWNER_BOT, "线程被中断");
+        }
+
+        if (!isCenterAndClose) {
+            // 稍等一会儿，让无人机稳定
+            try {
+                Thread.sleep(SLEEP_AFTER_CLOSE_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                addChatMessage(Constant.OWNER_BOT, "线程被中断");
+            }
+
+            // 递归调用，继续靠近搜索
+            performCloseToSearch(currentAttempt+1,maxAttempts);
+        }
+    }
+
+    /**
+     * 调整无人机的位置或视角，使车辆更居中。
+     * 当车辆已在中心 (center) 时，若占比 < 阈值，则向前移动一定距离。
+     * @param locationDesc 车辆在画面中的位置描述 (left/right/center)
+     * @param proportion   车辆在画面中的占比
+     */
+    private void adjustDronePosition(String locationDesc, int proportion) {
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+
+        switch (locationDesc) {
+            case "left":
+                addChatMessage(Constant.OWNER_BOT, "车辆在图像左侧，向左移动...");
+                double moveLeftDistance = calculateMoveDistance(proportion);
+                mSingletonVirtualStickExecutor.mGo(302, moveLeftDistance);
+                break;
+
+            case "right":
+                addChatMessage(Constant.OWNER_BOT, "车辆在图像右侧，向右移动...");
+                double moveRightDistance = calculateMoveDistance(proportion);
+                mSingletonVirtualStickExecutor.mGo(303, moveRightDistance);
+                break;
+
+            case "center":
+            default:
+                // 如果车辆已经处于画面中央，但占比 < 阈值，说明还比较远，可以向前飞一定距离
+                if (proportion < PROPORTION_THRESHOLD) {
+                    double moveDistance = calculateMoveDistance(proportion);
+                    addChatMessage(Constant.OWNER_BOT,
+                            String.format("车辆已大致位于中心，但占比为 %d%%，向前移动 %.2f 米靠近...", proportion, moveDistance));
+                    mSingletonVirtualStickExecutor.mGo(301, moveDistance);
+                } else {
+                    isCenterAndClose=true;
+                    addChatMessage(Constant.OWNER_BOT, "车辆已居中且接近，不需要移动。");
+                }
+                break;
+        }
+    }
+
+    /**
+     * 根据车辆在图像中的占比计算移动距离。
+     * @param proportion 车辆占比（0-100）
+     * @return 需要移动的距离（米）
+     */
+    private double calculateMoveDistance(int proportion) {
+        if (proportion < MAX_MOVE_DISTANCE) {
+            double distanceRange = MAX_MOVE_DISTANCE - MIN_MOVE_DISTANCE;
+            double proportionRatio = (double)(PROPORTION_THRESHOLD - proportion) / PROPORTION_THRESHOLD;
+            double moveDistance = MIN_MOVE_DISTANCE + (distanceRange * proportionRatio);
+            moveDistance = Math.max(MIN_MOVE_DISTANCE, Math.min(moveDistance, MAX_MOVE_DISTANCE));
+            return moveDistance;
+        } else {
+            return 0.0;
+        }
+    }
+
+    /**
+     * 拍照并识别车标品牌。
+     * 如果使用 GPT，会调用 sendQuestionToGPT()；否则调用 sendQuestionToAPI()。
+     */
+    private void recognizeCarBrand() {
+        // 1. 拍照
+        Bitmap bitmap = fpvTexture.getBitmap();
+        if (bitmap == null) {
+            addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 可能未准备好");
+            return;
+        }
+
+        File brandImgFile = saveBitmapAsFile(bitmap, "frame.jpg");
+        if (brandImgFile == null) {
+            addChatMessage(Constant.OWNER_BOT, "拍照失败，无法识别车标...");
+            return;
+        }
+
+        // 2. 构造识别请求
+        String brandPrompt = "请识别图片中白色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
+        addChatMessage(Constant.OWNER_BOT, "正在识别车标，请稍候...");
+
+        // 3. 调用 GPT 或 API
+        sendQuestion(isGPT, brandPrompt, brandImgFile, new OnGptResultListener() {
+            @Override
+            public void onSuccess(String gptResult) {
+                runOnUiThread(() -> {
+                    // 4. 解析响应结果
+                    JsonUtils.ParseResult brandParse = JsonUtils.robustJsonParser(gptResult);
+                    if (brandParse.getJsonData() == null) {
+                        addChatMessage(Constant.OWNER_BOT, "未能识别车标，JSON 数据为空。");
+                        return;
+                    }
+
+                    String brandProcess = brandParse.getInferenceProcess();
+                    String brandName = brandParse.getJsonData().optString("brand_name", "未知品牌");
+
+                    addChatMessage(Constant.OWNER_BOT, "车标识别推理过程: " + brandProcess);
+                    addChatMessage(Constant.OWNER_BOT, "识别到的品牌: " + brandName);
+                });
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                runOnUiThread(() -> {
+                    addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
+                    Log.e("recognizeCarBrand", "调用模型出错：" + e.getMessage());
+                });
+            }
+        });
+    }
+
+    /**
+     * 执行搜索并根据结果决定是否上升和继续搜索
+     *
+     * @param currentAttempt 当前尝试次数
+     * @param maxAttempts    最大尝试次数
+     * @param ascendHeight   每次上升的高度
+     */
+    private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) {
+            boolean isFind = doSearch(0);
+            if (isFind) {
+                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
+//                mSingletonVirtualStickExecutor.mStop();
+                return;
+            }
+
+            if (currentAttempt < maxAttempts) {
+                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米..."));
+//                mSingletonVirtualStickExecutor.mUp(5);
+                // 睡 6 秒再搜下一次
+                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+                performSearch(currentAttempt+1,maxAttempts,ascendHeight);
+            } else {
+                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
+                mSingletonVirtualStickExecutor.mStop();
+            }
+    }
+
     //endregion
 
     //region 自动化执行逻辑
@@ -3742,6 +3667,42 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 辅助函数
+
+    /**
+     * 阻塞主线程
+     */
+    private void SleepThread(int time){
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            addChatMessage(Constant.OWNER_BOT, "线程被中断");
+        }
+    }
+
+    /**
+     * 获取当前帧图像
+     */
+    public File CaptureImage(){
+
+        Resources res = getResources();
+        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
+        File imageFile = saveBitmapAsFile(bitmap,"frame1.jpg");
+
+//        Bitmap bitmap = fpvTexture.getBitmap();
+//        if (bitmap == null) {
+//            addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
+//            return null;
+//        }
+//
+//        File imageFile = saveBitmapAsFile(bitmap, IMAGE_FILE_NAME);
+//        if (imageFile == null) {
+//            addChatMessage(Constant.OWNER_BOT, "图片保存失败");
+//            return null;
+//        }
+        return imageFile;
+    }
+
     /**
      * 完成回调接口
      */
