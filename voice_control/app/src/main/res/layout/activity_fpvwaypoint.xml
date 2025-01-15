@@ -218,6 +218,14 @@
             android:text="语音控制" />
 
         <Button
+            android:id="@+id/test"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/rv_chatlist"
+            android:layout_marginLeft="270dp"
+            android:text="测试" />
+
+        <Button
             android:id="@+id/problem_buttion"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
