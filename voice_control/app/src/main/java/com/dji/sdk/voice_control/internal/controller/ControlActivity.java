@@ -2737,7 +2737,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 break;
             case "move_forward":
                 if(unit>0){
-//                    mSingletonVirtualStickExecutor.mGo(301,unit);
+                    mSingletonVirtualStickExecutor.mGo(301,unit);
                     runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向前移动"));
                 }
                 break;
