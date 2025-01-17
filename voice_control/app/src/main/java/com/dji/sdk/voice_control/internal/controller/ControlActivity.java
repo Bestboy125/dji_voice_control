@@ -2905,12 +2905,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             });
             return false;
         }
+        final boolean[] result = { false }; // 存放是否找到车
         File imageFile = CaptureImage();
         Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
         runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");});
         runOnUiThread(() -> {addChatMessage(Constant.OWNER_HUMAN, bitmap);});
         runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, "思考中...");});
 
+        auavLock("sendquestion");
         sendQuestionToGPT(direction_prompt, imageFile,true, new OnGptResultListener() {
             @Override
             public void onSuccess(String gptResult) {
@@ -2925,6 +2927,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
 
                     if (hasWhiteCar && confidence >= 80) {
+                        result[0] = true;
                         response += "\n车辆已锁定!";
                         String finalResponse = response;
                         runOnUiThread(() -> {addChatMessage(Constant.OWNER_BOT, finalResponse);});
@@ -2941,6 +2944,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 //                            // 转动视角
 //                            MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
 //                            executor.mTurn(303, finalAngle);
+
                         new Thread(() -> {
                             try {
                                 Thread.sleep(SLEEP_BETWEEN_SEARCH_MS);
@@ -2952,18 +2956,45 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                         }).start();
                     }
                 }
-
-                // 睡 6 秒再搜下一次
-                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+                auavLock("continue");
             }
             @Override
             public void onFailure(Exception e) {
                 addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
                 doSearch(attemptIndex + 1);
+                auavLock("continue");
             }
         });
+        auavSpin();
 
-        return true;
+        return result[0];
+    }
+
+    /**
+     * 执行搜索并根据结果决定是否上升和继续搜索
+     *
+     * @param currentAttempt 当前尝试次数
+     * @param maxAttempts    最大尝试次数
+     * @param ascendHeight   每次上升的高度
+     */
+    private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) {
+        boolean isFind = doSearch(0);
+        if (isFind) {
+            runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
+//                mSingletonVirtualStickExecutor.mStop();
+            return;
+        }
+
+        if (currentAttempt < maxAttempts) {
+            runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米..."));
+//                mSingletonVirtualStickExecutor.mUp(5);
+            // 睡 6 秒再搜下一次
+            SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+            performSearch(currentAttempt+1,maxAttempts,ascendHeight);
+        } else {
+            runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
+            mSingletonVirtualStickExecutor.mStop();
+        }
     }
 
     /**
@@ -2978,31 +3009,22 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      */
     private void performCloseToSearch(int currentAttempt, int maxAttempts) {
         if( currentAttempt>maxAttempts ){
-            recognizeCarBrand();
+//            recognizeCarBrand();
+            return;
         }
         if (isCenterAndClose) {
             return;
         }
 
-        Bitmap bitmap = fpvTexture.getBitmap();
-        if (bitmap == null) {
-            addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
-            return;
-        }
-
-        File imageFile = saveBitmapAsFile(bitmap, IMAGE_FILE_NAME);
-        if (imageFile == null) {
-            addChatMessage(Constant.OWNER_BOT, "图片保存失败");
-            return;
-        }
+        File imageFile = CaptureImage();
+        Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
 
         addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
         addChatMessage(Constant.OWNER_HUMAN, bitmap);
         addChatMessage(Constant.OWNER_BOT, "思考中...");
 
-        CountDownLatch latch = new CountDownLatch(1);
-
-        sendQuestion(isGPT, direction_prompt, imageFile, new OnGptResultListener() {
+        auavLock("sendquestion");
+        sendQuestionToGPT(direction_prompt, imageFile, true, new OnGptResultListener() {
             @Override
             public void onSuccess(String gptResult) {
                 try {
@@ -3021,51 +3043,32 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                                         locationDesc, confidence, proportion)
                         );
 
-                        // 调整无人机位置
-                        adjustDronePosition(locationDesc, proportion);
+//                        // 调整无人机位置
+//                        adjustDronePosition(locationDesc, proportion);
 
                         // 如果占比 >= 70，则尝试识别车标
                         if (proportion >= CLOSE_POSITION_PROPORTION_THRESHOLD) {
                             isCenterAndClose = true;
                             addChatMessage(Constant.OWNER_BOT, "目标较大，可能已靠近车辆，准备识别车标...");
-                            recognizeCarBrand();
+//                            recognizeCarBrand();
                             addChatMessage(Constant.OWNER_BOT, "Close_to 流程完成。");
                         }
                     }
                 } catch (Exception e) {
                     addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
-                } finally {
-                    latch.countDown();
                 }
+                auavLock("continue");
             }
 
             @Override
             public void onFailure(Exception e) {
                 addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
-                latch.countDown();
+                auavLock("continue");
             }
         });
-
-        // 等待回调完成，最多等待一定时间以防止无限阻塞
-        try {
-            boolean completed = latch.await(SEARCH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            if (!completed) {
-                addChatMessage(Constant.OWNER_BOT, "等待模型响应超时，尝试下一帧...");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            addChatMessage(Constant.OWNER_BOT, "线程被中断");
-        }
+        auavSpin();
 
         if (!isCenterAndClose) {
-            // 稍等一会儿，让无人机稳定
-            try {
-                Thread.sleep(SLEEP_AFTER_CLOSE_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                addChatMessage(Constant.OWNER_BOT, "线程被中断");
-            }
-
             // 递归调用，继续靠近搜索
             performCloseToSearch(currentAttempt+1,maxAttempts);
         }
@@ -3178,33 +3181,20 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         });
     }
 
-    /**
-     * 执行搜索并根据结果决定是否上升和继续搜索
-     *
-     * @param currentAttempt 当前尝试次数
-     * @param maxAttempts    最大尝试次数
-     * @param ascendHeight   每次上升的高度
-     */
-    private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) {
-            boolean isFind = doSearch(0);
-            if (isFind) {
-                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
-//                mSingletonVirtualStickExecutor.mStop();
-                return;
-            }
+    //endregion
 
-            if (currentAttempt < maxAttempts) {
-                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米..."));
-//                mSingletonVirtualStickExecutor.mUp(5);
-                // 睡 6 秒再搜下一次
-                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-                performSearch(currentAttempt+1,maxAttempts,ascendHeight);
-            } else {
-                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
-                mSingletonVirtualStickExecutor.mStop();
-            }
+    //region 自旋锁
+    private String auavLock = null;
+    synchronized void auavLock(String value) {
+        auavLock = value;
     }
 
+    public void auavSpin() {
+        while (auavLock.equals("continue") == false) {
+            try { Thread.sleep(1000); }
+            catch (Exception e) {}
+        }
+    }
     //endregion
 
     //region 自动化执行逻辑

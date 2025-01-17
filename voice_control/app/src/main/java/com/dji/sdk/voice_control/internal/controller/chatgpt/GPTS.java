@@ -1,5 +1,7 @@
 package com.dji.sdk.voice_control.internal.controller.chatgpt;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Base64;
 import androidx.annotation.Nullable;
 
@@ -7,13 +9,17 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -166,7 +172,7 @@ public class GPTS {
             userMsg.put("role", "user");
             JSONArray userContent = new JSONArray();
 
-            // 用户文本
+            // 添加用户文本
             JSONObject userText = new JSONObject();
             userText.put("type", "text");
             userText.put("text", question);
@@ -174,40 +180,24 @@ public class GPTS {
 
             // 如果有图像文件
             if (imageFiles != null) {
-                // 只有包含 gpt-4 的模型才支持图像
-                if (!modelName.contains("gpt-4")) {
-                    throw new IllegalArgumentException("Image input is only supported for GPT-4 models.");
-                }
-                String[] imagesArr;
-                if (imageFiles instanceof String) {
-                    imagesArr = new String[]{(String) imageFiles};
-                } else if (imageFiles instanceof String[]) {
-                    imagesArr = (String[]) imageFiles;
-                } else {
-                    throw new IllegalArgumentException("imageFiles must be String or String[]");
-                }
-
-                // 依次处理每个图像
-                for (String imgPath : imagesArr) {
-                    JSONObject imageObj = new JSONObject();
-                    imageObj.put("type", "image_url");
-                    String mimeType = guessMimeType(imgPath);
-                    String base64Img = encodeImage(imgPath);
-                    JSONObject urlObj = new JSONObject();
-                    urlObj.put("url", "data:" + mimeType + ";base64," + base64Img);
-                    imageObj.put("image_url", urlObj);
-                    userContent.put(imageObj);
-                }
+                processImageFiles(imageFiles, userContent);
             }
 
             userMsg.put("content", userContent);
             messages.put(userMsg);
 
-            // 准备发起请求
-            OkHttpClient client = new OkHttpClient();
+            // 配置 OkHttpClient
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)  // 连接超时
+                    .readTimeout(30, TimeUnit.SECONDS)    // 读取超时
+                    .writeTimeout(30, TimeUnit.SECONDS)   // 写入超时
+                    .build();
+
+            // 构造请求体
             MediaType JSON = MediaType.parse("application/json; charset=utf-8");
             RequestBody body = RequestBody.create(JSON, payload.toString());
 
+            // 构造 HTTP 请求
             Request request = new Request.Builder()
                     .url(url)
                     .headers(Headers.of(getHeaders()))
@@ -218,51 +208,111 @@ public class GPTS {
             client.newCall(request).enqueue(new Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
-                    // 请求失败
-                    callback.onError(e);
+                    handleFailure(e, callback);
                 }
 
                 @Override
                 public void onResponse(Call call, Response response) {
-                    // HTTP状态码非200也算失败
-                    if (!response.isSuccessful()) {
-                        callback.onError(new IOException("Unexpected response code: " + response.code()));
-                        response.close();
-                        return;
-                    }
-                    try {
-                        String respString = (response.body() != null) ? response.body().string() : "";
-                        JSONObject responseJson = new JSONObject(respString);
-
-                        // 解析结果
-                        String output = parseResponse(responseJson);
-
-                        // 将 assistant 的回复也放入 payload，以便多轮对话
-                        JSONObject assistantMsg = new JSONObject();
-                        assistantMsg.put("role", "assistant");
-                        JSONArray assistantContent = new JSONArray();
-                        JSONObject assistantText = new JSONObject();
-                        assistantText.put("type", "text");
-                        assistantText.put("text", output);
-                        assistantContent.put(assistantText);
-                        assistantMsg.put("content", assistantContent);
-                        messages.put(assistantMsg);
-
-                        // 回调成功
-                        GPTSResult gptsResult = new GPTSResult(output, payload);
-                        callback.onSuccess(gptsResult);
-
-                    } catch (Exception e) {
-                        callback.onError(e);
-                    } finally {
-                        response.close();
-                    }
+                    handleResponse(response, payload, callback);
                 }
             });
 
         } catch (Exception e) {
-            // 拼装 payload 失败或其他异常
             callback.onError(e);
+        }
+    }
+
+    /**
+     * 处理图像文件
+     */
+    private void processImageFiles(Object imageFiles, JSONArray userContent) throws Exception {
+        if (!modelName.contains("gpt-4")) {
+            throw new IllegalArgumentException("Image input is only supported for GPT-4 models.");
+        }
+
+        String[] imagesArr;
+        if (imageFiles instanceof String) {
+            imagesArr = new String[]{(String) imageFiles};
+        } else if (imageFiles instanceof String[]) {
+            imagesArr = (String[]) imageFiles;
+        } else {
+            throw new IllegalArgumentException("imageFiles must be String or String[]");
+        }
+
+        // 压缩并编码每个图像
+        for (String imgPath : imagesArr) {
+            JSONObject imageObj = new JSONObject();
+            imageObj.put("type", "image_url");
+            String mimeType = guessMimeType(imgPath);
+            String base64Img = compressAndEncodeImage(imgPath);
+            JSONObject urlObj = new JSONObject();
+            urlObj.put("url", "data:" + mimeType + ";base64," + base64Img);
+            imageObj.put("image_url", urlObj);
+            userContent.put(imageObj);
+        }
+    }
+
+    /**
+     * 压缩并编码图像
+     */
+    private String compressAndEncodeImage(String imgPath) throws IOException {
+        Bitmap bitmap = BitmapFactory.decodeFile(imgPath);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream); // 压缩质量 80%
+        byte[] bytes = outputStream.toByteArray();
+        return Base64.encodeToString(bytes, Base64.DEFAULT);
+    }
+
+    /**
+     * 处理失败回调
+     */
+    private void handleFailure(IOException e, GPTSCallback callback) {
+        if (e instanceof SocketTimeoutException) {
+            callback.onError(new IOException("Network timeout: " + e.getMessage()));
+        } else if (e instanceof UnknownHostException) {
+            callback.onError(new IOException("Unable to connect to server: " + e.getMessage()));
+        } else {
+            callback.onError(new IOException("Request failed: " + e.getMessage()));
+        }
+        e.printStackTrace();
+    }
+
+    /**
+     * 处理成功回调
+     */
+    private void handleResponse(Response response, JSONObject payload, GPTSCallback callback) {
+        try {
+            if (!response.isSuccessful()) {
+                callback.onError(new IOException("Unexpected response code: " + response.code()));
+                return;
+            }
+
+            String respString = (response.body() != null) ? response.body().string() : "";
+            JSONObject responseJson = new JSONObject(respString);
+
+            // 解析结果
+            String output = parseResponse(responseJson);
+
+            // 将 assistant 的回复添加到历史上下文
+            JSONObject assistantMsg = new JSONObject();
+            assistantMsg.put("role", "assistant");
+            JSONArray assistantContent = new JSONArray();
+            JSONObject assistantText = new JSONObject();
+            assistantText.put("type", "text");
+            assistantText.put("text", output);
+            assistantContent.put(assistantText);
+            assistantMsg.put("content", assistantContent);
+
+            payload.getJSONArray("messages").put(assistantMsg);
+
+            // 调用成功回调
+            GPTSResult gptsResult = new GPTSResult(output, payload);
+            callback.onSuccess(gptsResult);
+
+        } catch (Exception e) {
+            callback.onError(e);
+        } finally {
+            response.close();
         }
     }
 
