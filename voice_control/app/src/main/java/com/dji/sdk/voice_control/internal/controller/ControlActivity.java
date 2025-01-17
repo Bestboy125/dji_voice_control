@@ -1122,6 +1122,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             iscontrol = !iscontrol;
         });
         test.setOnClickListener(v -> {
+            isDialogVisible = false;
             handleObjectTracking();
         });
         set_home_current.setOnClickListener(v ->{
@@ -2525,6 +2526,315 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 //    }
     //endregion
 
+    //region YOLO+SAM 目标跟踪
+    // 公共变量
+    private String command = ""; // 当前命令
+    private String param = ""; // 当前参数
+    private Timer mTrackTimer;
+    private TrackFrameTask mTrackTask;
+
+
+    /**
+     * YOLO+SAM目标跟踪
+     */
+    @SuppressLint("DefaultLocale")
+    private void handleObjectTracking(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+//                /**
+//                 * 测试用代码图片
+//                 */
+//                Resources res = getResources();
+//                Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
+//                File frame1File = saveBitmapAsFile(bitmap,"frame1.jpg");
+//                String frame1B64  = imageToBase64(frame1File.getAbsolutePath());
+                //转换图像格式
+                //第一步：获取当前帧图像
+                File FisrtImage = CaptureImage();
+                Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage.getAbsolutePath());
+                String frame1B64  = imageToBase64(FisrtImage.getAbsolutePath());
+
+                try {
+                    //第二歩：上传服务器，获取YOLO检测结果
+                    JsonObject detectResp = networkClient.sendDetectRequest(frame1B64);
+                    JsonArray bboxes = detectResp.getAsJsonArray("bboxes");
+                    String annotatedImageB64 = detectResp.get("annotated_image").getAsString();
+                    annotatedBitmap = ImageUtil.decodeBase64Image(annotatedImageB64);
+                    addChatMessage(Constant.OWNER_HUMAN,annotatedBitmap);
+
+                    // 清空之前的列表
+                    detectedObjectsList.clear();
+                    for (int i = 0; i < bboxes.size(); i++) {
+                        JsonObject bbox = bboxes.get(i).getAsJsonObject();
+                        String id = bbox.get("id").getAsString();
+
+                        // 将 'box' 解析为 JsonArray
+                        JsonArray boxArray = bbox.getAsJsonArray("box");
+
+                        // 提取 box 信息
+                        int x1 = boxArray.get(0).getAsInt();
+                        int y1 = boxArray.get(1).getAsInt();
+                        int x2 = boxArray.get(2).getAsInt();
+                        int y2 = boxArray.get(3).getAsInt();
+
+                        double conf = bbox.get("conf").getAsDouble();
+                        String className = bbox.get("class_name").getAsString();
+
+                        // 格式化 box 信息
+                        String boxStr = String.format("[x1=%d, y1=%d, x2=%d, y2=%d]", x1, y1, x2, y2);
+
+                        addChatMessage(Constant.OWNER_BOT,String.format("ID=%s, box=%s, conf=%.3f, class=%s\n",
+                                id, boxStr, conf, className));
+                        // 裁剪图像
+                        Bitmap croppedBitmap = cropBitmap(bitmap, x1, y1, x2, y2);
+
+                        // 创建 DetectedObject 对象并添加到列表
+                        DetectedObject obj = new DetectedObject(id, x1, y1, x2, y2, conf, className, croppedBitmap);
+                        detectedObjectsList.add(obj);
+
+                        // 在数据处理完成后显示消息框（UI更新）
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                showSelectObjectDialog();  // 弹出对话框
+                            }
+                        });
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }).start();
+
+    }
+
+    /**
+     * 初始化跟踪器
+     */
+    private void initializeTrackerWithId(String id){
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    JsonObject initResp = networkClient.sendInitTrackerRequest(Integer.parseInt(id));
+
+                    if (initResp == null || !initResp.get("status").getAsString().equalsIgnoreCase("success")) {
+                        runOnUiThread(() -> showToast("Init tracker response error: " + initResp));
+
+                    }
+
+                    runOnUiThread(() -> showToast("[CLIENT] Tracker initialized.\nServer returned: " + initResp.toString() + "\n"));
+                    TrackFrame();
+                } catch (NumberFormatException e) {
+
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }).start();
+    }
+
+    private volatile boolean keepTracking = true;
+    /**
+     * 跟踪Frame
+     */
+    private void TrackFrame(){
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while(keepTracking){
+//                    /**
+//                     * 测试用代码图片
+//                     */
+//                    Resources res = getResources();
+//                    Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
+//                    Bitmap croppedBitmap = null;
+//                    File frame1File = saveBitmapAsFile(bitmap,"frame1.jpg");
+//                    String frame1B64  = imageToBase64(frame1File.getAbsolutePath());
+                    //转换图像格式
+                    //实际
+                    Bitmap croppedBitmap = null;
+                    File FisrtImage = CaptureImage();
+                    Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage.getAbsolutePath());
+                    String frame1B64  = imageToBase64(FisrtImage.getAbsolutePath());
+
+                    try {
+                        //第二歩：上传服务器，获取逐帧动作
+                        JsonObject trackResp = networkClient.sendTrackFrameRequest(frame1B64);
+                        JsonArray bboxes = trackResp.getAsJsonArray("bboxes");
+                        String staus = trackResp.get("status").getAsString();
+                        String frame_idx = trackResp.get("frame_idx").getAsString();
+
+                        JsonObject bbox = bboxes.get(0).getAsJsonObject();
+                        String id = bbox.get("obj_id").getAsString();
+
+                        // 将 'box' 解析为 JsonArray
+                        JsonArray boxArray = bbox.getAsJsonArray("bbox");
+
+                        // 提取 box 信息
+                        int x1 = boxArray.get(0).getAsInt();
+                        int y1 = boxArray.get(1).getAsInt();
+                        int w = boxArray.get(2).getAsInt();
+                        int h = boxArray.get(3).getAsInt();
+
+
+                        // 格式化 box 信息
+                        String boxStr = String.format("[x1=%d, y1=%d, w=%d, h=%d]", x1, y1, w, h);
+
+                        addChatMessage(Constant.OWNER_BOT,String.format("FrameID=%s, objID=%s, box=%s\n",
+                                frame_idx, id, boxStr));
+                        // 裁剪图像
+                        croppedBitmap = cropBitmapwh(bitmap, x1, y1, w, h);
+
+                        addChatMessage(Constant.OWNER_HUMAN, croppedBitmap);
+
+                        command = trackResp.get("command").getAsString();
+                        param = trackResp.get("param").getAsString();
+
+                        // 更新无人机状态
+                        updateDroneState(command, param);
+                        Thread.sleep(1000);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }).start();
+    }
+
+    /**
+     * 更新无人机的状态
+     */
+    private void updateDroneState(String command, String param) {
+        int unit =  Integer.parseInt(param);
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+        switch (command) {
+            case "hover":
+                mSingletonVirtualStickExecutor.mStop();
+                runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"未找到目标"));
+                break;
+            case "rotate":
+                if(unit>0){
+                    mSingletonVirtualStickExecutor.mTurn(303,unit);
+                    runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向左转"));
+                }
+                else{
+                    mSingletonVirtualStickExecutor.mTurn(304,unit);
+                    runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向右转"));
+                }
+                break;
+            case "move_updown":
+                if(unit>0){
+                    mSingletonVirtualStickExecutor.mUp(unit);
+                    runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向上飞"));
+                }
+                else{
+                    mSingletonVirtualStickExecutor.mDown(unit);
+                    runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向下飞"));
+                }
+                break;
+            case "move_forward":
+                if(unit>0){
+//                    mSingletonVirtualStickExecutor.mGo(301,unit);
+                    runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向前移动"));
+                }
+                break;
+            default:
+                break;
+        }
+
+    }
+
+    /**
+     * 定时跟踪Frame任务
+     */
+    class TrackFrameTask extends TimerTask{
+        @Override
+        public void run() {
+            //第一步：获取当前帧图像
+//        File FisrtImage = CaptureImage();
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while(true){
+                        /**
+                         * 测试用代码图片
+                         */
+                        Resources res = getResources();
+                        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
+                        File frame1File = saveBitmapAsFile(bitmap,"frame1.jpg");
+                        //转换图像格式
+                        String frame1B64  = imageToBase64(frame1File.getAbsolutePath());
+
+                        try {
+                            //第二歩：上传服务器，获取逐帧动作
+                            JsonObject trackResp = networkClient.sendTrackFrameRequest(frame1B64);
+                            JsonArray bboxes = trackResp.getAsJsonArray("bboxes");
+                            String staus = trackResp.get("status").getAsString();
+                            String frame_idx = trackResp.get("frame_idx").getAsString();
+
+                            for (int i = 0; i < bboxes.size(); i++) {
+                                JsonObject bbox = bboxes.get(i).getAsJsonObject();
+                                String id = bbox.get("obj_id").getAsString();
+
+                                // 将 'box' 解析为 JsonArray
+                                JsonArray boxArray = bbox.getAsJsonArray("bbox");
+
+                                // 提取 box 信息
+                                int x1 = boxArray.get(0).getAsInt();
+                                int y1 = boxArray.get(1).getAsInt();
+                                int x2 = boxArray.get(2).getAsInt();
+                                int y2 = boxArray.get(3).getAsInt();
+
+
+                                // 格式化 box 信息
+                                String boxStr = String.format("[x1=%d, y1=%d, x2=%d, y2=%d]", x1, y1, x2, y2);
+
+                                addChatMessage(Constant.OWNER_BOT,String.format("FrameID=%s, objID=%s, box=%s\n",
+                                        frame_idx, id, boxStr));
+                                // 裁剪图像
+                                Bitmap croppedBitmap = cropBitmap(bitmap, x1, y1, x2, y2);
+
+                                // 在数据处理完成后显示消息框（UI更新）
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        addChatMessage(Constant.OWNER_BOT, croppedBitmap);
+                                    }
+                                });
+                            }
+
+                            command = trackResp.get("command").getAsString();
+                            param = trackResp.get("param").getAsString();
+
+                            // 更新无人机状态
+                            updateDroneState(command, param);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+
+
+                    }
+                }
+            }).start();
+        }
+    }
+
+    /**
+     * 停止跟踪
+     */
+    public void stopTracking() {
+        keepTracking = false;
+//        mSingletonVirtualStickExecutor.mStop();
+    }
+    //endregion
+
     //region 高德地图定位，位置查询，用户位置，无人机位置交互相关
 
     /**
@@ -3299,181 +3609,29 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             rotateGimbalForwardView();
         } else if (command.contains("开始目标跟踪")){
             handleObjectTracking();
-        } else {
+        } else if (command.contains("停止跟踪")){
+            stopTracking();
+        }else {
             processCommand(command);
         }
     }
     //endregion
 
+    //region 自旋锁
+    private String auavLock = null;
+    synchronized void auavLock(String value) {
+        auavLock = value;
+    }
+
+    public void auavSpin() {
+        while (auavLock.equals("continue") == false) {
+            try { Thread.sleep(1000); }
+            catch (Exception e) {}
+        }
+    }
+    //endregion
+
     //region 自动化执行逻辑
-    /**
-     * YOLO+SAM目标跟踪
-     */
-    @SuppressLint("DefaultLocale")
-    private void handleObjectTracking(){
-        //第一步：获取当前帧图像
-//        File FisrtImage = CaptureImage();
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                /**
-                 * 测试用代码图片
-                 */
-                Resources res = getResources();
-                Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
-                File frame1File = saveBitmapAsFile(bitmap,"frame1.jpg");
-                //转换图像格式
-                String frame1B64  = imageToBase64(frame1File.getAbsolutePath());
-
-                try {
-                    //第二歩：上传服务器，获取YOLO检测结果
-                    JsonObject detectResp = networkClient.sendDetectRequest(frame1B64);
-                    JsonArray bboxes = detectResp.getAsJsonArray("bboxes");
-                    String annotatedImageB64 = detectResp.get("annotated_image").getAsString();
-                    annotatedBitmap = ImageUtil.decodeBase64Image(annotatedImageB64);
-                    addChatMessage(Constant.OWNER_HUMAN,annotatedBitmap);
-
-                    // 清空之前的列表
-                    detectedObjectsList.clear();
-                    for (int i = 0; i < bboxes.size(); i++) {
-                        JsonObject bbox = bboxes.get(i).getAsJsonObject();
-                        String id = bbox.get("id").getAsString();
-
-                        // 将 'box' 解析为 JsonArray
-                        JsonArray boxArray = bbox.getAsJsonArray("box");
-
-                        // 提取 box 信息
-                        int x1 = boxArray.get(0).getAsInt();
-                        int y1 = boxArray.get(1).getAsInt();
-                        int x2 = boxArray.get(2).getAsInt();
-                        int y2 = boxArray.get(3).getAsInt();
-
-                        double conf = bbox.get("conf").getAsDouble();
-                        String className = bbox.get("class_name").getAsString();
-
-                        // 格式化 box 信息
-                        String boxStr = String.format("[x1=%d, y1=%d, x2=%d, y2=%d]", x1, y1, x2, y2);
-
-                        addChatMessage(Constant.OWNER_BOT,String.format("ID=%s, box=%s, conf=%.3f, class=%s\n",
-                                id, boxStr, conf, className));
-                        // 裁剪图像
-                        Bitmap croppedBitmap = cropBitmap(bitmap, x1, y1, x2, y2);
-
-                        // 创建 DetectedObject 对象并添加到列表
-                        DetectedObject obj = new DetectedObject(id, x1, y1, x2, y2, conf, className, croppedBitmap);
-                        detectedObjectsList.add(obj);
-
-                        // 在数据处理完成后显示消息框（UI更新）
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                showSelectObjectDialog();  // 弹出对话框
-                            }
-                        });
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }).start();
-
-    }
-
-    /**
-     * 初始化跟踪器
-     */
-    private void initializeTrackerWithId(String id){
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    JsonObject initResp = networkClient.sendInitTrackerRequest(Integer.parseInt(id));
-
-                    if (initResp == null || !initResp.get("status").getAsString().equalsIgnoreCase("success")) {
-                        runOnUiThread(() -> showToast("Init tracker response error: " + initResp));
-
-                    }
-
-                    runOnUiThread(() -> showToast("[CLIENT] Tracker initialized.\nServer returned: " + initResp.toString() + "\n"));
-//                    TrackFrame();
-                } catch (NumberFormatException e) {
-
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }).start();
-    }
-
-//    /**
-//     * 跟踪Frame
-//     */
-//    private void TrackFrame(){
-//        //第一步：获取当前帧图像
-////        File FisrtImage = CaptureImage();
-//
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                while(true){
-//                    /**
-//                     * 测试用代码图片
-//                     */
-//                    Resources res = getResources();
-//                    Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
-//                    File frame1File = saveBitmapAsFile(bitmap,"frame1.jpg");
-//                    //转换图像格式
-//                    String frame1B64  = imageToBase64(frame1File.getAbsolutePath());
-//
-//                    try {
-//                        //第二歩：上传服务器，获取YOLO检测结果
-//                        JsonObject trackResp = networkClient.sendTrackFrameRequest(frame1B64);
-//                        JsonArray bboxes = trackResp.getAsJsonArray("bboxes");
-//                        String staus = trackResp.get("status").getAsString();
-//                        String frame_idx = trackResp.get("frame_idx").getAsString();
-//
-//                        for (int i = 0; i < bboxes.size(); i++) {
-//                            JsonObject bbox = bboxes.get(i).getAsJsonObject();
-//                            String id = bbox.get("obj_id").getAsString();
-//
-//                            // 将 'box' 解析为 JsonArray
-//                            JsonArray boxArray = bbox.getAsJsonArray("bbox");
-//
-//                            // 提取 box 信息
-//                            int x1 = boxArray.get(0).getAsInt();
-//                            int y1 = boxArray.get(1).getAsInt();
-//                            int x2 = boxArray.get(2).getAsInt();
-//                            int y2 = boxArray.get(3).getAsInt();
-//
-//
-//                            // 格式化 box 信息
-//                            String boxStr = String.format("[x1=%d, y1=%d, x2=%d, y2=%d]", x1, y1, x2, y2);
-//
-//                            addChatMessage(Constant.OWNER_BOT,String.format("FrameID=%s, objID=%s, box=%s\n",
-//                                    frame_idx, id, boxStr));
-//                            // 裁剪图像
-//                            Bitmap croppedBitmap = cropBitmap(bitmap, x1, y1, x2, y2);
-//
-//                            // 创建 DetectedObject 对象并添加到列表
-//                            DetectedObject obj = new DetectedObject(id, x1, y1, x2, y2, conf, className, croppedBitmap);
-//                            trackingFrameList.add(obj);
-//
-//                            // 在数据处理完成后显示消息框（UI更新）
-//                            runOnUiThread(new Runnable() {
-//                                @Override
-//                                public void run() {
-//                                }
-//                            });
-//                        }
-//                    } catch (IOException e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                }
-//            }
-//        }).start();
-//    }
 
     /**
      * 自动化完成直播设置并开始推流
@@ -3974,16 +4132,44 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 防止宽度和高度为负数
         if (width <= 0 || height <= 0) {
-            return null; // 或者返回原图，视需求而定
+            x2 = Math.max(0, x2);
+            y2 = Math.max(0, y2);
+            x1 = Math.min(x1, source.getWidth());
+            y1 = Math.min(y1, source.getHeight());
+            width = x1 - x2;
+            height = y1 - y2;
+            return Bitmap.createBitmap(source, x2, y2, width, height); // 或者返回原图，视需求而定
         }
 
         return Bitmap.createBitmap(source, x1, y1, width, height);
     }
 
     /**
+     * 裁剪 Bitmap
+     *
+     * @param source 原始 Bitmap
+     * @param x1     左上角 x 坐标
+     * @param y1     左上角 y 坐标
+     * @param w     右下角 x 坐标
+     * @param h     右下角 y 坐标
+     * @return 裁剪后的 Bitmap
+     */
+    private Bitmap cropBitmapwh(Bitmap source, int x1, int y1, int w, int h) {
+        return Bitmap.createBitmap(source, x1, y1, w, h);
+    }
+
+    private boolean isDialogVisible = false;
+    /**
      * 显示选择对象的对话框
      */
     private void showSelectObjectDialog() {
+
+        // 如果对话框已经显示过，直接返回
+        if (isDialogVisible) {
+            return;
+        }
+        isDialogVisible = true;
+
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_select_object);
@@ -4020,9 +4206,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             chosenId = adapter.getSelectedId();
             if (chosenId != null) {
                 Toast.makeText(this, "选择的 ID: " + chosenId, Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
 //                // 继续后续流程，如初始化跟踪器
                 initializeTrackerWithId(chosenId);
+                dialog.dismiss(); // 关闭对话框
             } else {
                 Toast.makeText(this, "请至少选择一个对象", Toast.LENGTH_SHORT).show();
             }
@@ -4205,7 +4391,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "20. 飞向+lat,lon：飞向指定点\n" +
                 "21. 俯视图：切换俯视\n" +
                 "22. 前视图：切换前视\n" +
-                "23. 自动搜索：自动搜索白车靠近并识别车标";
+                "23. 自动搜索：自动搜索白车靠近并识别车标\n" +
+                "24. 停止跟踪：停止跟踪\n" +
+                "25. 开始目标跟踪: 目标跟踪";
 
         // 创建并显示消息框
         new AlertDialog.Builder(this)
