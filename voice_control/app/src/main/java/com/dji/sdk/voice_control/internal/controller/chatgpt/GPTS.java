@@ -188,9 +188,9 @@ public class GPTS {
 
             // 配置 OkHttpClient
             OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(10, TimeUnit.SECONDS)  // 连接超时
-                    .readTimeout(30, TimeUnit.SECONDS)    // 读取超时
-                    .writeTimeout(30, TimeUnit.SECONDS)   // 写入超时
+                    .connectTimeout(15, TimeUnit.SECONDS)  // 连接超时
+                    .readTimeout(60, TimeUnit.SECONDS)    // 读取超时
+                    .writeTimeout(60, TimeUnit.SECONDS)   // 写入超时
                     .build();
 
             // 构造请求体
@@ -204,22 +204,172 @@ public class GPTS {
                     .post(body)
                     .build();
 
-            // 异步请求
-            client.newCall(request).enqueue(new Callback() {
-                @Override
-                public void onFailure(Call call, IOException e) {
-                    handleFailure(e, callback);
-                }
+            final int[] retries = {0};
+            final boolean[] success = {false};
 
-                @Override
-                public void onResponse(Call call, Response response) {
-                    handleResponse(response, payload, callback);
-                }
-            });
+            while (retries[0] < maxRetries && !success[0]) {
+                client.newCall(request).enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        handleFailure(e, callback);
+                        retries[0]++;
+                        if (retries[0] < maxRetries) {
+                            try {
+                                Thread.sleep(defaultSleepTime); // 等待一段时间后重试
+                            } catch (InterruptedException ex) {
+                                ex.printStackTrace();
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onResponse(Call call, Response response) {
+                        if (response.isSuccessful()) {
+                            handleResponse(response, payload, callback);
+                            success[0] = true;
+                        } else {
+                            retries[0]++;
+                            if (retries[0] < maxRetries) {
+                                try {
+                                    Thread.sleep(defaultSleepTime); // 等待一段时间后重试
+                                } catch (InterruptedException ex) {
+                                    ex.printStackTrace();
+                                }
+                            } else {
+                                handleFailure(new IOException("Unexpected response code: " + response.code()), callback);
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 如果重试超过最大次数依然失败，回调错误
+            if (!success[0]) {
+                callback.onError(new IOException("Max retries reached."));
+            }
 
         } catch (Exception e) {
             callback.onError(e);
         }
+    }
+
+    public String chatSync(String question,
+                           @Nullable Object imageFiles,
+                           @Nullable String prompt,
+                           @Nullable JSONObject history) throws Exception {
+
+        // 拼装 payload
+        JSONObject payload = (history != null) ? history : getPayload(prompt);
+        JSONArray messages = payload.getJSONArray("messages");
+
+        // 追加用户消息
+        JSONObject userMsg = new JSONObject();
+        userMsg.put("role", "user");
+        JSONArray userContent = new JSONArray();
+
+        // 添加用户文本
+        JSONObject userText = new JSONObject();
+        userText.put("type", "text");
+        userText.put("text", question);
+        userContent.put(userText);
+
+        // 如果有图像文件
+        if (imageFiles != null) {
+            processImageFiles(imageFiles, userContent);
+        }
+
+        userMsg.put("content", userContent);
+        messages.put(userMsg);
+
+        // 配置 OkHttpClient
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)  // 连接超时
+                .readTimeout(60, TimeUnit.SECONDS)    // 读取超时
+                .writeTimeout(60, TimeUnit.SECONDS)   // 写入超时
+                .build();
+
+        // 构造请求体
+        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+        RequestBody body = RequestBody.create(JSON, payload.toString());
+
+        // 构造 HTTP 请求
+        Request request = new Request.Builder()
+                .url(url)
+                .headers(Headers.of(getHeaders()))
+                .post(body)
+                .build();
+
+        int retries = 0;
+        boolean success = false;
+        Response response = null;
+
+        // 重试机制
+        while (retries < maxRetries && !success) {
+            try {
+                response = client.newCall(request).execute(); // 同步执行请求
+                if (response.isSuccessful()) {
+                    // 请求成功，处理响应
+                    success = true;
+                    return handleResponseSync(response, payload);
+                } else {
+                    retries++;
+                    if (retries < maxRetries) {
+                        Thread.sleep(defaultSleepTime); // 等待一段时间后重试
+                    } else {
+                        throw new IOException("Unexpected response code: " + response.code());
+                    }
+                }
+            } catch (IOException | InterruptedException e) {
+                retries++;
+                if (retries >= maxRetries) {
+                    throw new IOException("Max retries reached.", e);
+                }
+                Thread.sleep(defaultSleepTime); // 等待一段时间后重试
+            }
+        }
+
+        // 如果重试超过最大次数依然失败，抛出异常
+        if (!success) {
+            throw new IOException("Max retries reached.");
+        }
+
+        return ""; // 默认返回值，如果发生了异常，则抛出异常
+
+    }
+
+    /**
+     * 处理成功响应并返回结果
+     */
+    private String handleResponseSync(Response response, JSONObject payload) throws IOException, JSONException {
+        String respString = response.body() != null ? response.body().string() : "";
+        JSONObject responseJson = new JSONObject(respString);
+
+        // 解析结果
+        String output = parseResponseSync(responseJson);
+
+        // 将 assistant 的回复添加到历史上下文
+        JSONObject assistantMsg = new JSONObject();
+        assistantMsg.put("role", "assistant");
+        JSONArray assistantContent = new JSONArray();
+        JSONObject assistantText = new JSONObject();
+        assistantText.put("type", "text");
+        assistantText.put("text", output);
+        assistantContent.put(assistantText);
+        assistantMsg.put("content", assistantContent);
+
+        payload.getJSONArray("messages").put(assistantMsg);
+
+        return output;
+    }
+
+    /**
+     * 解析返回的 JSON，提取最后一条 assistant 文本
+     */
+    private String parseResponseSync(JSONObject responseJson) throws JSONException {
+        JSONArray choices = responseJson.getJSONArray("choices");
+        JSONObject firstChoice = choices.getJSONObject(0);
+        JSONObject messageObj = firstChoice.getJSONObject("message");
+        return messageObj.getString("content");
     }
 
     /**
