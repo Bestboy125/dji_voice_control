@@ -2530,9 +2530,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     // 公共变量
     private String command = ""; // 当前命令
     private String param = ""; // 当前参数
-    private Timer mTrackTimer;
-    private TrackFrameTask mTrackTask;
-
 
     /**
      * YOLO+SAM目标跟踪
@@ -2751,87 +2748,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
-     * 定时跟踪Frame任务
-     */
-    class TrackFrameTask extends TimerTask{
-        @Override
-        public void run() {
-            //第一步：获取当前帧图像
-//        File FisrtImage = CaptureImage();
-
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    while(true){
-                        /**
-                         * 测试用代码图片
-                         */
-                        Resources res = getResources();
-                        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
-                        File frame1File = saveBitmapAsFile(bitmap,"frame1.jpg");
-                        //转换图像格式
-                        String frame1B64  = imageToBase64(frame1File.getAbsolutePath());
-
-                        try {
-                            //第二歩：上传服务器，获取逐帧动作
-                            JsonObject trackResp = networkClient.sendTrackFrameRequest(frame1B64);
-                            JsonArray bboxes = trackResp.getAsJsonArray("bboxes");
-                            String staus = trackResp.get("status").getAsString();
-                            String frame_idx = trackResp.get("frame_idx").getAsString();
-
-                            for (int i = 0; i < bboxes.size(); i++) {
-                                JsonObject bbox = bboxes.get(i).getAsJsonObject();
-                                String id = bbox.get("obj_id").getAsString();
-
-                                // 将 'box' 解析为 JsonArray
-                                JsonArray boxArray = bbox.getAsJsonArray("bbox");
-
-                                // 提取 box 信息
-                                int x1 = boxArray.get(0).getAsInt();
-                                int y1 = boxArray.get(1).getAsInt();
-                                int x2 = boxArray.get(2).getAsInt();
-                                int y2 = boxArray.get(3).getAsInt();
-
-
-                                // 格式化 box 信息
-                                String boxStr = String.format("[x1=%d, y1=%d, x2=%d, y2=%d]", x1, y1, x2, y2);
-
-                                addChatMessage(Constant.OWNER_BOT,String.format("FrameID=%s, objID=%s, box=%s\n",
-                                        frame_idx, id, boxStr));
-                                // 裁剪图像
-                                Bitmap croppedBitmap = cropBitmap(bitmap, x1, y1, x2, y2);
-
-                                // 在数据处理完成后显示消息框（UI更新）
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        addChatMessage(Constant.OWNER_BOT, croppedBitmap);
-                                    }
-                                });
-                            }
-
-                            command = trackResp.get("command").getAsString();
-                            param = trackResp.get("param").getAsString();
-
-                            // 更新无人机状态
-                            updateDroneState(command, param);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-
-
-                    }
-                }
-            }).start();
-        }
-    }
-
-    /**
      * 停止跟踪
      */
     public void stopTracking() {
         keepTracking = false;
-//        mSingletonVirtualStickExecutor.mStop();
+        mSingletonVirtualStickExecutor.mStop();
     }
     //endregion
 
