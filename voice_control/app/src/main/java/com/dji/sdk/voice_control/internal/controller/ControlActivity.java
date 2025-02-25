@@ -2530,6 +2530,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     // 公共变量
     private String command = ""; // 当前命令
     private String param = ""; // 当前参数
+    private float mSpeed = 0;
 
     /**
      * YOLO+SAM目标跟踪
@@ -2634,12 +2635,15 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     private volatile boolean keepTracking = true;
+    private int count_lost = 0;
+
     /**
      * 跟踪Frame
      */
     private void TrackFrame(){
 
         new Thread(new Runnable() {
+            @SuppressLint("DefaultLocale")
             @Override
             public void run() {
                 while(keepTracking){
@@ -2663,13 +2667,24 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                         JsonObject trackResp = networkClient.sendTrackFrameRequest(frame1B64);
                         JsonArray bboxes = trackResp.getAsJsonArray("bboxes");
                         String staus = trackResp.get("status").getAsString();
-                        String frame_idx = trackResp.get("frame_idx").getAsString();
+                        if(staus == "failed"){
+                            if(count_lost == 3){
+                                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+                                mSingletonVirtualStickExecutor.mStop();
+                                count_lost=0;
+                            }
+                            count_lost++;
+                            continue;
+                        }else{
+                            count_lost =0;
+                        }
+
 
                         JsonObject bbox = bboxes.get(0).getAsJsonObject();
-                        String id = bbox.get("obj_id").getAsString();
 
                         // 将 'box' 解析为 JsonArray
                         JsonArray boxArray = bbox.getAsJsonArray("bbox");
+
 
                         // 提取 box 信息
                         int x1 = boxArray.get(0).getAsInt();
@@ -2681,18 +2696,21 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                         // 格式化 box 信息
                         String boxStr = String.format("[x1=%d, y1=%d, w=%d, h=%d]", x1, y1, w, h);
 
-                        addChatMessage(Constant.OWNER_BOT,String.format("FrameID=%s, objID=%s, box=%s\n",
-                                frame_idx, id, boxStr));
+                        addChatMessage(Constant.OWNER_BOT,String.format("box=%s\n",
+                                boxStr));
                         // 裁剪图像
                         croppedBitmap = cropBitmapwh(bitmap, x1, y1, w, h);
 
                         addChatMessage(Constant.OWNER_HUMAN, croppedBitmap);
 
-                        command = trackResp.get("command").getAsString();
-                        param = trackResp.get("param").getAsString();
+                        mYaw = trackResp.get("yaw").getAsFloat();
+                        mPitch = trackResp.get("vx").getAsFloat();
+
+                        addChatMessage(Constant.OWNER_BOT, String.format("mYaw=%f, mSpeed=%f\n",
+                                mYaw, mSpeed));
 
                         // 更新无人机状态
-                        updateDroneState(command, param);
+                        updateDroneState(mYaw, mSpeed);
                         Thread.sleep(1000);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
@@ -2705,7 +2723,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
-     * 更新无人机的状态
+     * 更新无人机的命令和单位状态
      */
     private void updateDroneState(String command, String param) {
         int unit =  Integer.parseInt(param);
@@ -2721,7 +2739,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向左转"));
                 }
                 else{
-                    mSingletonVirtualStickExecutor.mTurn(304,unit);
+                    mSingletonVirtualStickExecutor.mTurn(304,-1*unit);
                     runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向右转"));
                 }
                 break;
@@ -2731,7 +2749,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向上飞"));
                 }
                 else{
-                    mSingletonVirtualStickExecutor.mDown(unit);
+                    mSingletonVirtualStickExecutor.mDown(-1*unit);
                     runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"向下飞"));
                 }
                 break;
@@ -2748,10 +2766,20 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     /**
+     * 更新无人机角速度和加速度状态
+     */
+    private void updateDroneState(float mYaw, float mSpeed) {
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+        mSingletonVirtualStickExecutor.mMove(mYaw,mSpeed);
+        runOnUiThread(() -> addChatMessage(Constant.OWNER_BOT,"执行完毕"));
+    }
+
+    /**
      * 停止跟踪
      */
     public void stopTracking() {
         keepTracking = false;
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
         mSingletonVirtualStickExecutor.mStop();
     }
     //endregion

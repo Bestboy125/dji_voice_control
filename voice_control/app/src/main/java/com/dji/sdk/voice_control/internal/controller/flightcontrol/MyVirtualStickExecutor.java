@@ -61,12 +61,6 @@ public class MyVirtualStickExecutor {
     }
     //endregion
 
-    //region 命令队列数据结构
-    // Command queue
-    private Queue<DroneCommand> commandQueue = new LinkedList<>();
-    private boolean isExecuting = false;
-    //endregion
-
     //region 飞行控制初始化
     /**
      * 初始化飞行控制
@@ -196,7 +190,7 @@ public class MyVirtualStickExecutor {
         if (mSendVirtualStickDataTimer == null) {
             mSendVirtualStickDataTask = new SendVirtualStickDataTask();
             mSendVirtualStickDataTimer = new Timer();
-            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 50);
+            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 1000);
         }
     }
 
@@ -772,190 +766,20 @@ public class MyVirtualStickExecutor {
             }
         }).start();
     }
-    //endregion
 
-    //region 具体命令回调实现
 
     /**
-     * 飞控接口
+     * move with yaw and speed
      */
-    public interface DroneCommand {
-        /**
-         * 执行命令。
-         *
-         * @param callback 命令完成后的回调。
-         */
-        void execute(CommandCompletionCallback callback);
+    public void mMove(float yaw, float speed) {
+        checkSendVirtualStickDataTimer();
+        destroyLocationTrackTimer();
+        mYaw = yaw;
+        mSpeed = speed;
+        mThrottle = mSpeed;
+        mRoll = 0;
+        mPitch = 0;
     }
-
-    /**
-     * Take off 起飞命令
-     */
-    public class TakeoffCommand implements DroneCommand {
-        @Override
-        public void execute(CommandCompletionCallback callback) {
-            mTakeoff(callback);
-        }
-    }
-
-    /**
-     * Landing 着陆命令
-     */
-    public class LandCommand implements DroneCommand {
-        @Override
-        public void execute(CommandCompletionCallback callback) {
-            mLand(callback);
-        }
-    }
-
-    /**
-     * Up 上升命令
-     */
-    public class UpCommand implements DroneCommand {
-        private int distance;
-
-        public UpCommand(int distance) {
-            this.distance = distance;
-        }
-
-        @Override
-        public void execute(CommandCompletionCallback callback) {
-            mUp(distance, callback);
-        }
-    }
-
-    /**
-     * Down 下降命令
-     */
-    public class DownCommand implements DroneCommand {
-        private int distance;
-
-        public DownCommand(int distance) {
-            this.distance = distance;
-        }
-
-        @Override
-        public void execute(CommandCompletionCallback callback) {
-            mDown(distance, callback);
-        }
-    }
-
-    /**
-     * Turn 转向命令
-     */
-    public class TurnCommand implements DroneCommand {
-        private int turningDirection;
-        private int turningDegree;
-
-        public TurnCommand(int turningDirection, int turningDegree) {
-            this.turningDirection = turningDirection;
-            this.turningDegree = turningDegree;
-        }
-
-        @Override
-        public void execute(CommandCompletionCallback callback) {
-            mTurn(turningDirection, turningDegree, callback);
-        }
-    }
-
-    /**
-     * Go 移动命令
-     */
-    public class GoCommand implements DroneCommand {
-        private int movingDirection;
-        private double distance;
-
-        public GoCommand(int movingDirection, double distance) {
-            this.movingDirection = movingDirection;
-            this.distance = distance;
-        }
-
-        @Override
-        public void execute(CommandCompletionCallback callback) {
-            mGo(movingDirection, distance, callback);
-        }
-    }
-
-    /**
-     * FlyTo 飞往指定位置命令
-     */
-    public class FlyToCommand implements DroneCommand {
-        private double tarLat;
-        private double tarLog;
-
-        public FlyToCommand(double tarLat, double tarLog) {
-            this.tarLat = tarLat;
-            this.tarLog = tarLog;
-        }
-
-        @Override
-        public void execute(CommandCompletionCallback callback) {
-            mFlyto(tarLat, tarLog, callback);
-        }
-    }
-
-    //endregion
-
-    //region 命令队列管理
-
-    /**
-     * 添加命令到队列。
-     *
-     * @param command 要添加的命令。
-     */
-    public void enqueueCommand(DroneCommand command) {
-        commandQueue.add(command);
-    }
-
-    /**
-     * 开始执行命令队列。
-     *
-     * @param finalCallback 所有命令执行完毕后的回调。
-     */
-    public void executeCommandQueue(CommandCompletionCallback finalCallback) {
-        if (!isExecuting && !commandQueue.isEmpty()) {
-            isExecuting = true;
-            executeNextCommand(finalCallback);
-        }
-    }
-
-    /**
-     * 执行下一个命令。
-     *
-     * @param finalCallback 所有命令执行完毕后的回调。
-     */
-    private void executeNextCommand(CommandCompletionCallback finalCallback) {
-        if (commandQueue.isEmpty()) {
-            isExecuting = false;
-            // 所有命令执行完毕，触发最终回调
-            if (finalCallback != null) {
-                finalCallback.onComplete(null);
-            }
-            return;
-        }
-
-        DroneCommand command = commandQueue.poll();
-        if (command != null) {
-            command.execute(new CommandCompletionCallback() {
-                @Override
-                public void onComplete(DJIError error) {
-                    if (error == null) {
-                        // 当前命令成功，执行下一个命令
-                        executeNextCommand(finalCallback);
-                    } else {
-                        // 当前命令失败，触发最终回调并停止执行
-                        isExecuting = false;
-                        if (finalCallback != null) {
-                            finalCallback.onComplete(error);
-                        }
-                        // 记录错误日志
-                        Log.e("DroneCommandExecutor", "Command failed: " + error.getDescription());
-                    }
-                }
-            });
-        }
-    }
-
     //endregion
 
 }

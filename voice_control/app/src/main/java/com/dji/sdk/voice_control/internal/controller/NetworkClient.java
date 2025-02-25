@@ -13,7 +13,7 @@ import java.io.IOException;
 
 public class NetworkClient {
 
-    private static final String SERVER_URL = "http://202.197.76.212:5000";
+    private static final String SERVER_URL = "http://122.207.106.69:25440";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private OkHttpClient client;
     private Gson gson;
