@@ -775,10 +775,8 @@ public class MyVirtualStickExecutor {
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
         mYaw = yaw;
-        mSpeed = speed;
-        mThrottle = mSpeed;
+        mPitch = speed;
         mRoll = 0;
-        mPitch = 0;
     }
     //endregion
 
