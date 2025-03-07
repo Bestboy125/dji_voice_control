@@ -190,7 +190,7 @@ public class MyVirtualStickExecutor {
         if (mSendVirtualStickDataTimer == null) {
             mSendVirtualStickDataTask = new SendVirtualStickDataTask();
             mSendVirtualStickDataTimer = new Timer();
-            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 1000);
+            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 50);
         }
     }
 
@@ -771,12 +771,11 @@ public class MyVirtualStickExecutor {
     /**
      * move with yaw and speed
      */
-    public void mMove(float yaw, float speed) {
+    public void mMove(float yaw, float Pitch) {
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
         mYaw = yaw;
-        mPitch = speed;
-        mRoll = 0;
+        mRoll = Pitch;
     }
     //endregion
 
