@@ -31,7 +31,11 @@ public interface UICallback {
 
     void sendQuestion(boolean isGPT, String prompt, File imageFile, ControlActivity.OnGptResultListener listener);
 
+    String sendQuestionToGPTSync(String question, File file, boolean isHistory) throws Exception;
+
     Resources mgetResources();
+
+    File mgetCacheDir();
 
 }
 

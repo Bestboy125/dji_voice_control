@@ -1830,6 +1830,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region agent 数据结构
+    // 构造 GPTS 实例
+    private GPTS gpts = new GPTS(
+            "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
+            "gpt-4o",
+            0.8f,
+            0.9f,
+            300
+    );
     private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
     private static final String TEMPLATE="Please answer the following question: {question}";
     private static final String IMAGE_FILE_NAME = "frame.jpg";
@@ -2841,6 +2849,24 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         );
     }
 
+    @Override
+    /**
+     * 向gpt语言大模型发送问题
+     * @param question
+     */
+    public String sendQuestionToGPTSync(String question, File file, boolean isHistory) throws Exception {
+
+        // 同步请求
+        String result = gpts.chatSync(
+                question,
+                file != null ? file.getPath() : null,
+                null,
+                isHistory ? GPThistory : null
+        );
+
+        return result;
+    }
+
     /**
      * 命令处理
      */
@@ -3845,6 +3871,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     @Override
     public Resources mgetResources(){
         return getResources();
+    }
+
+    @Override
+    public File mgetCacheDir(){
+        return  getCacheDir();
     }
 
     /**

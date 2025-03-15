@@ -336,8 +336,8 @@ public class yoloSamTrack {
 
                         callback.addChatMessage(Constant.OWNER_BOT, String.format("mYaw=%f, mSpeed=%f\n", mYaw, mPitch));
 
-                        //更新无人机状态
-                        updateDroneState(mYaw, mPitch);
+//                        //更新无人机状态
+//                        updateDroneState(mYaw, mPitch);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
