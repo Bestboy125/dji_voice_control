@@ -126,6 +126,20 @@
             android:id="@+id/VerticalSpeed" />
 
         <TextView
+            android:id="@+id/tv_recording_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="录制中: 00:00"
+            android:textColor="#FF0000"
+            android:background="#80000000"
+            android:padding="4dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginEnd="8dp"
+            android:layout_toStartOf="@+id/VerticalSpeed"
+            android:layout_alignParentTop="true"
+            android:visibility="gone"/>
+
+        <TextView
             android:text="H: 0"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -222,7 +236,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@+id/rv_chatlist"
-            android:layout_marginLeft="270dp"
+            android:layout_marginLeft="320dp"
             android:text="测试" />
 
         <Button
@@ -230,8 +244,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@+id/rv_chatlist"
-            android:layout_marginLeft="25dp"
+            android:layout_marginLeft="2dp"
             android:text="诊断信息" />
+
+        <Button
+            android:id="@+id/btn_save_chat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/rv_chatlist"
+            android:layout_marginLeft="100dp"
+            android:text="保存" />
 
         <com.dji.sdk.voice_control.internal.controller.OnScreenJoystick
             android:id="@+id/directionJoystickLeft"
@@ -343,6 +365,16 @@
                 android:layout_below="@+id/btn_to_download"
                 android:textOff="使用服务器"
                 android:textOn="使用GPT" />
+
+            <!-- 在适当位置添加以下控件 -->
+            <Button
+                android:id="@+id/btn_record_video"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="开始录制"
+                android:layout_below="@+id/set_home_current"
+                android:background="@drawable/rounded_button"
+                android:textColor="#FFFFFF" />
 
         </LinearLayout>
     </com.google.android.material.navigation.NavigationView>

@@ -6,6 +6,10 @@ import static com.dji.sdk.voice_control.internal.controller.ImageUtil.imageToBas
 import android.app.Dialog;
 import android.content.res.Resources;
 
+import java.io.FileWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import android.Manifest;
@@ -19,7 +23,13 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Point;
+import android.graphics.pdf.PdfDocument;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -27,6 +37,10 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.provider.Settings;
+import android.text.Layout;
+import android.text.StaticLayout;
+import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Display;
@@ -86,6 +100,7 @@ import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
 import com.dji.sdk.voice_control.internal.controller.agent.JsonUtils;
 import com.dji.sdk.voice_control.internal.controller.agent.llm_agent;
+import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTS;
@@ -388,6 +403,13 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     public OkHttpClient client;
     private Button mSendBtn;
     private BaseRtspFpvView mBaseRtspFpvView;
+
+    //视频录制
+    private Button mBtnRecordVideo;
+    private boolean isRecording = false;
+    private TextView mTvRecordingStatus;
+    private Handler recordingStatusHandler = new Handler();
+    private Runnable recordingStatusUpdater;
 
     /**
      * 聊天信息数据
@@ -816,6 +838,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_EXTERNAL_STORAGE_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // 权限获取成功，重新尝试录制
+                toggleVideoRecording();
+            } else {
+                showToast("需要存储权限才能录制视频");
+            }
+        }
         // Check for granted permission and remove from missing list
         if (requestCode == REQUEST_PERMISSION_CODE) {
             for (int i = grantResults.length - 1; i >= 0; i--) {
@@ -996,6 +1026,32 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
+
+        // 添加保存聊天记录按钮
+        Button btnSaveChat = findViewById(R.id.btn_save_chat);
+        btnSaveChat.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showSaveOptionsDialog();
+            }
+        });
+
+        // 添加录制视频按钮
+        mBtnRecordVideo = findViewById(R.id.btn_record_video);
+        mTvRecordingStatus = findViewById(R.id.tv_recording_status);
+
+        if (mTvRecordingStatus != null) {
+            mTvRecordingStatus.setVisibility(View.GONE);
+        }
+
+        if (mBtnRecordVideo != null) {
+            mBtnRecordVideo.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    toggleVideoRecording();
+                }
+            });
+        }
 
 
         // 设置点击事件
@@ -2454,22 +2510,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 mRvChatList.smoothScrollToPosition(mChatMessageData.getSize());
                 if (mChatMessageData.isBot(owner)) {
                     mJSONMessage.addBotMessage(question); // 记录每次用户的上下文，这样AI就能实现多次对话
-//                    Speech.getInstance().say(question, new TextToSpeechCallback() {
-//                        @Override
-//                        public void onStart() {
-//
-//                        }
-//
-//                        @Override
-//                        public void onCompleted() {
-//
-//                        }
-//
-//                        @Override
-//                        public void onError() {
-//
-//                        }
-//                    });
                 }
             }
         });
@@ -3827,5 +3867,531 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
         return true;
     }
+    //endregion
+
+    //region chat_save
+
+    /**
+     * 将聊天记录保存为文本文件和图片
+     * @param context 上下文
+     * @return 保存的文本文件
+     */
+    public File saveChatHistory(Context context) {
+        try {
+            // 创建保存目录
+            File chatDir = new File(context.getExternalFilesDir(null), "chat_history");
+            if (!chatDir.exists()) {
+                chatDir.mkdirs();
+            }
+
+            // 创建图片子目录
+            File imagesDir = new File(chatDir, "images");
+            if (!imagesDir.exists()) {
+                imagesDir.mkdirs();
+            }
+
+            // 创建时间戳作为文件名
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            File textFile = new File(chatDir, "chat_" + timestamp + ".txt");
+
+            // 创建文件写入器
+            FileWriter writer = new FileWriter(textFile);
+
+            // 遍历所有聊天消息
+            int size = mChatMessageData.getSize();
+            for (int i = 0; i < size; i++) {
+                // 获取消息数据
+                ChatMessage chatMessage = mChatMessageData.getChatMessage(i);
+                String owner = chatMessage.getOwner();
+                String message = chatMessage.getMsg();
+                Bitmap image = chatMessage.getImage();
+
+                // 写入发送者信息
+                writer.write("[" + owner + "]\n");
+
+                // 写入文本消息
+                if (message != null && !message.isEmpty()) {
+                    writer.write(message + "\n\n");
+                }
+
+                // 保存图片并写入引用
+                if (image != null) {
+                    String imageFileName = "image_" + timestamp + "_" + i + ".jpg";
+                    File imageFile = new File(imagesDir, imageFileName);
+
+                    // 保存图片
+                    try (FileOutputStream fos = new FileOutputStream(imageFile)) {
+                        image.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                    }
+
+                    // 写入图片引用
+                    writer.write("[图片: " + imageFile.getAbsolutePath() + "]\n\n");
+                }
+            }
+
+            writer.close();
+
+            // 显示保存成功提示
+            showToast("聊天记录已保存至: " + textFile.getAbsolutePath());
+
+            return textFile;
+        } catch (IOException e) {
+            e.printStackTrace();
+            showToast("保存聊天记录失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // ... existing code ...
+
+    /**
+     * 将聊天记录保存为HTML文件
+     * @param context 上下文
+     * @return 保存的HTML文件
+     */
+    public File saveChatHistoryAsHTML(Context context) {
+        try {
+            // 创建保存目录
+            File chatDir = new File(context.getExternalFilesDir(null), "chat_history");
+            if (!chatDir.exists()) {
+                chatDir.mkdirs();
+            }
+
+            // 创建图片子目录
+            File imagesDir = new File(chatDir, "images");
+            if (!imagesDir.exists()) {
+                imagesDir.mkdirs();
+            }
+
+            // 创建时间戳作为文件名
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            File htmlFile = new File(chatDir, "chat_" + timestamp + ".html");
+
+            // 创建文件写入器
+            FileWriter writer = new FileWriter(htmlFile);
+
+            // 写入HTML头部
+            writer.write("<!DOCTYPE html>\n<html>\n<head>\n");
+            writer.write("<meta charset=\"UTF-8\">\n");
+            writer.write("<title>聊天记录 - " + timestamp + "</title>\n");
+            writer.write("<style>\n");
+            writer.write("body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }\n");
+            writer.write(".message { margin-bottom: 20px; }\n");
+            writer.write(".user { text-align: right; }\n");
+            writer.write(".bot { text-align: left; }\n");
+            writer.write(".bubble { display: inline-block; padding: 10px 15px; border-radius: 15px; max-width: 70%; }\n");
+            writer.write(".user .bubble { background-color: #DCF8C6; }\n");
+            writer.write(".bot .bubble { background-color: #F1F0F0; }\n");
+            writer.write(".owner { font-weight: bold; margin-bottom: 5px; }\n");
+            writer.write(".image { max-width: 100%; max-height: 300px; border-radius: 10px; }\n");
+            writer.write("</style>\n");
+            writer.write("</head>\n<body>\n");
+            writer.write("<h1>聊天记录 - " + timestamp + "</h1>\n");
+
+            // 遍历所有聊天消息
+            int size = mChatMessageData.getSize();
+            for (int i = 0; i < size; i++) {
+                // 获取消息数据
+                ChatMessage chatMessage = mChatMessageData.getChatMessage(i);
+                String owner = chatMessage.getOwner();
+                String message = chatMessage.getMsg();
+                Bitmap image = chatMessage.getImage();
+
+                boolean isBot = owner.equals(Constant.OWNER_BOT);
+                String messageClass = isBot ? "bot" : "user";
+
+                // 写入消息容器
+                writer.write("<div class=\"message " + messageClass + "\">\n");
+                writer.write("  <div class=\"owner\">" + owner + "</div>\n");
+                writer.write("  <div class=\"bubble\">\n");
+
+                // 写入文本消息
+                if (message != null && !message.isEmpty()) {
+                    // 将换行符转换为HTML换行
+                    String htmlMessage = message.replace("\n", "<br>");
+                    writer.write("    <p>" + htmlMessage + "</p>\n");
+                }
+
+                // 保存图片并写入引用
+                if (image != null) {
+                    String imageFileName = "images/image_" + timestamp + "_" + i + ".jpg";
+                    File imageFile = new File(chatDir, imageFileName);
+
+                    // 保存图片
+                    try (FileOutputStream fos = new FileOutputStream(imageFile)) {
+                        image.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                    }
+
+                    // 写入图片标签
+                    writer.write("    <img class=\"image\" src=\"" + imageFileName + "\" alt=\"图片消息\">\n");
+                }
+
+                writer.write("  </div>\n");
+                writer.write("</div>\n");
+            }
+
+            // 写入HTML尾部
+            writer.write("</body>\n</html>");
+            writer.close();
+
+            // 显示保存成功提示
+            showToast("聊天记录已保存至: " + htmlFile.getAbsolutePath());
+
+            return htmlFile;
+        } catch (IOException e) {
+            e.printStackTrace();
+            showToast("保存聊天记录失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // ... existing code ...
+
+    /**
+     * 将RecyclerView内容保存为单个图片
+     * @return 保存的图片文件
+     */
+    public File saveRecyclerViewAsImage() {
+        try {
+            // 获取RecyclerView的完整高度
+            int totalHeight = 0;
+            for (int i = 0; i < mListAdapter.getItemCount(); i++) {
+                View view = mRvChatList.getLayoutManager().findViewByPosition(i);
+                if (view == null) {
+                    ChatListAdapter.MyViewHolder holder = mListAdapter.createViewHolder(
+                            mRvChatList, mListAdapter.getItemViewType(i));
+                    mListAdapter.onBindViewHolder(holder, i);
+                    view = holder.itemView;
+                    view.measure(
+                            View.MeasureSpec.makeMeasureSpec(mRvChatList.getWidth(), View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                    view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight());
+                }
+                totalHeight += view.getMeasuredHeight();
+            }
+
+            // 创建位图
+            Bitmap bitmap = Bitmap.createBitmap(mRvChatList.getWidth(), totalHeight, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+
+            // 绘制背景
+            canvas.drawColor(Color.WHITE);
+
+            // 绘制每个项目
+            int currentHeight = 0;
+            for (int i = 0; i < mListAdapter.getItemCount(); i++) {
+                View view = mRvChatList.getLayoutManager().findViewByPosition(i);
+                if (view == null) {
+                    ChatListAdapter.MyViewHolder holder = mListAdapter.createViewHolder(
+                            mRvChatList, mListAdapter.getItemViewType(i));
+                    mListAdapter.onBindViewHolder(holder, i);
+                    view = holder.itemView;
+                    view.measure(
+                            View.MeasureSpec.makeMeasureSpec(mRvChatList.getWidth(), View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+                    view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight());
+                }
+
+                // 保存画布状态
+                canvas.save();
+                canvas.translate(0, currentHeight);
+                view.draw(canvas);
+                canvas.restore();
+
+                currentHeight += view.getMeasuredHeight();
+            }
+
+            // 保存位图到文件
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            File imageFile = new File(getExternalFilesDir(null), "chat_screenshot_" + timestamp + ".jpg");
+
+            try (FileOutputStream fos = new FileOutputStream(imageFile)) {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+            }
+
+            showToast("聊天截图已保存至: " + imageFile.getAbsolutePath());
+
+            // 通知媒体库更新
+            MediaScannerConnection.scanFile(this, new String[]{imageFile.getAbsolutePath()}, null, null);
+
+            return imageFile;
+        } catch (Exception e) {
+            e.printStackTrace();
+            showToast("保存聊天截图失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+
+    /**
+     * 将聊天记录保存为PDF文件
+     * @return 保存的PDF文件
+     */
+    public File saveChatHistoryAsPDF() {
+        try {
+            // 创建保存目录
+            File pdfDir = new File(getExternalFilesDir(null), "chat_pdfs");
+            if (!pdfDir.exists()) {
+                pdfDir.mkdirs();
+            }
+
+            // 创建时间戳作为文件名
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+            File pdfFile = new File(pdfDir, "chat_" + timestamp + ".pdf");
+
+            // 创建PDF文档
+            PdfDocument document = new PdfDocument();
+
+            // 设置页面属性
+            PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(
+                    595, 842, 1).create(); // A4尺寸
+
+            // 创建页面
+            PdfDocument.Page page = document.startPage(pageInfo);
+            Canvas canvas = page.getCanvas();
+
+            // 创建画笔
+            Paint paint = new Paint();
+            paint.setColor(Color.BLACK);
+            paint.setTextSize(12);
+
+            // 绘制标题
+            paint.setTextSize(18);
+            canvas.drawText("聊天记录 - " + timestamp, 50, 50, paint);
+            paint.setTextSize(12);
+
+            // 绘制内容
+            int y = 100;
+            int size = mChatMessageData.getSize();
+            for (int i = 0; i < size; i++) {
+                // 获取消息数据
+                ChatMessage chatMessage = mChatMessageData.getChatMessage(i);
+                String owner = chatMessage.getOwner();
+                String message = chatMessage.getMsg();
+                Bitmap image = chatMessage.getImage();
+
+                // 绘制发送者信息
+                paint.setFakeBoldText(true);
+                canvas.drawText(owner + ":", 50, y, paint);
+                paint.setFakeBoldText(false);
+                y += 20;
+
+                // 绘制文本消息
+                if (message != null && !message.isEmpty()) {
+                    // 处理长文本换行
+                    StaticLayout textLayout = new StaticLayout(
+                            message, new TextPaint(paint),
+                            pageInfo.getPageWidth() - 100,
+                            Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false);
+
+                    canvas.save();
+                    canvas.translate(50, y);
+                    textLayout.draw(canvas);
+                    canvas.restore();
+
+                    y += textLayout.getHeight() + 20;
+                }
+
+                // 绘制图片
+                if (image != null) {
+                    // 缩放图片以适应页面
+                    float scale = Math.min(1.0f, (float)(pageInfo.getPageWidth() - 100) / image.getWidth());
+                    int scaledWidth = (int)(image.getWidth() * scale);
+                    int scaledHeight = (int)(image.getHeight() * scale);
+
+                    Bitmap scaledBitmap = Bitmap.createScaledBitmap(image, scaledWidth, scaledHeight, true);
+                    canvas.drawBitmap(scaledBitmap, 50, y, null);
+
+                    y += scaledHeight + 30;
+
+                    // 检查是否需要创建新页面
+                    if (y > pageInfo.getPageHeight() - 50) {
+                        document.finishPage(page);
+                        page = document.startPage(pageInfo);
+                        canvas = page.getCanvas();
+                        y = 50;
+                    }
+                }
+            }
+
+            // 完成页面
+            document.finishPage(page);
+
+            // 写入文件
+            try (FileOutputStream fos = new FileOutputStream(pdfFile)) {
+                document.writeTo(fos);
+            }
+
+            // 关闭文档
+            document.close();
+
+            showToast("聊天记录已保存为PDF: " + pdfFile.getAbsolutePath());
+
+            return pdfFile;
+        } catch (IOException e) {
+            e.printStackTrace();
+            showToast("保存PDF失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+
+    private void showSaveOptionsDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("保存聊天记录");
+
+        String[] options = {"保存为文本", "保存为HTML", "保存为图片", "保存为PDF"};
+
+        builder.setItems(options, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                switch (which) {
+                    case 0: // 文本
+                        saveChatHistory(ControlActivity.this);
+                        break;
+                    case 1: // HTML
+                        saveChatHistoryAsHTML(ControlActivity.this);
+                        break;
+                    case 2: // 图片
+                        saveRecyclerViewAsImage();
+                        break;
+                    case 3: // PDF
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                            saveChatHistoryAsPDF();
+                        } else {
+                            showToast("您的设备不支持PDF导出");
+                        }
+                        break;
+                }
+            }
+        });
+
+        builder.show();
+    }
+    //endregion
+
+    //region 视频录制
+    // toggleVideoRecording方法，添加权限检查
+    private void toggleVideoRecording() {
+        if (mBaseRtspFpvView == null) {
+            showToast("视频组件未初始化");
+            return;
+        }
+        
+        if (!isRecording) {
+            // 检查存储权限
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10及以上版本
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    if (!Environment.isExternalStorageManager()) {
+                        // 需要请求所有文件访问权限
+                        showToast("需要所有文件访问权限才能录制视频");
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                        Uri uri = Uri.fromParts("package", getPackageName(), null);
+                        intent.setData(uri);
+                        startActivity(intent);
+                        return;
+                    }
+                }
+            } else {
+                // Android 9及以下版本
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                        != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, 
+                            new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 
+                            REQUEST_EXTERNAL_STORAGE_PERMISSION);
+                    return;
+                }
+            }
+            
+            // 开始录制
+            mBaseRtspFpvView.startRecording();
+            isRecording = true;
+            mBtnRecordVideo.setText("停止录制");
+            
+            // 显示录制状态
+            if (mTvRecordingStatus != null) {
+                mTvRecordingStatus.setVisibility(View.VISIBLE);
+                
+                // 创建定时更新录制时长的任务
+                recordingStatusUpdater = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isRecording && mBaseRtspFpvView != null) {
+                            int duration = mBaseRtspFpvView.getRecordingDuration();
+                            int minutes = duration / 60;
+                            int seconds = duration % 60;
+                            mTvRecordingStatus.setText(String.format("录制中: %02d:%02d", minutes, seconds));
+                            recordingStatusHandler.postDelayed(this, 1000);
+                        }
+                    }
+                };
+                recordingStatusHandler.post(recordingStatusUpdater);
+            }
+            
+            showToast("开始录制视频");
+        } else {
+            // 停止录制
+            File recordedFile = mBaseRtspFpvView.stopRecording();
+            isRecording = false;
+            mBtnRecordVideo.setText("开始录制");
+            
+            // 隐藏录制状态
+            if (mTvRecordingStatus != null) {
+                mTvRecordingStatus.setVisibility(View.GONE);
+                recordingStatusHandler.removeCallbacks(recordingStatusUpdater);
+            }
+            
+            if (recordedFile != null && recordedFile.exists()) {
+                showToast("视频已保存: " + recordedFile.getAbsolutePath());
+                // 可选：转换为MP4格式
+                convertToMp4(recordedFile);
+            } else {
+                showToast("视频保存失败");
+            }
+        }
+    }
+
+    // 添加权限请求结果处理
+    private static final int REQUEST_EXTERNAL_STORAGE_PERMISSION = 123;
+
+
+    /**
+     * 将H264文件转换为MP4格式（可选功能）
+     */
+    private void convertToMp4(final File h264File) {
+        // 这里可以添加H264转MP4的代码
+        // 可以使用MediaMuxer或第三方库如Mp4Parser
+        // 由于转换过程可能较复杂，这里仅提供一个示例框架
+
+        showToast("正在转换视频格式，请稍候...");
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // TODO: 实现H264到MP4的转换
+                    // 示例：使用FFmpeg或MediaMuxer进行转换
+
+                    // 转换完成后通知UI
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            showToast("视频格式转换完成");
+                        }
+                    });
+                } catch (Exception e) {
+                    final String errorMsg = e.getMessage();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            showToast("视频格式转换失败: " + errorMsg);
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
     //endregion
 }

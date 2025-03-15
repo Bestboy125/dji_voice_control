@@ -66,6 +66,12 @@
     <!--如果您的应用需要后台定位权限，且有可能运行在Android Q设备上,并且设置了target>28，必须增加这个权限声明-->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Android 10及以上版本需要的权限 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
 
 
     <uses-feature
@@ -115,7 +121,9 @@
             android:name="com.amap.api.v2.apikey"
             android:value="569c33d154ff50d882b86a8dcd1b1dcb"/>
 <!--            android:value="79f02e7ca17a8aa0c761db1fd4ac6b1c"/>-->
-
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/file_paths" />
 
         <activity
             android:name="com.dji.sdk.voice_control.internal.controller.MainActivity"
