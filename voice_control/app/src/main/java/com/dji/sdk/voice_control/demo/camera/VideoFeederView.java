@@ -14,15 +14,15 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.PickerValueChangeListener;
+import com.dji.sdk.voice_control.internal.controller.interfaces.PickerValueChangeListener;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.MainActivity;
-import com.dji.sdk.voice_control.internal.utils.Helper;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.utils.VideoFeedView;
-import com.dji.sdk.voice_control.internal.view.PopupNumberPicker;
-import com.dji.sdk.voice_control.internal.view.PopupNumberPickerDouble;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.Helper;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.VideoFeedView;
+import com.dji.sdk.voice_control.internal.djidemo.view.PopupNumberPicker;
+import com.dji.sdk.voice_control.internal.djidemo.view.PopupNumberPickerDouble;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 import java.util.ArrayList;
 import java.util.Arrays;

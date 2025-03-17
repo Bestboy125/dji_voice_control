@@ -3,7 +3,7 @@ package com.dji.sdk.voice_control.demo.battery;
 import android.content.Context;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.view.BasePushDataView;
+import com.dji.sdk.voice_control.internal.djidemo.view.BasePushDataView;
 import dji.common.battery.BatteryState;
 
 /**

@@ -30,11 +30,14 @@ public class MediaProjectionService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Notification notification = new Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Media Projection Running")
-                .setContentText("Your screen is being shared.")
-                .setSmallIcon(android.R.drawable.ic_media_play)
-                .build();
+        Notification notification = null;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Media Projection Running")
+                    .setContentText("Your screen is being shared.")
+                    .setSmallIcon(android.R.drawable.ic_media_play)
+                    .build();
+        }
 
         startForeground(1, notification);
         return START_STICKY;

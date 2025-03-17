@@ -91,7 +91,7 @@
         android:layout_alignLeft="@+id/btn_vertical_control_mode"
         android:layout_marginTop="10dp"/>
 
-    <com.dji.sdk.voice_control.internal.utils.OnScreenJoystick
+    <com.dji.sdk.voice_control.internal.djidemo.utils.OnScreenJoystick
         android:id="@+id/directionJoystickRight"
         android:layout_width="130dp"
         android:layout_height="130dp"
@@ -101,7 +101,7 @@
         android:layout_marginLeft="10dp"
         android:background="@mipmap/joystick_bg"/>
 
-    <com.dji.sdk.voice_control.internal.utils.OnScreenJoystick
+    <com.dji.sdk.voice_control.internal.djidemo.utils.OnScreenJoystick
         android:id="@+id/directionJoystickLeft"
         android:layout_width="130dp"
         android:layout_height="130dp"

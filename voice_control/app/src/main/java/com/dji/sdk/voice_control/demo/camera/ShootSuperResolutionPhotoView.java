@@ -13,11 +13,11 @@ import android.widget.RelativeLayout;
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.view.BaseThreeBtnView;
-import com.dji.sdk.voice_control.internal.view.SuperResolutionGroupMedia;
-import com.dji.sdk.voice_control.internal.view.SuperResolutionImageView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.BaseThreeBtnView;
+import com.dji.sdk.voice_control.internal.djidemo.view.SuperResolutionGroupMedia;
+import com.dji.sdk.voice_control.internal.djidemo.view.SuperResolutionImageView;
 
 import java.util.List;
 

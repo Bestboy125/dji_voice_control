@@ -5,10 +5,10 @@ import android.util.AttributeSet;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.DialogUtils;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.view.BaseThreeBtnView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.DialogUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.BaseThreeBtnView;
 
 import dji.common.error.DJIError;
 import dji.common.util.CommonCallbacks;

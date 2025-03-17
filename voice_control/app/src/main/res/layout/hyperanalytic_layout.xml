@@ -5,7 +5,7 @@
     android:keepScreenOn="true">
 
 
-    <com.dji.sdk.voice_control.internal.view.SuperResolutionImageView
+    <com.dji.sdk.voice_control.internal.djidemo.view.SuperResolutionImageView
         android:id="@+id/video_previewer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

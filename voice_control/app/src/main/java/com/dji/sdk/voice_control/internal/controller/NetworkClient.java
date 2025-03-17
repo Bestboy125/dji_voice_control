@@ -13,7 +13,7 @@ import java.io.IOException;
 
 public class NetworkClient {
 
-    private static final String SERVER_URL = "http://122.207.106.69:25440";
+    private static String SERVER_URL = "http://122.207.106.69:25440";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private OkHttpClient client;
     private Gson gson;
@@ -21,6 +21,12 @@ public class NetworkClient {
     public NetworkClient() {
         client = new OkHttpClient();
         gson = new Gson();
+    }
+    /**
+     * 修改后端连接地址
+     */
+    public void changeUrl(String url){
+        SERVER_URL = "http://" + url;
     }
 
     /**

@@ -13,11 +13,11 @@ import android.widget.TextView;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.MainActivity;
-import com.dji.sdk.voice_control.internal.utils.CallbackHandlers;
-import com.dji.sdk.voice_control.internal.utils.Helper;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.utils.VideoFeedView;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.CallbackHandlers;
+import com.dji.sdk.voice_control.internal.djidemo.utils.Helper;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.VideoFeedView;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -98,7 +98,7 @@
             style="@style/common_button"/>
     </LinearLayout>
 
-    <com.dji.sdk.voice_control.internal.view.BaseCameraView
+    <com.dji.sdk.voice_control.internal.djidemo.view.BaseCameraView
         style="@style/main_camera_view"
         android:layout_weight="0.06"/>
 

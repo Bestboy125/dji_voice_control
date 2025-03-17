@@ -12,8 +12,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 import dji.common.flightcontroller.FlightMode;
 import dji.sdk.flightcontroller.FlightController;

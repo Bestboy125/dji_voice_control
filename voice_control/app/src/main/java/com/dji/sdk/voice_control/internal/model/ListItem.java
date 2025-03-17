@@ -4,7 +4,7 @@ package com.dji.sdk.voice_control.internal.model;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 import java.util.ArrayList;
 import java.util.List;

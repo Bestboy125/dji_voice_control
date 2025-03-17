@@ -1,11 +1,10 @@
 package com.dji.sdk.voice_control.internal.controller.chatgpt.xfyun;
 
-import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
 
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.JsonParser;
+import com.dji.sdk.voice_control.internal.djidemo.utils.JsonParser;
 import com.iflytek.cloud.ErrorCode;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.RecognizerResult;

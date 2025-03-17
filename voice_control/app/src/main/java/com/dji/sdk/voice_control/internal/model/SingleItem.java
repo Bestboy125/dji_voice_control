@@ -6,7 +6,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 /**
  * List item that has no children.

@@ -7,7 +7,7 @@ import android.view.View;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.demo.missionmanager.MissionBaseView;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;

@@ -7,11 +7,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
 import com.dji.sdk.voice_control.R
-import com.dji.sdk.voice_control.internal.utils.ToastUtils
-import com.dji.sdk.voice_control.internal.utils.ViewHelper
-import com.dji.sdk.voice_control.internal.view.PopupNumberPicker
-import com.dji.sdk.voice_control.internal.view.PopupNumberPickerDouble
-import com.dji.sdk.voice_control.internal.view.PresentableView
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils
+import com.dji.sdk.voice_control.internal.djidemo.utils.ViewHelper
+import com.dji.sdk.voice_control.internal.djidemo.view.PopupNumberPicker
+import com.dji.sdk.voice_control.internal.djidemo.view.PopupNumberPickerDouble
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView
 import dji.common.airlink.PhysicalSource
 import dji.common.error.DJIError
 import dji.common.perception.DJILidarIMUPreheatStatus

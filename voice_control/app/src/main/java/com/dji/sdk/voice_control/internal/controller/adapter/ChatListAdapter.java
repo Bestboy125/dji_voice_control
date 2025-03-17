@@ -1,7 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller.adapter;
 
 import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,7 +19,7 @@ import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
-import com.dji.sdk.voice_control.internal.utils.ClipboardUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ClipboardUtil;
 
 public class ChatListAdapter extends RecyclerView.Adapter<ChatListAdapter.MyViewHolder> {
 

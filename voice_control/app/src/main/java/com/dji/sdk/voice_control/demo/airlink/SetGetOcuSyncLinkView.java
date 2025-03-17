@@ -5,10 +5,10 @@ import android.widget.ArrayAdapter;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.CallbackHandlers;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.view.BaseSetGetView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.CallbackHandlers;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.BaseSetGetView;
 
 import java.util.ArrayList;
 

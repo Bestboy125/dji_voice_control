@@ -2,10 +2,9 @@ package com.dji.sdk.voice_control.internal.controller.flightcontrol;
 
 import android.content.Context;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.controller.Utils;
+import com.dji.sdk.voice_control.internal.controller.utils.Utils;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -14,8 +13,6 @@ import dji.common.error.DJIError;
 import dji.common.flightcontroller.virtualstick.FlightControlData;
 import dji.common.util.CommonCallbacks;
 import dji.sdk.flightcontroller.FlightController;
-import java.util.LinkedList;
-import java.util.Queue;
 
 /**
  * Main flight control module

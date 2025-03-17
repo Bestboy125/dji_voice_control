@@ -10,7 +10,7 @@ import android.widget.RadioGroup;
 import androidx.appcompat.widget.AppCompatRadioButton;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.controller.waypoint.Tools;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Tools;
 
 
 import butterknife.BindView;

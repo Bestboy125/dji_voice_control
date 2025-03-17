@@ -1,5 +1,7 @@
 package com.dji.sdk.voice_control.internal.controller.chatgpt;
 
+import com.dji.sdk.voice_control.internal.controller.interfaces.IJSONMessage;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;

@@ -111,7 +111,7 @@
                     android:text="Lidar Info"
                     android:textSize="13dp" />
 
-                <com.dji.sdk.voice_control.internal.utils.VideoFeedView
+                <com.dji.sdk.voice_control.internal.djidemo.utils.VideoFeedView
                     android:id="@+id/video_view_primary_video_feed"
                     style="@style/main_camera_view"
                     android:layout_alignParentBottom="false"

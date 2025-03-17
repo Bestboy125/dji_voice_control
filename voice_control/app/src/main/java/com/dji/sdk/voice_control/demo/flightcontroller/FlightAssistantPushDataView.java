@@ -8,8 +8,8 @@ import androidx.annotation.NonNull;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.view.BaseThreeBtnView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.view.BaseThreeBtnView;
 
 import org.jetbrains.annotations.NotNull;
 

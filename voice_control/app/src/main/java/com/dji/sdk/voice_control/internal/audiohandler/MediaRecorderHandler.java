@@ -2,7 +2,7 @@ package com.dji.sdk.voice_control.internal.audiohandler;
 
 import android.media.MediaRecorder;
 
-import com.dji.sdk.voice_control.internal.utils.Helper;
+import com.dji.sdk.voice_control.internal.djidemo.utils.Helper;
 
 import java.io.File;
 

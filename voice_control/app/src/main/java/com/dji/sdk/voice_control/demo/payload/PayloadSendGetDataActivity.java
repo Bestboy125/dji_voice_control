@@ -15,10 +15,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.GeneralUtils;
-import com.dji.sdk.voice_control.internal.utils.ViewHelper;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.GeneralUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ViewHelper;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;

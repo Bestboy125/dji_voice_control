@@ -1,8 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller;
 
 
-import static com.dji.sdk.voice_control.internal.controller.ImageUtil.imageToBase64;
-
 import android.app.Dialog;
 import android.content.res.Resources;
 
@@ -13,7 +11,6 @@ import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -22,7 +19,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -98,38 +94,43 @@ import com.amap.api.maps2d.model.MarkerOptions;
 import com.amap.apis.utils.core.api.AMapUtilCoreApi;
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
-import com.dji.sdk.voice_control.internal.controller.agent.JsonUtils;
-import com.dji.sdk.voice_control.internal.controller.agent.llm_agent;
+import com.dji.sdk.voice_control.internal.controller.djitool.DownloadActivity;
+import com.dji.sdk.voice_control.internal.controller.djitool.LiveStream;
+import com.dji.sdk.voice_control.internal.controller.djitool.VideoActivity;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystick;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystickListener;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTS;
-import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTSCallback;
-import com.dji.sdk.voice_control.internal.controller.chatgpt.IChatMessageData;
-import com.dji.sdk.voice_control.internal.controller.chatgpt.IJSONMessage;
+import com.dji.sdk.voice_control.internal.controller.interfaces.GPTSCallback;
+import com.dji.sdk.voice_control.internal.controller.interfaces.IChatMessageData;
+import com.dji.sdk.voice_control.internal.controller.interfaces.IJSONMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.JSONMessage;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.FlightData;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.MyVirtualStickExecutor;
-import com.dji.sdk.voice_control.internal.controller.gimbal.gimbalControl;
-import com.dji.sdk.voice_control.internal.controller.track.yoloSamTrack;
-import com.dji.sdk.voice_control.internal.controller.voice_control.BaseRtspFpvView;
-import com.dji.sdk.voice_control.internal.controller.voice_control.BatteryView;
-import com.dji.sdk.voice_control.internal.controller.voice_control.CommandClassifier;
-import com.dji.sdk.voice_control.internal.controller.voice_control.CommandConfirmationDialogFragment;
-import com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.DetectedObject;
+import com.dji.sdk.voice_control.internal.controller.adapter.DetectedObjectsAdapter;
+import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.yoloSamTrack;
+import com.dji.sdk.voice_control.internal.controller.utils.Utils;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint;
+import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
+import com.dji.sdk.voice_control.internal.controller.view.BaseRtspFpvView;
+import com.dji.sdk.voice_control.internal.controller.view.BatteryView;
+import com.dji.sdk.voice_control.internal.controller.voice_input.CommandClassifier;
+import com.dji.sdk.voice_control.internal.controller.voice_input.CommandConfirmationDialogFragment;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint2Activity;
 
 import dji.sdk.flightcontroller.FlightAssistant;
-import dji.sdk.gimbal.Gimbal;
 
-import com.dji.sdk.voice_control.internal.utils.AMapUtil;
-import com.dji.sdk.voice_control.internal.utils.CallbackHandlers;
-import com.dji.sdk.voice_control.internal.utils.JsonParser;
-import com.dji.sdk.voice_control.internal.utils.ToastUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.AMapUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.JsonParser;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtil;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.tabs.TabLayout;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.iflytek.cloud.ErrorCode;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.RecognizerListener;
@@ -187,7 +188,6 @@ import dji.sdk.base.BaseProduct;
 import dji.sdk.mission.MissionControl;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
-import 	dji.common.gimbal.*;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
@@ -206,7 +206,7 @@ import okhttp3.Response;
 
 import com.pedro.rtsp.utils.ConnectCheckerRtsp;
 
-public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator, UICallback {
+public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator, ControlActivityCallback {
 
     //region 标记
     private boolean iscommond = false;
@@ -442,6 +442,25 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private Bitmap annotatedBitmap;
     //endregion
 
+    //region agent 数据结构
+    // 构造 GPTS 实例
+    private GPTS gpts = new GPTS(
+            "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
+            "gpt-4o",
+            0.8f,
+            0.9f,
+            300
+    );
+    private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
+    private static final String TEMPLATE="Please answer the following question: {question}";
+    private static final String IMAGE_FILE_NAME = "frame.jpg";
+    private String Gpt_result;
+    ControlActivityCallback uiCallback = this;
+    gimbalControl gimbalControl = new gimbalControl();
+    yoloSamTrack yoloSamTrack;
+    llm_agent llmAgent;
+    //endregion
+
     //region 生命周期
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -659,6 +678,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mChatMessageData = ChatMessageData.getInstance();
         mJSONMessage = JSONMessage.getInstance();
         initAdpater();
+
+        //初始化
+        yoloSamTrack = new yoloSamTrack(networkClient,mCI.mFlightController,mCI,uiCallback);
+        llmAgent = new llm_agent(mCI,mCI.mFlightController,fpvTexture,uiCallback);
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -1829,21 +1852,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     //endregion
 
-    //region agent 数据结构
-    // 构造 GPTS 实例
-    private GPTS gpts = new GPTS(
-            "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
-            "gpt-4o",
-            0.8f,
-            0.9f,
-            300
-    );
-    private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
-    private static final String TEMPLATE="Please answer the following question: {question}";
-    private static final String IMAGE_FILE_NAME = "frame.jpg";
-    private String Gpt_result;
-    //endregion
-
     //region 飞行控制器
     /**
      * 初始飞行控制器
@@ -2362,11 +2370,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     //endregion
-
-    UICallback uiCallback = this;
-    gimbalControl gimbalControl = new gimbalControl();
-    yoloSamTrack yoloSamTrack = new yoloSamTrack(networkClient,mCI.mFlightController,mCI,uiCallback);
-    llm_agent llmAgent = new llm_agent(mCI,mCI.mFlightController,fpvTexture,uiCallback);
 
     //region 对话机器人Jarvis
     private void initAdpater() {
@@ -4423,6 +4426,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             }
         }).start();
     }
+
+    //endregion
+
+    //region yolosam后端服务器初始化
 
     //endregion
 }

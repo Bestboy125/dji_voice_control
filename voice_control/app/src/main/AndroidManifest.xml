@@ -150,15 +150,15 @@
             android:configChanges="orientation|screenSize"/>
 
         <activity
-            android:name="com.dji.sdk.voice_control.internal.controller.VideoActivity"
+            android:name="com.dji.sdk.voice_control.internal.controller.djitool.VideoActivity"
             android:configChanges="orientation|screenSize"/>
 
         <activity
-            android:name="com.dji.sdk.voice_control.internal.controller.DownloadActivity"
+            android:name="com.dji.sdk.voice_control.internal.controller.djitool.DownloadActivity"
             android:configChanges="orientation|screenSize"/>
 
         <activity
-            android:name="com.dji.sdk.voice_control.internal.controller.waypoint.Waypoint2Activity"
+            android:name="com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint2Activity"
             android:configChanges="orientation|screenSize"/>
 
         <activity

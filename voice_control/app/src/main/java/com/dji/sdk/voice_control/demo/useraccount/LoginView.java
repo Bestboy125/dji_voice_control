@@ -7,7 +7,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
 import dji.common.error.DJIError;
 import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;

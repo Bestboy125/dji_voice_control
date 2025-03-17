@@ -10,7 +10,7 @@ import android.widget.EditText;
 import androidx.fragment.app.Fragment;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.controller.waypoint.Tools;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Tools;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;

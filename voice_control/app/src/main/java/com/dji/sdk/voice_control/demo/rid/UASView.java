@@ -9,9 +9,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.utils.Helper;
-import com.dji.sdk.voice_control.internal.utils.PopupUtils;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.Helper;
+import com.dji.sdk.voice_control.internal.djidemo.utils.PopupUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 import androidx.annotation.NonNull;
 import dji.sdk.sdkmanager.DJISDKManager;

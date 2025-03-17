@@ -9,10 +9,10 @@ import android.widget.TextView
 import com.dji.frame.util.V_JsonUtil
 import com.dji.sdk.voice_control.R
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication
-import com.dji.sdk.voice_control.internal.utils.ViewHelper
-import com.dji.sdk.voice_control.internal.utils.PopupUtils
-import com.dji.sdk.voice_control.internal.utils.ToastUtils
-import com.dji.sdk.voice_control.internal.view.PresentableView
+import com.dji.sdk.voice_control.internal.djidemo.utils.ViewHelper
+import com.dji.sdk.voice_control.internal.djidemo.utils.PopupUtils
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView
 import dji.common.error.DJIError
 import dji.common.flightcontroller.flightassistant.PerceptionInformation
 import dji.common.util.CommonCallbacks.CompletionCallbackWith

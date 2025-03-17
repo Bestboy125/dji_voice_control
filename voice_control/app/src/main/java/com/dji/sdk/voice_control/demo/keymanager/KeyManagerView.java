@@ -17,7 +17,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -8,15 +8,11 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.controller.HttpUtil;
-import com.dji.sdk.voice_control.internal.controller.Utils;
+import com.dji.sdk.voice_control.internal.controller.utils.HttpUtil;
+import com.dji.sdk.voice_control.internal.controller.utils.Utils;
 
 import java.io.File;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import dji.common.camera.SettingsDefinitions;

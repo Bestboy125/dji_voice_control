@@ -5,6 +5,8 @@ import android.graphics.BitmapFactory;
 import android.util.Base64;
 import androidx.annotation.Nullable;
 
+import com.dji.sdk.voice_control.internal.controller.interfaces.GPTSCallback;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;

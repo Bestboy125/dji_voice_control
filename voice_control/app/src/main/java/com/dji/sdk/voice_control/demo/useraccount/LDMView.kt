@@ -7,8 +7,8 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.dji.sdk.voice_control.R
-import com.dji.sdk.voice_control.internal.utils.ToastUtils
-import com.dji.sdk.voice_control.internal.view.PresentableView
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView
 import dji.common.error.DJIError
 import dji.common.util.CommonCallbacks.CompletionCallbackWith
 import dji.sdk.sdkmanager.DJISDKManager

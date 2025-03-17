@@ -100,7 +100,6 @@ public class DJISampleApplication extends Application {
         MultiDex.install(this);
         com.cySdkyc.clx.Helper.install(this);
         mContext = getApplicationContext();
-        LogcatHelper.getInstance(this).start();
         app = this;
     }
 

@@ -7,7 +7,7 @@ import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.util.Log;
 
-import com.dji.sdk.voice_control.internal.controller.Utils;
+import com.dji.sdk.voice_control.internal.controller.utils.Utils;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;

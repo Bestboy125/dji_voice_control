@@ -11,8 +11,12 @@ import com.dji.sdk.voice_control.R
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication
 import com.dji.sdk.voice_control.internal.controller.MainActivity.RequestEndFullScreenEvent
 import com.dji.sdk.voice_control.internal.controller.MainActivity.RequestStartFullScreenEvent
-import com.dji.sdk.voice_control.internal.utils.*
-import com.dji.sdk.voice_control.internal.view.PresentableView
+import com.dji.sdk.voice_control.internal.djidemo.utils.Helper
+import com.dji.sdk.voice_control.internal.djidemo.utils.PopupUtils
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils
+import com.dji.sdk.voice_control.internal.djidemo.utils.VideoFeedView
+import com.dji.sdk.voice_control.internal.djidemo.utils.ViewHelper
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView
 import dji.common.airlink.PhysicalSource
 import dji.common.camera.CameraVideoStreamSource
 import dji.common.camera.LaserMeasureInformation
@@ -29,7 +33,8 @@ import dji.sdk.camera.VideoFeeder
 import dji.sdk.camera.VideoFeeder.PhysicalSourceListener
 import dji.sdk.sdkmanager.DJISDKManager
 
-class MultipleLensCameraView(context: Context) : LinearLayout(context), View.OnClickListener, PresentableView {
+class MultipleLensCameraView(context: Context) : LinearLayout(context), View.OnClickListener,
+    PresentableView {
 
     private lateinit var primaryVideoFeedTitle: TextView
     private lateinit var primaryVideoFeed: VideoFeedView

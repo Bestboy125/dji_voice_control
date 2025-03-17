@@ -32,10 +32,10 @@ import com.dji.sdk.voice_control.internal.audiohandler.MediaRecorderHandler;
 import com.dji.sdk.voice_control.internal.audiohandler.MediaRecorderOptions;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.MainActivity;
-import com.dji.sdk.voice_control.internal.utils.GeneralUtils;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.GeneralUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 
 import java.util.ArrayList;
 import java.util.List;

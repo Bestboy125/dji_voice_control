@@ -4,6 +4,8 @@ import android.graphics.Bitmap;
 
 import androidx.annotation.NonNull;
 
+import com.dji.sdk.voice_control.internal.controller.interfaces.IChatMessageData;
+
 import java.util.ArrayList;
 import java.util.List;
 

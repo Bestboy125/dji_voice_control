@@ -25,9 +25,9 @@ import androidx.appcompat.widget.SearchView;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.model.ViewWrapper;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.view.DemoListView;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.DemoListView;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 import com.squareup.otto.Subscribe;
 
 import java.util.Stack;

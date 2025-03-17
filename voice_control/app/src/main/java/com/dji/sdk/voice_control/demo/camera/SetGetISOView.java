@@ -7,8 +7,8 @@ import android.widget.ArrayAdapter;
 
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.DialogUtils;
-import com.dji.sdk.voice_control.internal.view.BaseSetGetView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.DialogUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.BaseSetGetView;
 
 import dji.common.camera.SettingsDefinitions;
 import dji.common.error.DJIError;

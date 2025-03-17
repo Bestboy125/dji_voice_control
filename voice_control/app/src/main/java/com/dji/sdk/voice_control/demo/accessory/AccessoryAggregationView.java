@@ -14,14 +14,14 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 
 import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.SeekBarValueChangeListener;
+import com.dji.sdk.voice_control.internal.controller.interfaces.SeekBarValueChangeListener;
 import com.dji.sdk.voice_control.internal.audiohandler.AudioRecorderHandler;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.MainActivity;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
-import com.dji.sdk.voice_control.internal.view.PopupSeekBar;
-import com.dji.sdk.voice_control.internal.view.PresentableView;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.view.PopupSeekBar;
+import com.dji.sdk.voice_control.internal.djidemo.view.PresentableView;
 import com.squareup.otto.Subscribe;
 
 import java.util.ArrayList;

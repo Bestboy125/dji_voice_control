@@ -11,8 +11,8 @@ import com.dji.sdk.voice_control.demo.missionmanager.MissionBaseView;
 import com.dji.sdk.voice_control.demo.missionoperator.util.ActionUtils;
 import com.dji.sdk.voice_control.demo.missionoperator.util.WaypointV2Factory;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
-import com.dji.sdk.voice_control.internal.utils.ModuleVerificationUtil;
-import com.dji.sdk.voice_control.internal.utils.ToastUtils;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ModuleVerificationUtil;
+import com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.dji.sdk.voice_control.internal.controller.DownloadActivity">
+    tools:context="com.dji.sdk.voice_control.internal.controller.djitool.DownloadActivity">
 
     <Button
         android:id="@+id/back_btn"

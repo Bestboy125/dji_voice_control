@@ -22,7 +22,7 @@ import dji.sdk.utmiss.UTMISSFlightDataUploadStatus;
 import dji.sdk.utmiss.UTMISSManager;
 import dji.sdk.utmiss.UTMISSParam;
 
-import static com.dji.sdk.voice_control.internal.utils.ToastUtils.showToast;
+import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.showToast;
 
 public class UTMISSActivity extends AppCompatActivity {
 
