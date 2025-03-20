@@ -2713,49 +2713,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     }
 
-    /**
-     * 向gpt语言大模型发送问题
-     * @param question
-     */
-    private void sendQuestionToGPT(String question, File file, boolean isHistory) {
-        // 构造 GPTS 实例
-        GPTS gpts = new GPTS(
-                "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
-                "gpt-4o",
-                0.8f,
-                0.9f,
-                300
-        );
-
-        // 异步调用
-        gpts.chatAsync(
-                question,
-                file.getPath(),        // 如果需要传图片，可以传文件路径
-                null,        // 自定义 system prompt
-                isHistory ? GPThistory : null,  // 若多轮对话，需要把上一次的 history 传进来
-                new GPTSCallback() {
-                    @Override
-                    public void onSuccess(GPTS.GPTSResult result) {
-                        // 这里是子线程回调，如果需要更新UI，请切回主线程
-                        runOnUiThread(() -> {
-                            // 例如添加对话内容到列表
-                            addChatMessage("OWNER_BOT", result.output);
-                            Gpt_result = result.output;
-                            // 保存新的上下文，以便下一次多轮对话
-                            GPThistory = result.history;
-                        });
-                    }
-
-                    @Override
-                    public void onError(Exception e) {
-                        runOnUiThread(() -> {
-                            addChatMessage("OWNER_BOT", "出错了: " + e.getMessage());
-                            e.printStackTrace();
-                        });
-                    }
-                }
-        );
-    }
 
     /**
      * 向gpt语言大模型发送问题
@@ -2869,6 +2826,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         return result;
     }
+
 
     /**
      * 命令处理
@@ -3415,6 +3373,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     private boolean isDialogVisible = false;
+
     /**
      * 显示选择对象的对话框
      */

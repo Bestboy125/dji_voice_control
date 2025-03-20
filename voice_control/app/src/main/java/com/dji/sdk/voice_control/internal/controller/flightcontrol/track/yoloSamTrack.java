@@ -48,6 +48,9 @@ public class yoloSamTrack {
     private float mPitch = 0;
 
 
+    private boolean isend = true;
+
+
     private NetworkClient networkClient;
     private FlightController mFlightController;
     private CommandInterpreter mCI;
@@ -141,17 +144,65 @@ public class yoloSamTrack {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-//                for(int i=0;i<=6;i++){
-//                    updateDroneState(30, 0);
-//                    try {
-//                        Thread.sleep(1000);
-//                    } catch (InterruptedException e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                }
             }
         }).start();
 
+    }
+
+    /**
+     * YOLO目标检测
+     */
+    @SuppressLint("DefaultLocale")
+    public File handleObjectDetect(){
+        final File[] yoloimage = {null};
+        // Create a CountDownLatch to wait for thread completion
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    /**
+                     * 测试用代码图片
+                     */
+                    Resources res = callback.mgetResources();
+                    Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
+                    File frame1File = callback.saveBitmapAsFile(bitmap,"frame1.jpg");
+                    String frame1B64  = imageToBase64(frame1File.getAbsolutePath());
+    //                //转换图像格式
+    //                //第一步：获取当前帧图像
+    //                File FisrtImage = CaptureImage();
+    //                Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage.getAbsolutePath());
+    //                String frame1B64  = imageToBase64(FisrtImage.getAbsolutePath());
+
+                    try {
+                        //第二歩：上传服务器，获取YOLO检测结果
+                        JsonObject detectResp = networkClient.sendDetectRequest(frame1B64);
+                        JsonArray bboxes = detectResp.getAsJsonArray("bboxes");
+                        String annotatedImageB64 = detectResp.get("annotated_image").getAsString();
+                        annotatedBitmap = ImageUtil.decodeBase64Image(annotatedImageB64);
+                        callback.addChatMessage(Constant.OWNER_HUMAN,annotatedBitmap);
+
+                        yoloimage[0] = callback.saveBitmapAsFile(annotatedBitmap,"yolo.jpg");
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                } finally {
+                    // Count down the latch to signal completion regardless of success or failure
+                    latch.countDown();
+                }
+            }
+        }).start();
+
+        try {
+            // Wait for the thread to complete
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Thread interrupted while waiting for YOLO detection", e);
+        }
+        
+        return yoloimage[0];
     }
 
     /**
@@ -324,6 +375,10 @@ public class yoloSamTrack {
         keepTracking = false;
         mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
         mSingletonVirtualStickExecutor.mStop();
+    }
+
+    public boolean getIsEnd(){
+        return isend;
     }
     //endregion
 }

@@ -44,7 +44,6 @@ import com.dji.sdk.voice_control.demo.gimbal.MoveGimbalWithSpeedView;
 import com.dji.sdk.voice_control.demo.gimbal.PushGimbalDataView;
 import com.dji.sdk.voice_control.demo.key.KeyedInterfaceView;
 import com.dji.sdk.voice_control.demo.keymanager.KeyManagerView;
-import com.dji.sdk.voice_control.demo.lidar.LidarView;
 import com.dji.sdk.voice_control.demo.lookat.LookAtMissionView;
 import com.dji.sdk.voice_control.demo.missionoperator.FollowMeMissionOperatorView;
 import com.dji.sdk.voice_control.demo.missionoperator.WaypointMissionOperatorView;
@@ -96,9 +95,6 @@ public class DemoListView extends FrameLayout {
                 false,
                 new GroupItem(R.string.uas_view, UASView.class),
                 new GroupItem(R.string.look_at_mission, LookAtMissionView.class));
-        builder.addGroup(R.string.component_listview_sdk_4_15,
-                false,
-                new GroupItem(R.string.component_listview_lidar_view, LidarView.class));
         builder.addGroup(R.string.component_listview_sdk_4_14,
                 false,
                 new GroupItem(R.string.component_listview_radar, RadarView.class),
