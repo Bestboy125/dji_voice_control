@@ -768,11 +768,22 @@ public class MyVirtualStickExecutor {
     /**
      * move with yaw and speed
      */
-    public void mMove(float yaw, float Pitch) {
+    public void mMovewith(float yaw, float roll) {
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
         mYaw = yaw;
-        mRoll = Pitch;
+        mRoll = roll;
+    }
+
+    /**
+     * move with yaw and speed
+     */
+    public void mMovexya(float yaw, float roll, float pitch) {
+        checkSendVirtualStickDataTimer();
+        destroyLocationTrackTimer();
+        mYaw = yaw;
+        mRoll = roll;
+        mPitch = pitch;
     }
     //endregion
 

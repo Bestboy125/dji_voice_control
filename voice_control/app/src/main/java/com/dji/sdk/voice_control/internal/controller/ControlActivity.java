@@ -124,6 +124,7 @@ import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandClassi
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint2Activity;
 
+import dji.common.flightcontroller.LocationCoordinate3D;
 import dji.sdk.flightcontroller.FlightAssistant;
 
 import com.dji.sdk.voice_control.internal.djidemo.utils.AMapUtil;
@@ -459,6 +460,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     gimbalControl gimbalControl = new gimbalControl();
     yoloSamTrack yoloSamTrack;
     llm_agent llmAgent;
+    private boolean isflying = false;
     //endregion
 
     //region 生命周期
@@ -1018,8 +1020,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mTextView = (TextView) findViewById(R.id.textview_simulator);
         mBtnLanguage2 = (Button) findViewById(R.id.btn_control_lan);
         mConnectStatusTextView = (TextView) findViewById(R.id.ConnectStatusTextView);
-        mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
-        mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
+        // mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
+        // mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
         mBatteryView = (BatteryView) findViewById(R.id.battery_view);
         mBatteryData = (TextView) findViewById(R.id.battery_data);
         mAltitude = (TextView) findViewById(R.id.Altitude);
@@ -1029,8 +1031,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mContext = ControlActivity.this;
         mSendBtn = (Button) findViewById(R.id.send_btn);
         navView = (NavigationView) findViewById(R.id.nav_view);
-        mBtnEnableVirtualStick = (Button) navView.findViewById(R.id.btn_enable_virtual_stick);
-        mBtnDisableVirtualStick = (Button) navView.findViewById(R.id.btn_disable_virtual_stick);
+        // mBtnEnableVirtualStick = (Button) navView.findViewById(R.id.btn_enable_virtual_stick);
+        // mBtnDisableVirtualStick = (Button) navView.findViewById(R.id.btn_disable_virtual_stick);
         mBtnPhoto = (Button) navView.findViewById(R.id.btn_photo);
         mBtnDownload = (Button) navView.findViewById(R.id.btn_to_download);
         mBtnWaypoint = (Button) navView.findViewById(R.id.btn_waypoint);
@@ -1079,6 +1081,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 设置点击事件
         openDrawerButton.setOnClickListener(v -> openDrawer());
+        
+        /*
         mBtnEnableVirtualStick.setOnClickListener(v -> {
             // 处理 Home 按钮点击逻辑
             if (mCI.mFlightController != null){
@@ -1113,6 +1117,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             }
             drawerLayout.closeDrawer(GravityCompat.START);
         });
+        */
         mBtnPhoto.setOnClickListener(v -> {
             Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
             v.getContext().startActivity(intent2);
@@ -1129,74 +1134,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             drawerLayout.closeDrawer(GravityCompat.START);
         });
         mFlightControlTab.setOnClickListener(v -> {
-            if(iscontrol){
-                mScreenJoystickRight = (OnScreenJoystick)findViewById(R.id.directionJoystickRight);
-                mScreenJoystickLeft = (OnScreenJoystick)findViewById(R.id.directionJoystickLeft);
-                mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
-
-                    @Override
-                    public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-                        if(Math.abs(pX) < 0.02 ){
-                            pX = 0;
-                        }
-
-                        if(Math.abs(pY) < 0.02 ){
-                            pY = 0;
-                        }
-
-                        float pitchJoyControlMaxSpeed = 10;
-                        float rollJoyControlMaxSpeed = 10;
-
-                        mPitch = (float)(pitchJoyControlMaxSpeed * pX);
-
-                        mRoll = (float)(rollJoyControlMaxSpeed * pY);
-
-                        if (null == mSendVirtualStickDataTimer) {
-                            mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-                            mSendVirtualStickDataTimer = new Timer();
-                            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 100, 200);
-                        }
-
-                    }
-
-                });
-                mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
-
-                    @Override
-                    public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-                        if(Math.abs(pX) < 0.02 ){
-                            pX = 0;
-                        }
-
-                        if(Math.abs(pY) < 0.02 ){
-                            pY = 0;
-                        }
-                        float verticalJoyControlMaxSpeed = 2;
-                        float yawJoyControlMaxSpeed = 30;
-
-                        mYaw = (float)(yawJoyControlMaxSpeed * pX);
-                        mThrottle = (float)(verticalJoyControlMaxSpeed * pY);
-
-                        if (null == mSendVirtualStickDataTimer) {
-                            mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-                            mSendVirtualStickDataTimer = new Timer();
-                            mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
-                        }
-
-                    }
-                });
-                mScreenJoystickRight.setVisibility(View.VISIBLE);
-                mScreenJoystickLeft.setVisibility(View.VISIBLE);
-                mRlSend.setVisibility(View.GONE);
-                mFlightControlTab.setText("手动控制");
-            }
-            else{
-                mScreenJoystickRight.setVisibility(View.GONE);
-                mScreenJoystickLeft.setVisibility(View.GONE);
-                mRlSend.setVisibility(View.VISIBLE);
-                mFlightControlTab.setText("语音控制");
-            }
-            iscontrol = !iscontrol;
+            llmAgent.agentFindCar();
         });
         test.setOnClickListener(v -> {
             isDialogVisible = false;
@@ -1253,103 +1191,103 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
         mSendBtn.setOnClickListener(this);
-        mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-
-                    if (mCI.mFlightController != null) {
-
-                        mCI.mFlightController.getSimulator()
-                                .start(InitializationData.createInstance(new LocationCoordinate2D(23, 113), 10, 10),
-                                        new CommonCallbacks.CompletionCallback() {
-                                            @Override
-                                            public void onResult(DJIError djiError) {
-                                                if (djiError != null) {
-                                                    showToast(djiError.getDescription());
-                                                }else
-                                                {
-                                                    showToast("Start Simulator Success");
-                                                }
-                                            }
-                                        });
-                    }
-
-                } else {
-
-
-                    if (mCI.mFlightController != null) {
-                        mCI.mFlightController.getSimulator()
-                                .stop(new CommonCallbacks.CompletionCallback() {
-                                          @Override
-                                          public void onResult(DJIError djiError) {
-                                              if (djiError != null) {
-                                                  showToast(djiError.getDescription());
-                                              }else
-                                              {
-                                                  showToast("Stop Simulator Success");
-                                              }
-                                          }
-                                      }
-                                );
-                    }
-                }
-            }
-        });
-        // 虚拟摇杆设置事件
-        mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
-
-            @Override
-            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-                if(Math.abs(pX) < 0.02 ){
-                    pX = 0;
-                }
-
-                if(Math.abs(pY) < 0.02 ){
-                    pY = 0;
-                }
-
-                float pitchJoyControlMaxSpeed = 10;
-                float rollJoyControlMaxSpeed = 10;
-
-                mPitch = (float)(pitchJoyControlMaxSpeed * pX);
-
-                mRoll = (float)(rollJoyControlMaxSpeed * pY);
-
-                if (null == mSendVirtualStickDataTimer) {
-                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-                    mSendVirtualStickDataTimer = new Timer();
-                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 100, 200);
-                }
-
-            }
-
-        });
-        mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
-
-            @Override
-            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-                if(Math.abs(pX) < 0.02 ){
-                    pX = 0;
-                }
-
-                if(Math.abs(pY) < 0.02 ){
-                    pY = 0;
-                }
-                float verticalJoyControlMaxSpeed = 2;
-                float yawJoyControlMaxSpeed = 30;
-
-                mYaw = (float)(yawJoyControlMaxSpeed * pX);
-                mThrottle = (float)(verticalJoyControlMaxSpeed * pY);
-
-                if (null == mSendVirtualStickDataTimer) {
-                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-                    mSendVirtualStickDataTimer = new Timer();
-                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
-                }
-
-            }
-        });
+//        mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+//            @Override
+//            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+//                if (isChecked) {
+//
+//                    if (mCI.mFlightController != null) {
+//
+//                        mCI.mFlightController.getSimulator()
+//                                .start(InitializationData.createInstance(new LocationCoordinate2D(23, 113), 10, 10),
+//                                        new CommonCallbacks.CompletionCallback() {
+//                                            @Override
+//                                            public void onResult(DJIError djiError) {
+//                                                if (djiError != null) {
+//                                                    showToast(djiError.getDescription());
+//                                                }else
+//                                                {
+//                                                    showToast("Start Simulator Success");
+//                                                }
+//                                            }
+//                                        });
+//                    }
+//
+//                } else {
+//
+//
+//                    if (mCI.mFlightController != null) {
+//                        mCI.mFlightController.getSimulator()
+//                                .stop(new CommonCallbacks.CompletionCallback() {
+//                                          @Override
+//                                          public void onResult(DJIError djiError) {
+//                                              if (djiError != null) {
+//                                                  showToast(djiError.getDescription());
+//                                              }else
+//                                              {
+//                                                  showToast("Stop Simulator Success");
+//                                              }
+//                                          }
+//                                      }
+//                                );
+//                    }
+//                }
+//            }
+//        });
+//        // 虚拟摇杆设置事件
+//        mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
+//
+//            @Override
+//            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
+//                if(Math.abs(pX) < 0.02 ){
+//                    pX = 0;
+//                }
+//
+//                if(Math.abs(pY) < 0.02 ){
+//                    pY = 0;
+//                }
+//
+//                float pitchJoyControlMaxSpeed = 10;
+//                float rollJoyControlMaxSpeed = 10;
+//
+//                mPitch = (float)(pitchJoyControlMaxSpeed * pX);
+//
+//                mRoll = (float)(rollJoyControlMaxSpeed * pY);
+//
+//                if (null == mSendVirtualStickDataTimer) {
+//                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
+//                    mSendVirtualStickDataTimer = new Timer();
+//                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 100, 200);
+//                }
+//
+//            }
+//
+//        });
+//        mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
+//
+//            @Override
+//            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
+//                if(Math.abs(pX) < 0.02 ){
+//                    pX = 0;
+//                }
+//
+//                if(Math.abs(pY) < 0.02 ){
+//                    pY = 0;
+//                }
+//                float verticalJoyControlMaxSpeed = 2;
+//                float yawJoyControlMaxSpeed = 30;
+//
+//                mYaw = (float)(yawJoyControlMaxSpeed * pX);
+//                mThrottle = (float)(verticalJoyControlMaxSpeed * pY);
+//
+//                if (null == mSendVirtualStickDataTimer) {
+//                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
+//                    mSendVirtualStickDataTimer = new Timer();
+//                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
+//                }
+//
+//            }
+//        });
         lanBtnListener2();
         //高德地图初始化
         if (aMap == null) {
@@ -1359,8 +1297,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         aMap.moveCamera(CameraUpdateFactory.zoomTo(18));
 
         //设置可视化
-        mScreenJoystickRight.setVisibility(View.GONE);
-        mScreenJoystickLeft.setVisibility(View.GONE);
+//        mScreenJoystickRight.setVisibility(View.GONE);
+//        mScreenJoystickLeft.setVisibility(View.GONE);
         mRlSend.setVisibility(View.VISIBLE);
 
         //注册诊断信息回调
@@ -1789,7 +1727,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         bundle.putString("encoded_string", cc1.getEncodedString().toString());
         bundle.putString("command", cc1.getCommand());
-        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + cc1.getCommand() + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
+        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + cc1.getCommand() + "\n如果确认，请回复确认执行；如果取消，请回复取消执行。");
         myDialogFragment1.setArguments(bundle);
         // show pop up window
         Log.d(TAG, "Showing dialog...");
@@ -1811,7 +1749,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Log.d(TAG, "mTargetDes: " + mTargetDes);
         Log.d(TAG, "Command: " + (cc1 != null ? cc1.getCommand() : "cc1 is null"));
 
-        addChatMessage(Constant.OWNER_BOT, "是否添加以下目标点" + mTargetDes + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
+        addChatMessage(Constant.OWNER_BOT, "是否添加以下目标点" + mTargetDes + "\n如果确认，请回复确认执行；如果取消，请回复取消执行。");
 
         bundle.putString("encoded_string", cc1.getEncodedString().toString());
         bundle.putString("command", mTargetDes);
@@ -1839,7 +1777,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             bundle.putString("encoded_string", "现在航点数量"+ mWaypoint.getWaypointCount(mMissionOperator));
             bundle.putString("command", "是否继续添加航点");
         }
-        addChatMessage(Constant.OWNER_BOT, "是否继续添加目标点" + mTargetDes + "\n如果确认，请回复“继续添加”；如果取消，请回复“添加完成”。");
+        addChatMessage(Constant.OWNER_BOT, "是否继续添加目标点" + mTargetDes + "\n如果确认，请回复继续添加；如果取消，请回复添加完成。");
         bundle.putString("encoded_string", "现在航点数量");
         bundle.putString("command", "是否继续添加航点");
         myDialogFragment3.setArguments(bundle);
@@ -1850,6 +1788,23 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    //endregion
+
+    //region 获取无人机基本信息
+    @Override
+    public boolean getisFlying(){
+        return isflying;
+    }
+
+    @Override
+    public LocationCoordinate3D getDroneLocation(){
+        return mCI.mFlightController.getState().getAircraftLocation();
+    }
+
+    @Override
+    public float getHeading(){
+        return mCI.mFlightController.getCompass().getHeading();
+    }
     //endregion
 
     //region 飞行控制器
@@ -1918,6 +1873,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                             + flightControllerState.getVelocityY() * flightControllerState.getVelocityY());
                     mvs = -1 * flightControllerState.getVelocityZ();
                     mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
+                    isflying = flightControllerState.isFlying();
                     updateFlightData();
                     updateDroneLocation();
                 }
@@ -2033,15 +1989,29 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         @Override
         public void run() {
-
             if (mCI.mFlightController != null) {
-                mCI.mFlightController.sendVirtualStickFlightControlData(
-                        new FlightControlData(
-                                mPitch, mRoll, mYaw, mThrottle
-                        ), djiError -> {
-
-                        }
-                );
+                mYaw = (float) (droneHeading - mDroneHeading);
+                
+                // Send flight control data to the aircraft
+                if (iscontrol) {
+                    // Use data from other sources (like voice commands) when joysticks are not present
+                    mCI.mFlightController.sendVirtualStickFlightControlData(
+                            new FlightControlData(
+                                    mPitch,
+                                    mRoll,
+                                    mYaw,
+                                    mThrottle
+                            ),
+                            new CommonCallbacks.CompletionCallback() {
+                                @Override
+                                public void onResult(DJIError djiError) {
+                                    if (djiError != null) {
+                                        // Handle the error
+                                    }
+                                }
+                            }
+                    );
+                }
             }
         }
     }
@@ -2417,7 +2387,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         this.pendingCommand = command;
 
         // 发送确认消息
-        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + command + "\n如果确认，请回复“确认执行”；如果取消，请回复“取消执行”。");
+        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + command + "\n如果确认，请回复确认执行；如果取消，请回复取消执行。");
     }
 
     /**
@@ -2451,7 +2421,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             pendingEncodedString = null;
         } else {
             // 其他无效回复
-            addChatMessage(Constant.OWNER_BOT, "无效的回复，请输入“确认执行”或“取消执行”。");
+            addChatMessage(Constant.OWNER_BOT, "无效的回复，请输入确认执行或取消执行。");
         }
     }
 
@@ -3286,7 +3256,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 .setTitle("智能飞行助手设置")
                 .setView(dialogView)
                 .setPositiveButton("确定", (dialog, which) -> {
-                    // 用户点击“确定”，开始设置选项
+                    // 用户点击"确定"，开始设置选项
                     boolean collision = cbCollisionAvoidance.isChecked();
                     boolean rthAvoid  = cbRthObstacleAvoidance.isChecked();
                     boolean landing   = cbLandingProtection.isChecked();

@@ -262,7 +262,7 @@
             android:id="@+id/control_buttons_container"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:layout_above="@+id/joystick_container"
+            android:layout_alignParentBottom="true"
             android:background="@color/colorPrimary"
             android:orientation="horizontal"
             android:gravity="center">
@@ -299,7 +299,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
-                android:text="语音控制"
+                android:text="llm搜索"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 
@@ -311,37 +311,10 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
-                android:text="测试"
+                android:text="YOLO追踪"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
         </LinearLayout>
-
-        <!-- 摇杆容器 -->
-        <RelativeLayout
-            android:id="@+id/joystick_container"
-            android:layout_width="match_parent"
-            android:layout_height="120dp"
-            android:layout_alignParentBottom="true"
-            android:background="@color/view_bg">
-
-            <com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystick
-                android:id="@+id/directionJoystickLeft"
-                android:layout_width="110dp"
-                android:layout_height="110dp"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:layout_marginStart="16dp"
-                android:background="@mipmap/joystick_bg" />
-
-            <com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystick
-                android:id="@+id/directionJoystickRight"
-                android:layout_width="110dp"
-                android:layout_height="110dp"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:layout_marginEnd="16dp"
-                android:background="@mipmap/joystick_bg" />
-        </RelativeLayout>
 
     </RelativeLayout>
 
@@ -373,28 +346,6 @@
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="8dp"/>
-
-                <Button
-                    android:id="@+id/btn_enable_virtual_stick"
-                    style="@style/common_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
-                    android:drawablePadding="8dp"
-                    android:gravity="start|center_vertical"
-                    android:paddingStart="16dp"
-                    android:text="开始虚拟摇杆" />
-
-                <Button
-                    android:id="@+id/btn_disable_virtual_stick"
-                    style="@style/common_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
-                    android:drawablePadding="8dp"
-                    android:gravity="start|center_vertical"
-                    android:paddingStart="16dp"
-                    android:text="关闭虚拟摇杆"/>
 
                 <Button
                     android:id="@+id/btn_waypoint"

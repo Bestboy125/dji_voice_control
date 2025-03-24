@@ -7,6 +7,8 @@ import com.dji.sdk.voice_control.internal.controller.ControlActivity;
 
 import java.io.File;
 
+import dji.common.flightcontroller.LocationCoordinate3D;
+
 public interface ControlActivityCallback {
     /**
      * 在主界面上添加文本消息
@@ -38,6 +40,12 @@ public interface ControlActivityCallback {
     Resources mgetResources();
 
     File mgetCacheDir();
+
+    boolean getisFlying();
+
+    LocationCoordinate3D getDroneLocation();
+
+    float getHeading();
 
 }
 

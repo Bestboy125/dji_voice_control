@@ -42,38 +42,22 @@ public class Waypoint {
         this.mContext = mContext;
     }
 
+    public Waypoint(){
+
+    }
+
     //region 数据结构
-    public final Map<Integer, Marker> mMarkers = new ConcurrentHashMap<Integer, Marker>();
-    public Marker droneMarker = null;
 
     public float altitude = 100.0f;
     public float mSpeed = 10.0f;
 
-    public List<WaypointV2> waypointList = new ArrayList<>();
-
     public static WaypointV2Mission.Builder waypointMissionBuilder;
-
-    public FlightController mFlightController;
     public WaypointV2MissionOperator instance;
     public WaypointV2MissionTypes.MissionFinishedAction mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.NO_ACTION;
     public WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
     public WaypointV2MissionTypes.MissionGotoWaypointMode firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
-    public WaypointV2ActionDialog mActionDialog;
-    public List<WaypointV2Action> v2Actions;
-    public boolean canUploadAction;
     public boolean canUploadMission;
     public boolean canStartMission;
-    public boolean ifNeedUploadAction;
-    public double mHomeLat = 181;
-    public double mHomeLng = 181;
-    public double mAircraftLat = 181;
-    public double mAircraftLng = 181;
-    public boolean useRTKLocation = false;
-    public RTK mRtk;
-    public float droneHeading;
-    public float droneHeight;
-
-    private TextView logTv;
     //endregion
 
     public int getWaypointCount(WaypointV2MissionOperator instance){
@@ -109,17 +93,10 @@ public class Waypoint {
     public void configWayPointMission(WaypointV2MissionOperator instance) {
 
         if (waypointMissionBuilder == null) {
-//            waypointMissionBuilder = new WaypointMission.Builder().finishedAction(mFinishedAction)
-//                    .headingMode(mHeadingMode)
-//                    .autoFlightSpeed(mSpeed)
-//                    .maxFlightSpeed(mSpeed)
-//                    .flightPathMode(WaypointMissionFlightPathMode.NORMAL);
             waypointMissionBuilder = new WaypointV2Mission.Builder();
-
         }
         waypointMissionBuilder.setFinishedAction(mFinishedAction)
                 .setMissionID(new Random().nextInt(65535))
-                .setFinishedAction(mFinishedAction)
                 .setGotoFirstWaypointMode(firstMode)
                 .setMaxFlightSpeed(mSpeed)
                 .setAutoFlightSpeed(mSpeed);
@@ -135,8 +112,6 @@ public class Waypoint {
                 canUploadMission = true;
             }
         });
-
-
     }
 
     public void uploadWayPointMission(WaypointV2MissionOperator instance) {

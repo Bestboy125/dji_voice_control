@@ -3,19 +3,20 @@ package com.dji.sdk.voice_control.internal.controller.flightcontrol.agent;
 import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.showToast;
 import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
-import android.content.res.Resources;
+import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.util.Log;
 import android.view.TextureView;
 
-import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.ControlActivity;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
+import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.MyVirtualStickExecutor;
+import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.utils.JsonUtils;
+import com.dji.sdk.voice_control.internal.controller.utils.Utils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -23,10 +24,24 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import dji.common.error.DJIWaypointV2Error;
 import dji.common.flightcontroller.LocationCoordinate3D;
+import dji.common.mission.waypointv2.WaypointV2MissionDownloadEvent;
+import dji.common.mission.waypointv2.WaypointV2MissionExecutionEvent;
+import dji.common.mission.waypointv2.WaypointV2MissionState;
+import dji.common.mission.waypointv2.WaypointV2MissionUploadEvent;
 import dji.sdk.flightcontroller.FlightController;
+import dji.sdk.mission.MissionControl;
+import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
+import dji.common.mission.waypointv2.WaypointV2;
+import dji.common.mission.waypointv2.WaypointV2Mission;
+import dji.common.mission.waypointv2.WaypointV2MissionTypes;
+import dji.common.mission.waypoint.WaypointMissionHeadingMode;
+import dji.common.model.LocationCoordinate2D;
+import dji.sdk.mission.waypoint.WaypointV2MissionOperatorListener;
+import dji.sdk.sdkmanager.DJISDKManager;
 
-public class llm_agent {
+public class llm_agent_fixed {
 
     private FlightController mFlightController;
     private CommandInterpreter mCI;
@@ -87,11 +102,18 @@ public class llm_agent {
     double objLon = 0.0;
     double objLat = 0.0;
     double objAlt = 0.0;
+
+    //航点数据结构
+    private Waypoint mWaypoint;
+    private WaypointV2MissionOperator mMissionOperator;
+    private gimbalControl gimbalControl;
+
+    private boolean isend = false;
     //endregion
 
 
     //构造函数
-    public llm_agent(
+    public llm_agent_fixed(
             CommandInterpreter commandInterpreter,
             FlightController flightController,
             TextureView textureView,
@@ -101,6 +123,8 @@ public class llm_agent {
         this.mFlightController = flightController;
         this.mfpvTexture = textureView;
         this.callback = callback;
+
+        gimbalControl = new gimbalControl();
     }
 
 
@@ -286,7 +310,8 @@ public class llm_agent {
                     adjustDronePosition(locationDesc, proportion);
                 } else {
                     isfindCar = true;
-                    recognizeCarBrand();
+//                    recognizeCarBrand();
+                    getObjInformation();
                     callback.addChatMessage(Constant.OWNER_BOT, "靠近车辆完毕。");
                 }
             }
@@ -476,7 +501,305 @@ public class llm_agent {
         }
     }
 
-    //辅助函数
+    //收集车辆信息
+
+    /**
+     * 收集目标的详细信息
+     */
+    private void getObjInformation(){
+        //后退2.5米
+        double distance = 2.5;
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+        mSingletonVirtualStickExecutor.mGo(302,distance);
+
+        //绕圈飞行
+        flyWithCircle(distance);
+
+
+    }
+
+    private WaypointV2MissionOperatorListener eventNotificationListener = new WaypointV2MissionOperatorListener() {
+
+        @Override
+        public void onDownloadUpdate(WaypointV2MissionDownloadEvent waypointV2MissionDownloadEvent) {
+
+        }
+
+        @Override
+        public void onUploadUpdate(WaypointV2MissionUploadEvent uploadEvent) {
+            if ((uploadEvent.getError() != null)) {
+                // deal with the progress or the error info
+            }
+
+            if (uploadEvent.getCurrentState() == WaypointV2MissionState.READY_TO_EXECUTE) {
+                // Can upload actions in it.
+                // getWaypointMissionOperator().uploadWaypointActions();
+            }
+            if (uploadEvent.getPreviousState() == WaypointV2MissionState.UPLOADING
+                    && uploadEvent.getCurrentState() == WaypointV2MissionState.READY_TO_EXECUTE ) {
+            }
+
+
+            mWaypoint.startWaypointMission(mMissionOperator);
+        }
+
+        @Override
+        public void onExecutionUpdate(WaypointV2MissionExecutionEvent waypointV2MissionExecutionEvent) {
+
+        }
+
+        @Override
+        public void onExecutionStart() {
+
+        }
+
+        @Override
+        public void onExecutionFinish(DJIWaypointV2Error djiWaypointV2Error) {
+            isend = true;
+        }
+
+        @Override
+        public void onExecutionStopped() {
+
+        }
+    };
+
+    /**
+     * 绕圈飞行
+     * @param r 圆形轨迹的半径（米）
+     */
+    private void flyWithCircle(double r){
+        //获取车辆上方的无人机位置
+        droneLocation = callback.getDroneLocation();
+        droneAlt = droneLocation.getAltitude();
+        droneLat = droneLocation.getLatitude();
+        droneLon = droneLocation.getLongitude();
+
+        //获取车辆的位置
+        objAlt = 1;
+        objLat = droneLat;
+        objLon = droneLon;
+
+        //根据r 计算航点 绕圈飞行的航点坐标
+        //初始化航点操作类
+        mWaypoint = new Waypoint();
+        mMissionOperator = getWaypointMissionOperator(mMissionOperator);
+        mMissionOperator.addWaypointEventListener(eventNotificationListener);
+
+        // 清空现有航点
+        if (mWaypoint.waypointMissionBuilder != null) {
+            mWaypoint.waypointMissionBuilder = null;
+        }
+
+        // 设置飞行高度（海拔高度）
+        mWaypoint.altitude = (float) droneAlt;
+        
+        // 定义航点数量 - 8个点可以形成一个较为平滑的圆形
+        int numberOfWaypoints = 6;
+
+        float inital_angle = (float) (180 - (360 / numberOfWaypoints)) /2;
+        float normal_angle = (float) (360 / numberOfWaypoints);
+        float inital_bearing = callback.getHeading();
+
+        // 计算并添加每个航点
+        for (int i = 0; i < numberOfWaypoints; i++) {
+            double bearing = 0;
+
+            if(i == 0) {
+                bearing = callback.getHeading() + inital_angle;
+            } else{
+                bearing -= normal_angle;
+            }
+            // 使用Utils工具类计算目标坐标
+            double[] destination = Utils.calcDestination(objLat, objLon, bearing, r);
+            double waypointLat = destination[0];
+            double waypointLon = destination[1];
+            
+            // 添加航点
+            mWaypoint.AddWaypoint(waypointLat, waypointLon);
+            
+            // 记录日志
+            int finalI = i;
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, 
+                    String.format("添加航点 %d: 纬度 %.6f, 经度 %.6f", finalI +1, waypointLat, waypointLon));
+            });
+        }
+        
+        // 添加最后一个航点（返回起始点，形成闭环）
+        double[] firstPoint = Utils.calcDestination(objLat, objLon, inital_bearing, r);
+        mWaypoint.AddWaypoint(firstPoint[0], firstPoint[1]);
+        
+        // 执行航点任务
+        startWaypointMission(r);
+
+        new Thread(() -> {
+            try{
+                //调整云台位姿定时任务，在绕圈飞行过程中，每5秒调整一次云台位姿
+                while(!isend){
+                    adjustGimbal();
+                    SleepThread(5000);
+                }
+                
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "绕圈飞行过程中出错: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * 开始执行航点任务
+     */
+    private void startWaypointMission(double r) {
+        runOnUiThread(() -> {
+            callback.addChatMessage(Constant.OWNER_BOT, "开始执行绕圈飞行任务...");
+        });
+        
+        if (mMissionOperator != null && mWaypoint.waypointMissionBuilder != null) {
+            try {
+                mWaypoint.configWayPointMission(mMissionOperator);
+                mWaypoint.uploadWayPointMission(mMissionOperator);
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "创建任务异常: " + e.getMessage());
+                });
+            }
+        } else {
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "任务操作器或任务构建器未初始化");
+            });
+
+            // 备用方案：如果无法使用航点任务，则使用虚拟摇杆进行简单圆形飞行
+            performManualCircularFlight(r);
+        }
+    }
+    
+    /**
+     * 使用虚拟摇杆执行简单的圆形飞行（备用方案）
+     * @param radius 圆形半径
+     */
+    private void performManualCircularFlight(double radius) {
+        runOnUiThread(() -> {
+            callback.addChatMessage(Constant.OWNER_BOT, "使用手动控制模式执行绕圈飞行...");
+        });
+        
+        new Thread(() -> {
+            try {
+                // 定义飞行段数
+                int segments = 8;
+                double angleIncrement = 360.0 / segments;
+                
+                // 从北方向开始
+                double currentBearing = 0;
+                
+                // 执行每个飞行段
+                for (int i = 0; i < segments; i++) {
+                    // 计算目标方向（顺时针旋转）
+                    double targetBearing = currentBearing + angleIncrement;
+                    
+                    // 转向
+                    mSingletonVirtualStickExecutor.mTurn(303, (int)(targetBearing - currentBearing));
+                    SleepThread(2000); // 等待无人机转向
+                    
+                    // 计算弧长
+                    double arcLength = 2 * Math.PI * radius / segments;
+                    
+                    // 向前飞行弧长距离
+                    mSingletonVirtualStickExecutor.mGo(301, arcLength);
+                    SleepThread(3000); // 等待无人机到达位置
+                    
+                    // 更新当前方向
+                    currentBearing = targetBearing;
+                }
+                
+                // 完成圆形飞行后开始车辆识别
+                recognizeCarBrand();
+                
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "手动圆形飞行过程中出错: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * 实时调整云台位姿，使其始终对准车辆
+     * 根据无人机与车辆的相对位置计算云台的绝对角度
+     */
+    @SuppressLint("DefaultLocale")
+    private void adjustGimbal() {
+        try {
+            // 1. 获取当前无人机位置
+            LocationCoordinate3D currentDroneLocation = callback.getDroneLocation();
+            double droneLat = currentDroneLocation.getLatitude();
+            double droneLon = currentDroneLocation.getLongitude();
+            double droneAlt = currentDroneLocation.getAltitude();
+            
+            // 2. 计算从无人机到车辆的方位角（航向角）
+            double bearingToVehicle = Utils.calcBearing(droneLat, droneLon, objLat, objLon);
+            
+            // 3. 获取无人机当前航向
+            float droneHeading = callback.getHeading();
+            
+            // 4. 计算云台需要的yaw角度（相对于无人机航向）
+            // 云台yaw需要补偿无人机航向，使其始终指向车辆
+            float yawAngle = (float)(bearingToVehicle - droneHeading);
+            
+            // 归一化角度到 -180° 到 180° 范围
+            while (yawAngle > 180) yawAngle -= 360;
+            while (yawAngle < -180) yawAngle += 360;
+            
+            // 5. 计算俯仰角（pitch）
+            // 计算水平距离
+            double horizontalDistance = Utils.calcDistance(droneLat, droneLon, objLat, objLon);
+            
+            // 计算高度差
+            double heightDifference = droneAlt - objAlt;
+            
+            // 计算俯仰角（负值表示向下）
+            // tan(pitch) = 高度差 / 水平距离
+            float pitchAngle = (float) -Math.toDegrees(Math.atan2(heightDifference, horizontalDistance));
+            
+            // 6. 计算横滚角（roll）- 通常在这种场景下保持为0
+            float rollAngle = 0.0f;
+            
+            // 记录日志
+            float finalYawAngle = yawAngle;
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, 
+                    String.format("调整云台: 航向(Yaw)=%.1f°, 俯仰(Pitch)=%.1f°, 横滚(Roll)=%.1f°",
+                            finalYawAngle, pitchAngle, rollAngle));
+            });
+            
+            // 7. 应用计算出的角度到云台
+            gimbalControl.rotateGimbalAbsolute(pitchAngle, yawAngle, rollAngle);
+            
+        } catch (Exception e) {
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "云台调整出错: " + e.getMessage());
+            });
+        }
+    }
+
+    /**
+     * 获取航点控制权
+     * @param instance
+     * @return
+     */
+    public WaypointV2MissionOperator getWaypointMissionOperator(WaypointV2MissionOperator instance) {
+        if (instance == null) {
+            MissionControl missionControl = DJISDKManager.getInstance().getMissionControl();
+            if (missionControl != null) {
+                instance = missionControl.getWaypointMissionV2Operator();
+            }
+        }
+        return instance;
+    }
+
+
     /**
      * 保存为图像文件
      * @param bitmap

@@ -364,7 +364,7 @@ public class yoloSamTrack {
         mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
         float currHeading = mCI.mFlightController.getCompass().getHeading();
         mYaw += currHeading;
-        mSingletonVirtualStickExecutor.mMove(mYaw,mPitch);
+        mSingletonVirtualStickExecutor.mMovewith(mYaw,mPitch);
         runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT,"执行完毕"));
     }
 

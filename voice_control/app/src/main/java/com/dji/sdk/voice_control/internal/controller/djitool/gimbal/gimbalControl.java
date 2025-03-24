@@ -22,7 +22,7 @@ public class gimbalControl {
      */
     public void rotateGimbalDownwardView() {
         // 对于绝大多数 DJI 云台来说，-90° 表示正对地面
-        rotateGimbal(-90.0f, 0.0f, 0.0f);
+        rotateGimbalAbsolute(-90.0f, 0.0f, 0.0f);
     }
 
     /**
@@ -30,7 +30,7 @@ public class gimbalControl {
      */
     public void rotateGimbalForwardView() {
         // 0° 表示水平前视
-        rotateGimbal(0.0f, 0.0f, 0.0f);
+        rotateGimbalAbsolute(0.0f, 0.0f, 0.0f);
     }
 
     /**
@@ -39,10 +39,28 @@ public class gimbalControl {
      * @param yawValue
      * @param rollValue
      */
-    private void rotateGimbal(float pitchValue,float yawValue,float rollValue) {
+    public void rotateGimbalAbsolute(float pitchValue,float yawValue,float rollValue) {
 
         Rotation rotation = new Rotation.Builder().pitch(pitchValue)
                 .mode(RotationMode.ABSOLUTE_ANGLE)
+                .yaw(yawValue)
+                .roll(rollValue)
+                .time(0)
+                .build();
+
+        sendRotateGimbalCommand(rotation);
+    }
+
+    /**
+     * 以绝对坐标系旋转相机云台
+     * @param pitchValue
+     * @param yawValue
+     * @param rollValue
+     */
+    private void rotateGimbalRelative(float pitchValue,float yawValue,float rollValue) {
+
+        Rotation rotation = new Rotation.Builder().pitch(pitchValue)
+                .mode(RotationMode.RELATIVE_ANGLE)
                 .yaw(yawValue)
                 .roll(rollValue)
                 .time(0)
