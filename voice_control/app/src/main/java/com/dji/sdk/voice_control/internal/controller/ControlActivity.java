@@ -104,6 +104,7 @@ import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTS;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent_fixed;
 import com.dji.sdk.voice_control.internal.controller.interfaces.GPTSCallback;
 import com.dji.sdk.voice_control.internal.controller.interfaces.IChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.interfaces.IJSONMessage;
@@ -285,7 +286,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private ToggleButton mBtnSimulator;
 
     //手动控制
-    private Button mFlightControlTab;
+    private Button mllmAgent;
     //endregion
 
     //region 语音识别的数据结构
@@ -460,6 +461,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     gimbalControl gimbalControl = new gimbalControl();
     yoloSamTrack yoloSamTrack;
     llm_agent llmAgent;
+    llm_agent_fixed llmAgentFixed;
     private boolean isflying = false;
     //endregion
 
@@ -684,6 +686,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //初始化
         yoloSamTrack = new yoloSamTrack(networkClient,mCI.mFlightController,mCI,uiCallback);
         llmAgent = new llm_agent(mCI,mCI.mFlightController,fpvTexture,uiCallback);
+        llmAgentFixed = new llm_agent_fixed(mCI,mCI.mFlightController,fpvTexture,uiCallback);
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -1037,7 +1040,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mBtnDownload = (Button) navView.findViewById(R.id.btn_to_download);
         mBtnWaypoint = (Button) navView.findViewById(R.id.btn_waypoint);
         drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-        mFlightControlTab = (Button) findViewById(R.id.Flight_control_tab);
+        mllmAgent = (Button) findViewById(R.id.llm_agent);
 
         Button problemButton = findViewById(R.id.problem_buttion);
         RelativeLayout mRlSend = (RelativeLayout) findViewById(R.id.rl_send);
@@ -1047,7 +1050,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button openDrawerButton = findViewById(R.id.btn_open_drawer);
         Button nogps_takeoff = findViewById(R.id.btn_nogps_takeoff);
         Button set_home_current = findViewById(R.id.set_home_current);
-        Button test = findViewById(R.id.test);
+        Button yolo_track = findViewById(R.id.yolo_track);
+        Button llm_agent_fixed = findViewById(R.id.llm_agent_fixed);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
@@ -1133,12 +1137,15 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             v.getContext().startActivity(intent4);
             drawerLayout.closeDrawer(GravityCompat.START);
         });
-        mFlightControlTab.setOnClickListener(v -> {
+        mllmAgent.setOnClickListener(v -> {
             llmAgent.agentFindCar();
         });
-        test.setOnClickListener(v -> {
+        yolo_track.setOnClickListener(v -> {
             isDialogVisible = false;
             yoloSamTrack.handleObjectTracking();
+        });
+        llm_agent_fixed.setOnClickListener(v -> {
+            llmAgentFixed.agentFindCar();
         });
         set_home_current.setOnClickListener(v ->{
            if(mCI.mFlightController!=null){

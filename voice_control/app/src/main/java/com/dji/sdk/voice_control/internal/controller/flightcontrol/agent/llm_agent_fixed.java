@@ -147,11 +147,16 @@ public class llm_agent_fixed {
 
                 //设置一个合理的飞行高度
                 //向上飞8米
-                mSingletonVirtualStickExecutor.mUp(8);
-                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-
-                //开始锁定目标
-                performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
+                LocationCoordinate3D dronelocations = callback.getDroneLocation();
+                if(dronelocations.getAltitude() < 3 ){
+                    mSingletonVirtualStickExecutor.mUp(3);
+                    SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+                    //开始锁定目标
+                    performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
+                } else {
+                    //开始锁定目标
+                    performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
+                }
 
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -180,19 +185,6 @@ public class llm_agent_fixed {
         runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);});
         runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, "思考中...");});
 
-//        auavLock("sendquestion");
-//        sendQuestionToGPTAsync(direction_prompt, imageFile,true, new OnGptResultListener() {
-//            @Override
-//            public void onSuccess(String gptResult) {
-//                auavLock("continue");
-//            }
-//            @Override
-//            public void onFailure(Exception e) {
-//                callback.addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
-//                auavLock("continue");
-//            }
-//        });
-//        auavSpin();
 
         runOnUiThread(() -> {showToast("成功");});
         String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile,true);
@@ -239,22 +231,75 @@ public class llm_agent_fixed {
      * @param ascendHeight   每次上升的高度
      */
     private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) throws Exception {
-        boolean isFind = doSearch(0);
-        if (isFind) {
+        // 每次旋转角度
+        final int ROTATION_ANGLE = 45;
+        // 当前高度的旋转次数 (360度 / 45度 = 8次)
+        final int MAX_ROTATIONS = 8;
+        
+        // 执行360度环视搜索
+        performRotationalSearch(currentAttempt, maxAttempts, ascendHeight, 0, MAX_ROTATIONS, ROTATION_ANGLE);
+    }
+    
+    /**
+     * 执行旋转式搜索，先旋转一周，如果没找到再上升高度
+     * 
+     * @param currentAttempt 当前高度尝试次数
+     * @param maxAttempts 最大高度尝试次数
+     * @param ascendHeight 每次上升高度
+     * @param currentRotation 当前旋转次数
+     * @param maxRotations 最大旋转次数(一般为8，对应360度)
+     * @param rotationAngle 每次旋转角度
+     */
+    private void performRotationalSearch(
+            int currentAttempt, 
+            int maxAttempts, 
+            int ascendHeight, 
+            int currentRotation, 
+            int maxRotations, 
+            int rotationAngle) throws Exception {
+        
+        // 当前位置执行搜索
+        boolean isFound = doSearch(0);
+        
+        // 如果找到目标，停止搜索
+        if (isFound) {
             runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
-                mSingletonVirtualStickExecutor.mStop();
+            mSingletonVirtualStickExecutor.mStop();
             return;
         }
-
-        if (currentAttempt < maxAttempts) {
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米..."));
-            mSingletonVirtualStickExecutor.mUp(5);
-            // 睡 6 秒再搜下一次
+        
+        // 如果已经旋转完一周仍未找到目标
+        if (currentRotation >= maxRotations) {
+            // 已经达到最大尝试次数，结束搜索
+            if (currentAttempt >= maxAttempts) {
+                runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, 
+                    "已完成" + maxAttempts + "次高度搜索，共" + (maxRotations * maxAttempts) + "次扫描，未找到车辆。"));
+                mSingletonVirtualStickExecutor.mStop();
+                return;
+            }
+            
+            // 上升到新高度
+            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, 
+                String.format("已旋转360度未找到车辆，当前为第%d次搜索，上升%d米继续...", 
+                currentAttempt + 1, ascendHeight)));
+            
+            mSingletonVirtualStickExecutor.mUp(ascendHeight);
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-            performSearch(currentAttempt+1,maxAttempts,ascendHeight);
+            
+            // 在新高度开始新一轮360度搜索
+            performRotationalSearch(currentAttempt + 1, maxAttempts, ascendHeight, 0, maxRotations, rotationAngle);
         } else {
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
-            mSingletonVirtualStickExecutor.mStop();
+            // 继续旋转搜索
+            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, 
+                String.format("第%d次高度，第%d次旋转搜索未找到车辆，旋转%d度继续搜索...", 
+                currentAttempt + 1, currentRotation + 1, rotationAngle)));
+            
+            // 旋转无人机
+            mSingletonVirtualStickExecutor.mTurn(303, rotationAngle);
+            SleepThread(SLEEP_BETWEEN_SEARCH_MS); // 等待旋转和稳定
+            
+            // 在新角度继续搜索
+            performRotationalSearch(currentAttempt, maxAttempts, ascendHeight, currentRotation + 1, maxRotations, rotationAngle);
         }
     }
 

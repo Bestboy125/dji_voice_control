@@ -292,7 +292,7 @@
                 android:textSize="12sp" />
 
             <Button
-                android:id="@+id/Flight_control_tab"
+                android:id="@+id/llm_agent"
                 android:layout_width="0dp"
                 android:layout_height="36dp"
                 android:layout_weight="1"
@@ -304,7 +304,7 @@
                 android:textSize="12sp" />
 
             <Button
-                android:id="@+id/test"
+                android:id="@+id/yolo_track"
                 android:layout_width="0dp"
                 android:layout_height="36dp"
                 android:layout_weight="1"
@@ -312,6 +312,19 @@
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
                 android:text="YOLO追踪"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+
+            <Button
+                android:id="@+id/llm_agent_fixed"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/round_btn"
+                android:text="llm搜索绕圈"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
         </LinearLayout>
