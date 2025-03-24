@@ -55,17 +55,17 @@ public class llm_agent {
     private String direction_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
             "\n" +
             "推理过程：\n" +
-            "- 描述您如何判断图中是否有白色轿车,置信度水平如何。\n" +
-            "- 解释您对白色轿车位置（左、中、右）的判断依据。\n" +
-            "- 描述您如何估算白色轿车占据图像的比例。\n" +
+            "- 描述您如何判断图中是否有红色轿车,置信度水平如何。\n" +
+            "- 解释您对红色轿车位置（左、中、右）的判断依据。\n" +
+            "- 描述您如何估算红色轿车占据图像的比例。\n" +
             "\n" +
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
             "  \"has_white_car\": 布尔值（true或false），\n" +
-            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有白色轿车的把握，\n" +
-            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述白色轿车在图像中的位置\",\n" +
-            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计白色轿车占据图像的比例，\n" +
+            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有红色轿车的把握，\n" +
+            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述红色轿车在图像中的位置\",\n" +
+            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计红色轿车占据图像的比例，\n" +
             "}\n" +
             "\n" +
             "**注意：**\n" +
@@ -400,12 +400,12 @@ public class llm_agent {
                 // 目标在左侧，向左移动
                 callback.addChatMessage(Constant.OWNER_BOT, 
                     String.format("车辆在图像左侧，向左移动%.2f米", horizontalMoveDistance));
-                mSingletonVirtualStickExecutor.mGo(302, horizontalMoveDistance);
+                mSingletonVirtualStickExecutor.mGo(303, horizontalMoveDistance);
             } else {
                 // 目标在右侧，向右移动
                 callback.addChatMessage(Constant.OWNER_BOT, 
                     String.format("车辆在图像右侧，向右移动%.2f米", horizontalMoveDistance));
-                mSingletonVirtualStickExecutor.mGo(303, horizontalMoveDistance);
+                mSingletonVirtualStickExecutor.mGo(304, horizontalMoveDistance);
             }
             
             // 水平移动后短暂暂停，让无人机稳定
@@ -447,7 +447,7 @@ public class llm_agent {
         }
 
         // 2. 构造识别请求
-        String brandPrompt = "请识别图片中白色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
+        String brandPrompt = "请识别图片中红色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
         callback.addChatMessage(Constant.OWNER_BOT, "正在识别车标，请稍候...");
 
         try{

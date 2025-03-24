@@ -1,4 +1,4 @@
-package com.dji.sdk.voice_control.internal.controller.voice_input;
+package com.dji.sdk.voice_control.internal.controller.flightcontrol;
 
 import android.text.TextUtils;
 

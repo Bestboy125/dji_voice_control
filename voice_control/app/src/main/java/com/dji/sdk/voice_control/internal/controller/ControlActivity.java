@@ -120,8 +120,8 @@ import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint;
 import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.view.BaseRtspFpvView;
 import com.dji.sdk.voice_control.internal.controller.view.BatteryView;
-import com.dji.sdk.voice_control.internal.controller.voice_input.CommandClassifier;
-import com.dji.sdk.voice_control.internal.controller.voice_input.CommandConfirmationDialogFragment;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandClassifier;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint2Activity;
 
 import dji.sdk.flightcontroller.FlightAssistant;
@@ -3608,7 +3608,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 "20. 飞向+lat,lon：飞向指定点\n" +
                 "21. 俯视图：切换俯视\n" +
                 "22. 前视图：切换前视\n" +
-                "23. 自动搜索：自动搜索白车靠近并识别车标\n" +
+                "23. 自动搜索：自动搜索红车靠近并识别车标\n" +
                 "24. 停止跟踪：停止跟踪\n" +
                 "25. 开始目标跟踪: 目标跟踪";
 
