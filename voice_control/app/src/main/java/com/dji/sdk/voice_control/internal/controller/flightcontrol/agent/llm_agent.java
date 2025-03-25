@@ -3,6 +3,7 @@ package com.dji.sdk.voice_control.internal.controller.flightcontrol.agent;
 import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.showToast;
 import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
+import android.annotation.SuppressLint;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -56,17 +57,17 @@ public class llm_agent {
     private String direction_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
             "\n" +
             "推理过程：\n" +
-            "- 描述您如何判断图中是否有红色轿车,置信度水平如何。\n" +
-            "- 解释您对红色轿车位置（左、中、右）的判断依据。\n" +
-            "- 描述您如何估算红色轿车占据图像的比例。\n" +
+            "- 描述您如何判断图中是否有黑色轿车,置信度水平如何。\n" +
+            "- 解释您对黑色轿车位置（左、中、右）的判断依据。\n" +
+            "- 描述您如何估算黑色轿车占据图像的比例。\n" +
             "\n" +
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
             "  \"has_white_car\": 布尔值（true或false），\n" +
-            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有红色轿车的把握，\n" +
-            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述红色轿车在图像中的位置\",\n" +
-            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计红色轿车占据图像的比例，\n" +
+            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
+            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述黑色轿车在图像中的位置\",\n" +
+            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
             "}\n" +
             "\n" +
             "**注意：**\n" +
@@ -74,7 +75,7 @@ public class llm_agent {
             "- 不要在JSON对象之外添加额外的文本或注释。\n" +
             "- 请避免使用诸如抱歉，我无法查看或分析图片内容的句子，尽可能基于图像提供回答。\n" +
             "- 只需要判断目标在图像的左、右或者中间，不要回复类似左中(center-left)的回答。\n" +
-            "- 请注意轿车通常具有完整白色轿车轮廓。";
+            "- 请注意轿车通常具有完整黑色轿车轮廓。";
     private String Gpt_result;
 
 
@@ -88,7 +89,6 @@ public class llm_agent {
     double objLat = 0.0;
     double objAlt = 0.0;
     //endregion
-
 
     //构造函数
     public llm_agent(
@@ -112,20 +112,21 @@ public class llm_agent {
     public void agentFindCar() {
         // 初始化虚拟摇杆执行器
         mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+
+        //起飞
+        if(!callback.getisFlying()){
+            mCI.mTakeoff();
+        }
+        SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+
+        //设置一个合理的飞行高度
+        //向上飞8米
+        mSingletonVirtualStickExecutor.mUp(8);
+        SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+
         // 开启新线程
         new Thread(() -> {
             try {
-                //起飞
-                if(callback.getisFlying()){
-                    mCI.mTakeoff();
-                }
-                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-
-                //设置一个合理的飞行高度
-                //向上飞8米
-                mSingletonVirtualStickExecutor.mUp(8);
-                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-
                 //开始锁定目标
                 performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
 
@@ -156,19 +157,6 @@ public class llm_agent {
         runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);});
         runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, "思考中...");});
 
-//        auavLock("sendquestion");
-//        sendQuestionToGPTAsync(direction_prompt, imageFile,true, new OnGptResultListener() {
-//            @Override
-//            public void onSuccess(String gptResult) {
-//                auavLock("continue");
-//            }
-//            @Override
-//            public void onFailure(Exception e) {
-//                callback.addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
-//                auavLock("continue");
-//            }
-//        });
-//        auavSpin();
 
         runOnUiThread(() -> {showToast("成功");});
         String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile,true);
@@ -218,7 +206,6 @@ public class llm_agent {
         boolean isFind = doSearch(0);
         if (isFind) {
             runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
-                mSingletonVirtualStickExecutor.mStop();
             return;
         }
 
@@ -234,7 +221,6 @@ public class llm_agent {
         }
     }
 
-
     //靠近
 
     /**
@@ -247,6 +233,7 @@ public class llm_agent {
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
+    @SuppressLint("DefaultLocale")
     private void performCloseToSearch(int currentAttempt, int maxAttempts) {
         if( currentAttempt>maxAttempts ){
             recognizeCarBrand();
@@ -275,6 +262,11 @@ public class llm_agent {
                 int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                 int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
                 boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
+
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%, 有无白车：%s",
+                                locationDesc, confidence, proportion,has_car)
+                );
 
                 if(has_car && confidence>=80){
                     callback.addChatMessage(Constant.OWNER_BOT,
@@ -451,7 +443,7 @@ public class llm_agent {
         }
 
         // 2. 构造识别请求
-        String brandPrompt = "请识别图片中红色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
+        String brandPrompt = "请识别图片中黑色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
         callback.addChatMessage(Constant.OWNER_BOT, "正在识别车标，请稍候...");
 
         try{
@@ -501,7 +493,7 @@ public class llm_agent {
     public File CaptureImage(){
 
 //        Resources res = callback.mgetResources();
-//        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.car);
+//        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.search_frame1);
 //        File imageFile = saveBitmapAsFile(bitmap,"frame1.jpg");
 
         Bitmap bitmap = mfpvTexture.getBitmap();
