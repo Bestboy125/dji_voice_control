@@ -769,44 +769,6 @@ public class MyVirtualStickExecutor {
     //TODO 更改延迟，优化代码
 
     /**
-     * Move
-     */
-    public void mGoWithSpeed(int movingDirection, double optionalDis) {
-        mMode = MyVirtualStickExecutorMode.MOVE_WITHOUT_DIS;
-        checkSendVirtualStickDataTimer();
-        destroyLocationTrackTimer();
-
-        int dir[] = {0, 1, 0, -1, 0};
-        int idx = 0;
-        if (movingDirection == 302) {
-            idx = 2;
-        } else if (movingDirection == 303) {
-            idx = 3;
-        } else if (movingDirection == 304) {
-            idx = 1;
-        }
-        mPitch = (float) (mSpeed * dir[idx]);
-        mRoll = (float) (mSpeed * dir[idx + 1]);
-
-        if (optionalDis != -1) {
-            secFlag = true;
-            mMode = MyVirtualStickExecutorMode.MOVE_DIS_SPEED;
-            double bearing = mFlightController.getCompass().getHeading();
-            if (movingDirection == 302) {
-                bearing -= 180;
-            } else if (movingDirection == 303) {
-                bearing -= 90;
-            } else if (movingDirection == 304) {
-                bearing += 90;
-            }
-            double homeLat = mFlightController.getState().getAircraftLocation().getLatitude();
-            double homeLog = mFlightController.getState().getAircraftLocation().getLongitude();
-            double tar[] = Utils.calcDestination(homeLat, homeLog, bearing, optionalDis);
-            check2DLocationTrackTimer(mMode, homeLat, homeLog, tar[0], tar[1]);
-        }
-    }
-
-    /**
      * move with yaw and speed
      */
     public void mMovewith(float yaw, float roll) {
@@ -825,6 +787,41 @@ public class MyVirtualStickExecutor {
         mYaw = yaw;
         mRoll = roll;
         mPitch = pitch;
+    }
+
+    /**
+     * 执行简单移动指令（前后左右移动固定距离）
+     * @param direction 移动方向 (1=前, 2=后, 3=左, 4=右)
+     * @param distance 移动距离（米）
+     */
+    public void simpleMove(int direction, float distance) {
+        // 停止当前所有移动
+        mStop();
+
+        // 根据方向设置控制值
+        switch (direction) {
+            case 1: // 前
+                mPitch = distance/2; // 正值向前
+                break;
+            case 2: // 后
+                mPitch = -distance/2; // 负值向后
+                break;
+            case 3: // 左
+                mRoll = -distance/2; // 负值向左
+                break;
+            case 4: // 右
+                mRoll = distance/2; // 正值向右
+                break;
+        }
+
+        // 设置定时器，1秒后归零
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                mPitch = 0;
+                mRoll = 0;
+            }
+        }, 2000); // 1秒后执行
     }
     //endregion
 

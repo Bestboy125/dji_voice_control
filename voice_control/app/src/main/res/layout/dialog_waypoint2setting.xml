@@ -186,36 +186,6 @@
         android:layout_marginBottom="10dp"
         android:layout_marginTop="10dp"
         android:layout_marginLeft="10dp"
-        android:layout_marginRight="10dp">
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="GoToFirst Mode:"/>
-    </LinearLayout>
+        android:layout_marginRight="10dp"/>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal" >
-        <RadioGroup
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:id="@+id/go_to_first_mode"
-            android:checkedButton="@id/rb_safely"
-            android:layout_gravity="center_horizontal">
-            <RadioButton
-                android:id="@+id/rb_safely"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="5pt"
-                android:text="safely"/>
-            <RadioButton
-                android:id="@+id/rb_p2p"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="5pt"
-                android:text="P2P"/>
-        </RadioGroup>
-    </LinearLayout>
 </LinearLayout>

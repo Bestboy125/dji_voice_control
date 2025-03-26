@@ -1,6 +1,8 @@
 package com.dji.sdk.voice_control.internal.controller;
 
 
+import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.setResultToToast;
+
 import android.app.Dialog;
 import android.content.res.Resources;
 
@@ -97,6 +99,7 @@ import com.dji.sdk.voice_control.internal.controller.adapter.ChatListAdapter;
 import com.dji.sdk.voice_control.internal.controller.djitool.DownloadActivity;
 import com.dji.sdk.voice_control.internal.controller.djitool.LiveStream;
 import com.dji.sdk.voice_control.internal.controller.djitool.VideoActivity;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypointv1;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystick;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystickListener;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent;
@@ -117,7 +120,6 @@ import com.dji.sdk.voice_control.internal.controller.adapter.DetectedObjectsAdap
 import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.yoloSamTrack;
 import com.dji.sdk.voice_control.internal.controller.utils.Utils;
-import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint;
 import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.view.BaseRtspFpvView;
 import com.dji.sdk.voice_control.internal.controller.view.BatteryView;
@@ -126,6 +128,12 @@ import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandConfir
 import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint2Activity;
 
 import dji.common.flightcontroller.LocationCoordinate3D;
+import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
+import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
+import dji.common.mission.waypoint.WaypointMissionFinishedAction;
+import dji.common.mission.waypoint.WaypointMissionState;
+import dji.common.mission.waypoint.WaypointMissionUploadEvent;
+import dji.common.mission.waypointv2.WaypointV2MissionState;
 import dji.sdk.flightcontroller.FlightAssistant;
 
 import com.dji.sdk.voice_control.internal.djidemo.utils.AMapUtil;
@@ -144,6 +152,7 @@ import com.iflytek.cloud.SpeechUtility;
 import com.iflytek.cloud.ui.RecognizerDialog;
 import com.iflytek.cloud.ui.RecognizerDialogListener;
 
+import org.apache.commons.logging.LogFactory;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -188,6 +197,8 @@ import dji.log.DJILog;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.mission.MissionControl;
+import dji.sdk.mission.waypoint.WaypointMissionOperator;
+import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
@@ -210,6 +221,7 @@ import com.pedro.rtsp.utils.ConnectCheckerRtsp;
 
 public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator, ControlActivityCallback {
 
+    private static final org.apache.commons.logging.Log log = LogFactory.getLog(ControlActivity.class);
     //region 标记
     private boolean iscommond = false;
     private boolean iswaypoint = false;
@@ -344,8 +356,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 航点数据结构
-    private Waypoint mWaypoint;
-    private WaypointV2MissionOperator mMissionOperator;
+    private Waypointv1 mWaypoint;
+    private WaypointMissionOperator mMissionOperator;
     private String mTargetDes;
     //endregion
 
@@ -649,8 +661,14 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
 
         //初始化航点操作类
-        mWaypoint = new Waypoint(ControlActivity.this);
+        mWaypoint = new Waypointv1(ControlActivity.this);
+        Log.d(TAG, "Before mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
         mMissionOperator = getWaypointMissionOperator(mMissionOperator);
+        Log.d(TAG, "After mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
+        if (mMissionOperator == null) {
+            Log.e(TAG, "Failed to initialize WaypointV2MissionOperator - check drone connection status");
+        }
+        mMissionOperator.addListener(eventNotificationListener);
 
         //实例化命令分类器
         cc1 = new CommandClassifier();
@@ -1052,6 +1070,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button set_home_current = findViewById(R.id.set_home_current);
         Button yolo_track = findViewById(R.id.yolo_track);
         Button llm_agent_fixed = findViewById(R.id.llm_agent_fixed);
+        Button test_control = findViewById(R.id.test_control);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
@@ -1146,6 +1165,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         });
         llm_agent_fixed.setOnClickListener(v -> {
             llmAgentFixed.agentFindCar();
+        });
+        test_control.setOnClickListener(v -> {
+            showSimpleMoveDialog();
         });
         set_home_current.setOnClickListener(v ->{
            if(mCI.mFlightController!=null){
@@ -2028,10 +2050,21 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * @param instance
      * @return
      */
-    public WaypointV2MissionOperator getWaypointMissionOperator(WaypointV2MissionOperator instance) {
+    public WaypointMissionOperator getWaypointMissionOperator(WaypointMissionOperator instance) {
+        Log.d(TAG, "getWaypointMissionOperator: Called with instance " + (instance == null ? "null" : "not null"));
+        
         if (instance == null) {
+            Log.d(TAG, "getWaypointMissionOperator: Instance is null, requesting from DJISampleApplication");
             instance = DJISampleApplication.getWaypointMissionOperator();
+            if (instance == null) {
+                Log.e(TAG, "getWaypointMissionOperator: Failed to get instance from DJISampleApplication");
+            } else {
+                Log.d(TAG, "getWaypointMissionOperator: Successfully obtained instance from DJISampleApplication");
+            }
+        } else {
+            Log.d(TAG, "getWaypointMissionOperator: Using existing instance");
         }
+        
         return instance;
     }
 
@@ -3099,6 +3132,43 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
+    private WaypointMissionOperatorListener eventNotificationListener = new WaypointMissionOperatorListener() {
+        @Override
+        public void onDownloadUpdate(WaypointMissionDownloadEvent downloadEvent) {
+
+        }
+
+        @Override
+        public void onUploadUpdate(WaypointMissionUploadEvent uploadEvent) {
+            if ((uploadEvent.getError() != null)) {
+                Log.d(TAG, uploadEvent.getError().getDescription());
+            }
+
+            if (uploadEvent.getPreviousState() == WaypointMissionState.UPLOADING
+                    && uploadEvent.getCurrentState() == WaypointMissionState.READY_TO_EXECUTE ) {
+                // upload complete, can start mission
+                // getWaypointMissionOperator().startMission();
+                mWaypoint.canStartMission = true;
+            }
+            mWaypoint.startWaypointMission(mMissionOperator);
+        }
+
+        @Override
+        public void onExecutionUpdate(WaypointMissionExecutionEvent executionEvent) {
+
+        }
+
+        @Override
+        public void onExecutionStart() {
+
+        }
+
+        @Override
+        public void onExecutionFinish(@Nullable final DJIError error) {
+            setResultToToast("Execution finished: " + (error == null ? "Success!" : error.getDescription()));
+        }
+    };
+
     /**
      * 自动执行转变手动添加模式
      */
@@ -3693,18 +3763,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         RadioGroup speed_RG = (RadioGroup) wayPointSettings.findViewById(R.id.speed);
         RadioGroup actionAfterFinished_RG = (RadioGroup) wayPointSettings.findViewById(R.id.actionAfterFinished);
         RadioGroup heading_RG = (RadioGroup) wayPointSettings.findViewById(R.id.heading);
-        RadioGroup firstModeRg = wayPointSettings.findViewById(R.id.go_to_first_mode);
-
-        firstModeRg.setOnCheckedChangeListener((group, checkedId) -> {
-            switch (checkedId) {
-                case R.id.rb_p2p:
-                    mWaypoint.firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.POINT_TO_POINT;
-                    break;
-                case R.id.rb_safely:
-                    mWaypoint.firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
-                    break;
-            }
-        });
 
         speed_RG.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
 
@@ -3727,13 +3785,13 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             public void onCheckedChanged(RadioGroup group, int checkedId) {
                 Log.d(TAG, "Select finish action");
                 if (checkedId == R.id.finishNone) {
-                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.NO_ACTION;
+                    mWaypoint.mFinishedAction = WaypointMissionFinishedAction.NO_ACTION;
                 } else if (checkedId == R.id.finishGoHome) {
-                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.GO_HOME;
+                    mWaypoint.mFinishedAction = WaypointMissionFinishedAction.GO_HOME;
                 } else if (checkedId == R.id.finishAutoLanding) {
-                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.AUTO_LAND;
+                    mWaypoint.mFinishedAction = WaypointMissionFinishedAction.AUTO_LAND;
                 } else if (checkedId == R.id.finishToFirst) {
-                    mWaypoint.mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.GO_FIRST_WAYPOINT;
+                    mWaypoint.mFinishedAction = WaypointMissionFinishedAction.GO_FIRST_WAYPOINT;
                 }
 //                else if (checkedId == R.id.untilStop) {
 //                    mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.CONTINUE_UNTIL_STOP;
@@ -4366,4 +4424,67 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //region yolosam后端服务器初始化
 
     //endregion
+
+    /**
+     * 显示简单移动对话框，让用户设置移动方向和距离
+     */
+    private void showSimpleMoveDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("设置移动参数");
+        
+        // 创建布局
+        View view = getLayoutInflater().inflate(R.layout.dialog_simple_move, null);
+        builder.setView(view);
+        
+        // 获取控件引用
+        RadioGroup rgDirection = view.findViewById(R.id.rg_direction);
+        EditText etDistance = view.findViewById(R.id.et_distance);
+        
+        // 设置确定按钮
+        builder.setPositiveButton("确定", (dialog, which) -> {
+            // 获取选中的方向
+            int direction = 1; // 默认向前
+            int checkedId = rgDirection.getCheckedRadioButtonId();
+            if (checkedId == R.id.rb_forward) {
+                direction = 1; // 前
+            } else if (checkedId == R.id.rb_backward) {
+                direction = 2; // 后
+            } else if (checkedId == R.id.rb_left) {
+                direction = 3; // 左
+            } else if (checkedId == R.id.rb_right) {
+                direction = 4; // 右
+            }
+            
+            // 获取距离
+            float distance = 1.0f; // 默认1米
+            try {
+                String distanceStr = etDistance.getText().toString();
+                if (!TextUtils.isEmpty(distanceStr)) {
+                    distance = Float.parseFloat(distanceStr);
+                }
+            } catch (NumberFormatException e) {
+                showToast("距离格式错误，使用默认值1米");
+            }
+            
+            // 执行移动命令
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+            mSingletonVirtualStickExecutor.simpleMove(direction, distance);
+            
+            // 显示执行的命令信息
+            String dirStr = "";
+            switch (direction) {
+                case 1: dirStr = "前"; break;
+                case 2: dirStr = "后"; break;
+                case 3: dirStr = "左"; break;
+                case 4: dirStr = "右"; break;
+            }
+            showToast("执行移动命令：" + dirStr + " " + distance + "米");
+        });
+        
+        // 设置取消按钮
+        builder.setNegativeButton("取消", null);
+        
+        // 显示对话框
+        builder.create().show();
+    }
 }

@@ -135,7 +135,7 @@ public class llm_agent {
      * 入口函数
      */
     public void agentFindCar() {
-        // 开启新线程
+        // 开启新线程 锁定目标线程
         new Thread(() -> {
             // 初始化虚拟摇杆执行器
             mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
@@ -199,6 +199,7 @@ public class llm_agent {
                 response += "\n车辆已锁定!";
                 String finalResponse = response;
                 runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, finalResponse);});
+                //目标靠近线程
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -301,14 +302,13 @@ public class llm_agent {
                         // 调整无人机位置
                         adjustDronePosition(locationDesc, proportion);
                     } else {
-                        isfindCar = true;
                         count_false_front ++;
                         if(count_false_front == 2){
+                            use_front = false;
                             gimbalControl gimbalControl = new gimbalControl();
                             gimbalControl.rotateGimbalDownwardView();
                             callback.addChatMessage(Constant.OWNER_BOT,"正在切换俯视图");
                         }
-                        callback.addChatMessage(Constant.OWNER_BOT, "靠近车辆完毕。");
                     }
                 }
             } catch (Exception e) {
@@ -346,7 +346,7 @@ public class llm_agent {
                         count_false_back ++;
                         if(count_false_back == 3){
                             performSearch(0,MAX_SEARCH_ATTEMPTS);
-                            callback.addChatMessage(Constant.OWNER_BOT,"正在切换俯视图");
+                            callback.addChatMessage(Constant.OWNER_BOT,"俯视图和前视图均未找到，重新搜索场景");
                         }
                     }
                 }

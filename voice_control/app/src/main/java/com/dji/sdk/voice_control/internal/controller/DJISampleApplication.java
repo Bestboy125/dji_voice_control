@@ -3,6 +3,7 @@ package com.dji.sdk.voice_control.internal.controller;
 import android.app.Application;
 import android.content.Context;
 import android.os.Bundle;
+import android.util.Log;
 
 import com.iflytek.cloud.SpeechConstant;
 import com.iflytek.cloud.SpeechUtility;
@@ -17,6 +18,7 @@ import dji.sdk.base.BaseProduct;
 import dji.sdk.camera.Camera;
 import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.gimbal.Gimbal;
+import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
 import dji.sdk.products.HandHeld;
@@ -77,14 +79,24 @@ public class DJISampleApplication extends Application {
         return camera;
     }
 
-    public static synchronized WaypointV2MissionOperator getWaypointMissionOperator() {
-        if (getProductInstance() == null) return null;
-        WaypointV2MissionOperator operator = null;
-        if (getProductInstance() instanceof Aircraft){
-            operator = DJISDKManager.getInstance().getMissionControl().getWaypointMissionV2Operator();
-        } else if (getProductInstance() instanceof HandHeld) {
-            operator = DJISDKManager.getInstance().getMissionControl().getWaypointMissionV2Operator();
+    public static synchronized WaypointMissionOperator getWaypointMissionOperator() {
+        if (getProductInstance() == null) {
+            Log.e(TAG, "getWaypointMissionOperator: Product instance is null - drone not connected?");
+            return null;
         }
+
+        WaypointMissionOperator operator = null;
+        try {
+            operator = DJISDKManager.getInstance().getMissionControl().getWaypointMissionOperator();
+            if (operator == null) {
+                Log.e(TAG, "getWaypointMissionOperator: Failed to get waypointMissionV2Operator from MissionControl");
+            } else {
+                Log.d(TAG, "getWaypointMissionOperator: Successfully obtained waypointMissionV2Operator");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "getWaypointMissionOperator: Exception getting waypointMissionV2Operator: " + e.getMessage());
+        }
+        
         return operator;
     }
 

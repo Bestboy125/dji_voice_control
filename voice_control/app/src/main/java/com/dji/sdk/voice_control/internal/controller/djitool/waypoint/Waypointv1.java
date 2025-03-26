@@ -5,65 +5,59 @@ import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.setRes
 import android.content.Context;
 import android.util.Log;
 import android.view.View;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 
 import dji.common.error.DJIError;
 import dji.common.error.DJIWaypointV2Error;
+import dji.common.mission.waypoint.Waypoint;
+import dji.common.mission.waypoint.WaypointMission;
+import dji.common.mission.waypoint.WaypointMissionFinishedAction;
+import dji.common.mission.waypoint.WaypointMissionFlightPathMode;
 import dji.common.mission.waypoint.WaypointMissionHeadingMode;
-import dji.common.mission.waypointv2.Action.WaypointV2Action;
 import dji.common.mission.waypointv2.WaypointV2;
-import dji.common.mission.waypointv2.WaypointV2Mission;
 import dji.common.mission.waypointv2.WaypointV2MissionTypes;
 import dji.common.model.LocationCoordinate2D;
 import dji.common.util.CommonCallbacks;
-import dji.sdk.flightcontroller.FlightController;
-import dji.sdk.flightcontroller.RTK;
+import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 
-import com.amap.api.maps2d.model.Marker;
-
-public class Waypoint {
+public class Waypointv1 {
 
     private static final String TAG = "Waypoint";
     private View view;
     private Context mContext;
 
-    Waypoint(View v){
+    Waypointv1(View v){
         this.view = v;
         Log.d(TAG, "Waypoint initialized with view");
     }
 
-    public Waypoint(Context mContext){
+    public Waypointv1(Context mContext){
         this.mContext = mContext;
         Log.d(TAG, "Waypoint initialized with context");
     }
 
-    public Waypoint(){
+    public Waypointv1(){
         Log.d(TAG, "Waypoint initialized with default constructor");
     }
 
     //region 数据结构
 
-    public float altitude = 100.0f;
-    public float mSpeed = 10.0f;
+    public float altitude = 5.0f;
+    public float mSpeed = 3.0f;
 
-    public static WaypointV2Mission.Builder waypointMissionBuilder;
-    public WaypointV2MissionOperator instance;
-    public WaypointV2MissionTypes.MissionFinishedAction mFinishedAction = WaypointV2MissionTypes.MissionFinishedAction.NO_ACTION;
+    public static WaypointMission.Builder waypointMissionBuilder;
+    public WaypointMissionOperator instance;
+    public WaypointMissionFinishedAction mFinishedAction = WaypointMissionFinishedAction.NO_ACTION;
     public WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
     public WaypointV2MissionTypes.MissionGotoWaypointMode firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
     public boolean canUploadMission;
     public boolean canStartMission;
     //endregion
 
-    public int getWaypointCount(WaypointV2MissionOperator instance){
+    public int getWaypointCount(WaypointMissionOperator instance){
         int count = waypointMissionBuilder.getWaypointCount();
         Log.d(TAG, "getWaypointCount: " + count);
         return count;
@@ -72,14 +66,11 @@ public class Waypoint {
 
     public void AddWaypoint(double latitude,double longitude) {
         Log.d(TAG, "Adding waypoint at latitude: " + latitude + ", longitude: " + longitude + ", altitude: " + altitude);
-        WaypointV2 mWaypoint = new WaypointV2.Builder()
-                .setAltitude(altitude)
-                .setCoordinate(new LocationCoordinate2D(latitude, longitude))
-                .build();
+        Waypoint mWaypoint = new Waypoint(latitude,longitude,altitude);
         //Add Waypoints to Waypoint arraylist;
         if (waypointMissionBuilder == null) {
             Log.d(TAG, "waypointMissionBuilder was null, creating new instance");
-            waypointMissionBuilder = new WaypointV2Mission.Builder();
+            waypointMissionBuilder = new WaypointMission.Builder();
         }
         waypointMissionBuilder.addWaypoint(mWaypoint);
         Log.d(TAG, "Waypoint added successfully, total waypoints: " + waypointMissionBuilder.getWaypointCount());
@@ -97,10 +88,7 @@ public class Waypoint {
 
     public void RemoveWaypoint(double latitude,double longitude){
         Log.d(TAG, "Removing waypoint at latitude: " + latitude + ", longitude: " + longitude);
-        WaypointV2 mWaypoint = new WaypointV2.Builder()
-                .setAltitude(altitude)
-                .setCoordinate(new LocationCoordinate2D(latitude, longitude))
-                .build();
+        Waypoint mWaypoint = new Waypoint(latitude,longitude,altitude);
         try {
             waypointMissionBuilder.removeWaypoint(mWaypoint);
             Log.d(TAG, "Waypoint removed successfully, remaining waypoints: " + waypointMissionBuilder.getWaypointCount());
@@ -109,41 +97,34 @@ public class Waypoint {
         }
     }
 
-    public void configWayPointMission(WaypointV2MissionOperator instance) {
+    public void configWayPointMission(WaypointMissionOperator instance) {
         Log.d(TAG, "Configuring waypoint mission");
         if (waypointMissionBuilder == null) {
             Log.d(TAG, "waypointMissionBuilder was null, creating new instance");
-            waypointMissionBuilder = new WaypointV2Mission.Builder();
+            waypointMissionBuilder = new WaypointMission.Builder();
         }
         
         Log.d(TAG, "Mission config: finishedAction=" + mFinishedAction + 
               ", firstMode=" + firstMode + 
               ", speed=" + mSpeed + 
               ", waypointCount=" + waypointMissionBuilder.getWaypointCount());
-              
-        waypointMissionBuilder.setFinishedAction(mFinishedAction)
-                .setMissionID(new Random().nextInt(65535))
-                .setGotoFirstWaypointMode(firstMode)
-                .setMaxFlightSpeed(mSpeed)
-                .setAutoFlightSpeed(mSpeed);
 
-        instance.loadMission(waypointMissionBuilder.build(), new CommonCallbacks.CompletionCallback<DJIWaypointV2Error>() {
-            @Override
-            public void onResult(DJIWaypointV2Error error) {
-                if (error == null) {
-                    Log.i(TAG, "loadWaypoint succeeded");
-                    setResultToToast("loadWaypoint succeeded");
-                } else {
-                    Log.e(TAG, "loadWaypoint failed: " + error.getDescription() + ", errorCode: " + error.getErrorCode());
-                    setResultToToast("loadWaypoint failed " + error.getDescription());
-                }
-                canUploadMission = true;
-                Log.d(TAG, "canUploadMission set to: " + canUploadMission);
-            }
-        });
+        waypointMissionBuilder.finishedAction(mFinishedAction)
+                .headingMode(mHeadingMode)
+                .autoFlightSpeed(mSpeed)
+                .maxFlightSpeed(mSpeed)
+                .flightPathMode(WaypointMissionFlightPathMode.NORMAL);
+
+        DJIError error = instance.loadMission(waypointMissionBuilder.build());
+        if (error == null) {
+            setResultToToast("loadWaypoint succeeded");
+            canUploadMission = true;
+        } else {
+            setResultToToast("loadWaypoint failed " + error.getDescription());
+        }
     }
 
-    public void uploadWayPointMission(WaypointV2MissionOperator instance) {
+    public void uploadWayPointMission(WaypointMissionOperator instance) {
         Log.d(TAG, "Attempting to upload waypoint mission, canUploadMission: " + canUploadMission);
         if (!canUploadMission) {
             Log.w(TAG, "Cannot upload mission, prerequisite not met");
@@ -168,7 +149,7 @@ public class Waypoint {
         });
     }
 
-    public void startWaypointMission(WaypointV2MissionOperator instance) {
+    public void startWaypointMission(WaypointMissionOperator instance) {
         Log.d(TAG, "Attempting to start waypoint mission, canStartMission: " + canStartMission);
         if (!canStartMission) {
             Log.w(TAG, "Cannot start mission, prerequisite not met");
@@ -190,7 +171,7 @@ public class Waypoint {
         });
     }
 
-    public void stopWaypointMission(WaypointV2MissionOperator instance) {
+    public void stopWaypointMission(WaypointMissionOperator instance) {
         Log.d(TAG, "Attempting to stop waypoint mission");
         instance.stopMission(new CommonCallbacks.CompletionCallback() {
             @Override

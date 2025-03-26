@@ -1,5 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller.flightcontrol.agent;
 
+import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.setResultToToast;
 import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.showToast;
 import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
@@ -9,11 +10,13 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.view.TextureView;
 
+import androidx.annotation.Nullable;
+
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.ControlActivity;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
-import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypointv1;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.MyVirtualStickExecutor;
 import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
@@ -26,14 +29,20 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import dji.common.error.DJIError;
 import dji.common.error.DJIWaypointV2Error;
 import dji.common.flightcontroller.LocationCoordinate3D;
+import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
+import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
+import dji.common.mission.waypoint.WaypointMissionUploadEvent;
 import dji.common.mission.waypointv2.WaypointV2MissionDownloadEvent;
 import dji.common.mission.waypointv2.WaypointV2MissionExecutionEvent;
 import dji.common.mission.waypointv2.WaypointV2MissionState;
 import dji.common.mission.waypointv2.WaypointV2MissionUploadEvent;
 import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.mission.MissionControl;
+import dji.sdk.mission.waypoint.WaypointMissionOperator;
+import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.common.mission.waypointv2.WaypointV2;
 import dji.common.mission.waypointv2.WaypointV2Mission;
@@ -106,8 +115,8 @@ public class llm_agent_fixed {
     double objAlt = 0.0;
 
     //航点数据结构
-    private Waypoint mWaypoint;
-    private WaypointV2MissionOperator mMissionOperator;
+    private Waypointv1 mWaypoint;
+    private WaypointMissionOperator mMissionOperator;
     private gimbalControl gimbalControl;
 
     private boolean isend = false;
@@ -561,33 +570,19 @@ public class llm_agent_fixed {
 
     }
 
-    private WaypointV2MissionOperatorListener eventNotificationListener = new WaypointV2MissionOperatorListener() {
-
+    private WaypointMissionOperatorListener eventNotificationListener = new WaypointMissionOperatorListener() {
         @Override
-        public void onDownloadUpdate(WaypointV2MissionDownloadEvent waypointV2MissionDownloadEvent) {
+        public void onDownloadUpdate(WaypointMissionDownloadEvent downloadEvent) {
 
         }
 
         @Override
-        public void onUploadUpdate(WaypointV2MissionUploadEvent uploadEvent) {
-            if ((uploadEvent.getError() != null)) {
-                // deal with the progress or the error info
-            }
-
-            if (uploadEvent.getCurrentState() == WaypointV2MissionState.READY_TO_EXECUTE) {
-                // Can upload actions in it.
-                // getWaypointMissionOperator().uploadWaypointActions();
-            }
-            if (uploadEvent.getPreviousState() == WaypointV2MissionState.UPLOADING
-                    && uploadEvent.getCurrentState() == WaypointV2MissionState.READY_TO_EXECUTE ) {
-            }
-
-
+        public void onUploadUpdate(WaypointMissionUploadEvent uploadEvent) {
             mWaypoint.startWaypointMission(mMissionOperator);
         }
 
         @Override
-        public void onExecutionUpdate(WaypointV2MissionExecutionEvent waypointV2MissionExecutionEvent) {
+        public void onExecutionUpdate(WaypointMissionExecutionEvent executionEvent) {
 
         }
 
@@ -597,13 +592,9 @@ public class llm_agent_fixed {
         }
 
         @Override
-        public void onExecutionFinish(DJIWaypointV2Error djiWaypointV2Error) {
+        public void onExecutionFinish(@Nullable final DJIError error) {
             isend = true;
-        }
-
-        @Override
-        public void onExecutionStopped() {
-
+            setResultToToast("Execution finished: " + (error == null ? "Success!" : error.getDescription()));
         }
     };
 
@@ -625,9 +616,9 @@ public class llm_agent_fixed {
 
         //根据r 计算航点 绕圈飞行的航点坐标
         //初始化航点操作类
-        mWaypoint = new Waypoint();
+        mWaypoint = new Waypointv1();
         mMissionOperator = getWaypointMissionOperator(mMissionOperator);
-        mMissionOperator.addWaypointEventListener(eventNotificationListener);
+        mMissionOperator.addListener(eventNotificationListener);
 
         // 清空现有航点
         if (mWaypoint.waypointMissionBuilder != null) {
@@ -700,7 +691,7 @@ public class llm_agent_fixed {
             callback.addChatMessage(Constant.OWNER_BOT, "开始执行绕圈飞行任务...");
         });
         
-        if (mMissionOperator != null && mWaypoint.waypointMissionBuilder != null) {
+        if (mMissionOperator != null) {
             try {
                 mWaypoint.configWayPointMission(mMissionOperator);
                 mWaypoint.uploadWayPointMission(mMissionOperator);
@@ -832,11 +823,11 @@ public class llm_agent_fixed {
      * @param instance
      * @return
      */
-    public WaypointV2MissionOperator getWaypointMissionOperator(WaypointV2MissionOperator instance) {
+    public WaypointMissionOperator getWaypointMissionOperator(WaypointMissionOperator instance) {
         if (instance == null) {
             MissionControl missionControl = DJISDKManager.getInstance().getMissionControl();
             if (missionControl != null) {
-                instance = missionControl.getWaypointMissionV2Operator();
+                instance = missionControl.getWaypointMissionOperator();
             }
         }
         return instance;
