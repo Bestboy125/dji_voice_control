@@ -12,6 +12,7 @@ public enum MyVirtualStickExecutorMode {
     DOWN_DIS,
     MOVE_WITHOUT_DIS,
     MOVE_DIS,
+    MOVE_DIS_SPEED,
     FLY_TO,
     TURN,
     STOP

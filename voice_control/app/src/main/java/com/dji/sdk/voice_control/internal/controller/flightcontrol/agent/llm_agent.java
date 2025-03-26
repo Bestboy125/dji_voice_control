@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.TextureView;
 
 import com.dji.sdk.voice_control.R;
+import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
 import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.ControlActivity;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
@@ -41,7 +42,7 @@ public class llm_agent {
     private static final String TEMPLATE="Please answer the following question: {question}";
     // 常量定义
     private static final int MAX_SEARCH_ATTEMPTS = 100;
-    private static final int SLEEP_BETWEEN_SEARCH_MS = 2000;
+    private static final int SLEEP_BETWEEN_SEARCH_MS = 5000;
     private static final int CLOSE_POSITION_PROPORTION_THRESHOLD = 60;
     private static final int COMMAND_UP_ANGLE = 5;
     private static final String IMAGE_FILE_NAME = "frame.jpg";
@@ -55,6 +56,30 @@ public class llm_agent {
 
     //提示词
     private String direction_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
+            "\n" +
+            "推理过程：\n" +
+            "- 描述您如何判断图中是否有黑色轿车,置信度水平如何。\n" +
+            "- 解释您对黑色轿车位置（左、中、右）的判断依据。\n" +
+            "- 描述您如何估算黑色轿车占据图像的比例。\n" +
+            "\n" +
+            "请在推理过程之后，输出JSON格式的答案：\n" +
+            "\n" +
+            "{\n" +
+            "  \"has_white_car\": 布尔值（true或false），\n" +
+            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
+            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述黑色轿车在图像中的位置\",\n" +
+            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
+            "}\n" +
+            "\n" +
+            "**注意：**\n" +
+            "- 请先输出推理过程，然后在下一行输出JSON对象。\n" +
+            "- 不要在JSON对象之外添加额外的文本或注释。\n" +
+            "- 请避免使用诸如抱歉，我无法查看或分析图片内容的句子，尽可能基于图像提供回答。\n" +
+            "- 只需要判断目标在图像的左、右或者中间，不要回复类似左中(center-left)的回答。\n" +
+            "- 请注意轿车通常具有完整黑色轿车轮廓。";
+
+    //提示词
+    private String center_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
             "\n" +
             "推理过程：\n" +
             "- 描述您如何判断图中是否有黑色轿车,置信度水平如何。\n" +
@@ -110,25 +135,25 @@ public class llm_agent {
      * 入口函数
      */
     public void agentFindCar() {
-        // 初始化虚拟摇杆执行器
-        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
-
-        //起飞
-        if(!callback.getisFlying()){
-            mCI.mTakeoff();
-        }
-        SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-
-        //设置一个合理的飞行高度
-        //向上飞8米
-        mSingletonVirtualStickExecutor.mUp(8);
-        SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-
         // 开启新线程
         new Thread(() -> {
+            // 初始化虚拟摇杆执行器
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+
+            //起飞
+            if(!callback.getisFlying()){
+                mCI.mTakeoff();
+            }
+            SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+
+            //设置一个合理的飞行高度
+            //向上飞8米
+            mSingletonVirtualStickExecutor.mUp(8);
+            SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+
             try {
                 //开始锁定目标
-                performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
+                performSearch(1, MAX_SEARCH_ATTEMPTS);
 
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -177,6 +202,8 @@ public class llm_agent {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
+                        count_false_front = 0;
+                        count_false_back = 0;
                         Close_to();
                     }
                 }).start();
@@ -187,6 +214,7 @@ public class llm_agent {
                 // 转动视角
                 MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
                 executor.mTurn(303, 10);
+                SleepThread(3000);
             }
         }
         if(!result[0]){
@@ -200,21 +228,19 @@ public class llm_agent {
      *
      * @param currentAttempt 当前尝试次数
      * @param maxAttempts    最大尝试次数
-     * @param ascendHeight   每次上升的高度
      */
-    private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) throws Exception {
+    private void performSearch(int currentAttempt, int maxAttempts) throws Exception {
         boolean isFind = doSearch(0);
         if (isFind) {
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
             return;
         }
 
         if (currentAttempt < maxAttempts) {
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 " + ascendHeight + " 米..."));
-            mSingletonVirtualStickExecutor.mUp(5);
+            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 "));
+            mSingletonVirtualStickExecutor.mUp(3);
             // 睡 6 秒再搜下一次
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-            performSearch(currentAttempt+1,maxAttempts,ascendHeight);
+            performSearch(currentAttempt+1,maxAttempts);
         } else {
             runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
             mSingletonVirtualStickExecutor.mStop();
@@ -230,6 +256,9 @@ public class llm_agent {
         performCloseToSearch(1, MAX_SEARCH_ATTEMPTS);
     }
 
+    boolean use_front = true;
+    int count_false_back = 0;
+    int count_false_front = 0;
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
@@ -243,48 +272,89 @@ public class llm_agent {
             return;
         }
 
-        File imageFile = CaptureImage();
-        Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+        if(use_front){
+            File imageFile = CaptureImage();
+            Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
 
-        callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
-        callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
-        callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
+            callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
+            callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
+            callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
 
-        try {
-            String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile, true);
-            JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
-            String response = parseResult.getInferenceProcess();
+            try {
+                String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile, true);
+                JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
+                String response = parseResult.getInferenceProcess();
 
-            if (parseResult.getJsonData() == null) {
-                callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
-            } else {
-                String locationDesc = parseResult.getJsonData().optString("location_description", "center");
-                int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
-                int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
-
-                callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%, 有无白车：%s",
-                                locationDesc, confidence, proportion,has_car)
-                );
-
-                if(has_car && confidence>=80){
-                    callback.addChatMessage(Constant.OWNER_BOT,
-                            String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
-                                    locationDesc, confidence, proportion)
-                    );
-
-                    // 调整无人机位置
-                    adjustDronePosition(locationDesc, proportion);
+                if (parseResult.getJsonData() == null) {
+                    callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
                 } else {
-                    isfindCar = true;
-                    recognizeCarBrand();
-                    callback.addChatMessage(Constant.OWNER_BOT, "靠近车辆完毕。");
+                    String locationDesc = parseResult.getJsonData().optString("location_description", "center");
+                    int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
+                    int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
+                    boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
+
+                    if(has_car && confidence>=80){
+                        callback.addChatMessage(Constant.OWNER_BOT,
+                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                                        locationDesc, confidence, proportion)
+                        );
+                        // 调整无人机位置
+                        adjustDronePosition(locationDesc, proportion);
+                    } else {
+                        isfindCar = true;
+                        count_false_front ++;
+                        if(count_false_front == 2){
+                            gimbalControl gimbalControl = new gimbalControl();
+                            gimbalControl.rotateGimbalDownwardView();
+                            callback.addChatMessage(Constant.OWNER_BOT,"正在切换俯视图");
+                        }
+                        callback.addChatMessage(Constant.OWNER_BOT, "靠近车辆完毕。");
+                    }
                 }
+            } catch (Exception e) {
+                callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
             }
-        } catch (Exception e) {
-            callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+        } else{
+            File imageFile = CaptureImage();
+            Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+
+            callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
+            callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
+            callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
+
+            try {
+                String gptResult = callback.sendQuestionToGPTSync(center_prompt, imageFile, true);
+                JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
+                String response = parseResult.getInferenceProcess();
+
+                if (parseResult.getJsonData() == null) {
+                    callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
+                } else {
+                    String locationDesc = parseResult.getJsonData().optString("location_description", "center");
+                    int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
+                    int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
+                    boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
+
+                    if(has_car && confidence>=80){
+                        callback.addChatMessage(Constant.OWNER_BOT,
+                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                                        locationDesc, confidence, proportion)
+                        );
+                        // 调整无人机位置
+                        adjustDronePosition(locationDesc, proportion);
+                    } else {
+                        count_false_back ++;
+                        if(count_false_back == 3){
+                            performSearch(0,MAX_SEARCH_ATTEMPTS);
+                            callback.addChatMessage(Constant.OWNER_BOT,"正在切换俯视图");
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+            }
         }
+
         if (!isfindCar) {
             // 递归调用，继续靠近搜索
             performCloseToSearch(currentAttempt+1,maxAttempts);
@@ -410,6 +480,7 @@ public class llm_agent {
                 String.format("车辆已大致位于中心，占比为%.0f%%，向前移动%.2f米靠近...", 
                 proximityFactor * 100, forwardMoveDistance));
             mSingletonVirtualStickExecutor.mGo(301, forwardMoveDistance);
+            SleepThread(500);
         } else {
             // 目标基本居中且接近，微调位置
             if (proximityFactor < 0.8) {

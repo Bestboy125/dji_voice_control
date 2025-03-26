@@ -2030,10 +2030,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      */
     public WaypointV2MissionOperator getWaypointMissionOperator(WaypointV2MissionOperator instance) {
         if (instance == null) {
-            MissionControl missionControl = DJISDKManager.getInstance().getMissionControl();
-            if (missionControl != null) {
-                instance = missionControl.getWaypointMissionV2Operator();
-            }
+            instance = DJISampleApplication.getWaypointMissionOperator();
         }
         return instance;
     }
@@ -2845,6 +2842,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             llmAgent.agentFindCar();
         } else if (command.contains("俯视图")){
             gimbalControl.rotateGimbalDownwardView();
+            addChatMessage(Constant.OWNER_BOT,"切换俯视图");
         } else if (command.contains("前视图")){
             gimbalControl.rotateGimbalForwardView();
         } else if (command.contains("开始目标跟踪")){

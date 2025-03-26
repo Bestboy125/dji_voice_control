@@ -141,19 +141,19 @@ public class llm_agent_fixed {
         // 开启新线程
         new Thread(() -> {
             try {
-//                //起飞
-//                if(!callback.getisFlying()){
-//                    mCI.mTakeoff();
-//                }
-//                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-//
-//                //设置一个合理的飞行高度
-//                //向上飞8米
-//                LocationCoordinate3D dronelocations = callback.getDroneLocation();
-//                if(dronelocations.getAltitude() < 3 ){
-//                    mSingletonVirtualStickExecutor.mUp(3);
-//                    SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-//                }
+                //起飞
+                if(!callback.getisFlying()){
+                    mCI.mTakeoff();
+                }
+                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+
+                //设置一个合理的飞行高度
+                //向上飞8米
+                LocationCoordinate3D dronelocations = callback.getDroneLocation();
+                if(dronelocations.getAltitude() < 3 ){
+                    mSingletonVirtualStickExecutor.mUp(3);
+                    SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+                }
                 //开始锁定目标
                 performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
             } catch (Exception e) {

@@ -16,6 +16,8 @@ import java.util.Objects;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.camera.Camera;
 import dji.sdk.flightcontroller.FlightController;
+import dji.sdk.gimbal.Gimbal;
+import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
 import dji.sdk.products.HandHeld;
 import dji.sdk.sdkmanager.BluetoothProductConnector;
@@ -75,8 +77,23 @@ public class DJISampleApplication extends Application {
         return camera;
     }
 
+    public static synchronized WaypointV2MissionOperator getWaypointMissionOperator() {
+        if (getProductInstance() == null) return null;
+        WaypointV2MissionOperator operator = null;
+        if (getProductInstance() instanceof Aircraft){
+            operator = DJISDKManager.getInstance().getMissionControl().getWaypointMissionV2Operator();
+        } else if (getProductInstance() instanceof HandHeld) {
+            operator = DJISDKManager.getInstance().getMissionControl().getWaypointMissionV2Operator();
+        }
+        return operator;
+    }
+
     public static synchronized FlightController getFlightController(){
         return Objects.requireNonNull(getAircraftInstance()).getFlightController();
+    }
+
+    public static synchronized Gimbal getGimbal(){
+        return Objects.requireNonNull(getAircraftInstance()).getGimbal();
     }
 
     public static synchronized HandHeld getHandHeldInstance() {
@@ -85,6 +102,8 @@ public class DJISampleApplication extends Application {
         }
         return (HandHeld) getProductInstance();
     }
+
+
 
     public static Application getInstance() {
         return DJISampleApplication.app;
