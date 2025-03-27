@@ -5,15 +5,15 @@ import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.showTo
 import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
 import android.annotation.SuppressLint;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.util.Log;
 import android.view.TextureView;
 
 import androidx.annotation.Nullable;
 
-import com.dji.sdk.voice_control.R;
-import com.dji.sdk.voice_control.internal.controller.ControlActivity;
+import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
+import com.dji.sdk.voice_control.internal.controller.MainActivity;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
 import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypointv1;
@@ -30,29 +30,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import dji.common.error.DJIError;
-import dji.common.error.DJIWaypointV2Error;
 import dji.common.flightcontroller.LocationCoordinate3D;
 import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
 import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
+import dji.common.mission.waypoint.WaypointMissionState;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
-import dji.common.mission.waypointv2.WaypointV2MissionDownloadEvent;
-import dji.common.mission.waypointv2.WaypointV2MissionExecutionEvent;
-import dji.common.mission.waypointv2.WaypointV2MissionState;
-import dji.common.mission.waypointv2.WaypointV2MissionUploadEvent;
 import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.mission.MissionControl;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
-import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
-import dji.common.mission.waypointv2.WaypointV2;
-import dji.common.mission.waypointv2.WaypointV2Mission;
-import dji.common.mission.waypointv2.WaypointV2MissionTypes;
-import dji.common.mission.waypoint.WaypointMissionHeadingMode;
-import dji.common.model.LocationCoordinate2D;
-import dji.sdk.mission.waypoint.WaypointV2MissionOperatorListener;
 import dji.sdk.sdkmanager.DJISDKManager;
 
-public class llm_agent_fixed {
+public class llm_agent_cycle {
 
     private FlightController mFlightController;
     private CommandInterpreter mCI;
@@ -66,7 +55,7 @@ public class llm_agent_fixed {
     private static final String TEMPLATE="Please answer the following question: {question}";
     // 常量定义
     private static final int MAX_SEARCH_ATTEMPTS = 100;
-    private static final int SLEEP_BETWEEN_SEARCH_MS = 2000;
+    private static final int SLEEP_BETWEEN_SEARCH_MS = 5000;
     private static final int CLOSE_POSITION_PROPORTION_THRESHOLD = 60;
     private static final int COMMAND_UP_ANGLE = 5;
     private static final String IMAGE_FILE_NAME = "frame.jpg";
@@ -89,9 +78,9 @@ public class llm_agent_fixed {
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
-            "  \"has_white_car\": 布尔值（true或false），\n" +
+            "  \"has_car\": 布尔值（true或false），\n" +
             "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
-            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述黑色轿车在图像中的位置\",\n" +
+            "  \"location_description\": \"字符串，'left'、'center' 或 'right'，描述黑色轿车在图像中的位置\",\n" +
             "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
             "}\n" +
             "\n" +
@@ -101,8 +90,32 @@ public class llm_agent_fixed {
             "- 请避免使用诸如抱歉，我无法查看或分析图片内容的句子，尽可能基于图像提供回答。\n" +
             "- 只需要判断目标在图像的左、右或者中间，不要回复类似左中(center-left)的回答。\n" +
             "- 请注意轿车通常具有完整黑色轿车轮廓。";
-    private String Gpt_result;
 
+    //提示词
+    private String center_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
+            "\n" +
+            "推理过程：\n" +
+            "- 描述您如何判断图中是否有黑色轿车,置信度水平如何。\n" +
+            "- 解释您对黑色轿车位置（中、上，下）的判断依据。\n" +
+            "- 描述您如何估算黑色轿车占据图像的比例。\n" +
+            "\n" +
+            "请在推理过程之后，输出JSON格式的答案：\n" +
+            "\n" +
+            "{\n" +
+            "  \"has_car\": 布尔值（true或false），\n" +
+            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
+            "  \"location_description\": \"字符串，'forward'、'center' 或 'backward'，描述黑色轿车在图像中的位置\",\n" +
+            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
+            "}\n" +
+            "\n" +
+            "**注意：**\n" +
+            "- 请先输出推理过程，然后在下一行输出JSON对象。\n" +
+            "- 不要在JSON对象之外添加额外的文本或注释。\n" +
+            "- 请避免使用诸如抱歉，我无法查看或分析图片内容的句子，尽可能基于图像提供回答。\n" +
+            "- 只需要判断目标在图像的前、后或者中间，不要回复类似左中(center-left)的回答。\n" +
+            "- 请注意轿车通常具有完整黑色轿车轮廓。";
+    private String Gpt_result;
+    private static final String TAG = MainActivity.class.getName();
 
     //无人机信息
     LocationCoordinate3D droneLocation = new LocationCoordinate3D(0,0,0);
@@ -122,9 +135,8 @@ public class llm_agent_fixed {
     private boolean isend = false;
     //endregion
 
-
     //构造函数
-    public llm_agent_fixed(
+    public llm_agent_cycle(
             CommandInterpreter commandInterpreter,
             FlightController flightController,
             TextureView textureView,
@@ -134,8 +146,6 @@ public class llm_agent_fixed {
         this.mFlightController = flightController;
         this.mfpvTexture = textureView;
         this.callback = callback;
-
-        gimbalControl = new gimbalControl();
     }
 
 
@@ -145,26 +155,26 @@ public class llm_agent_fixed {
      * 入口函数
      */
     public void agentFindCar() {
-//        // 初始化虚拟摇杆执行器
-//        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
-        // 开启新线程
+        // 开启新线程 锁定目标线程
         new Thread(() -> {
-            try {
-                //起飞
-                if(!callback.getisFlying()){
-                    mCI.mTakeoff();
-                }
-                SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+            // 初始化虚拟摇杆执行器
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
 
-                //设置一个合理的飞行高度
-                //向上飞8米
-                LocationCoordinate3D dronelocations = callback.getDroneLocation();
-                if(dronelocations.getAltitude() < 3 ){
-                    mSingletonVirtualStickExecutor.mUp(3);
-                    SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-                }
+            //起飞
+            if(!callback.getisFlying()){
+                mCI.mTakeoff();
+            }
+            SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+
+            //设置一个合理的飞行高度
+            //向上飞8米
+            mSingletonVirtualStickExecutor.mUp(8);
+            SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+
+            try {
                 //开始锁定目标
-                performSearch(1, MAX_SEARCH_ATTEMPTS, COMMAND_UP_ANGLE);
+                performSearch(1, MAX_SEARCH_ATTEMPTS);
+
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -201,7 +211,7 @@ public class llm_agent_fixed {
         if (parseResult.getJsonData() == null) {
             runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");});
         } else {
-            boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_white_car", false);
+            boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_car", false);
             int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
 
             if (hasWhiteCar && confidence >= 80) {
@@ -209,9 +219,13 @@ public class llm_agent_fixed {
                 response += "\n车辆已锁定!";
                 String finalResponse = response;
                 runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, finalResponse);});
+                //目标靠近线程
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
+                        count_false_front = 0;
+                        count_false_back = 0;
+                        count_center = 0;
                         Close_to();
                     }
                 }).start();
@@ -222,6 +236,7 @@ public class llm_agent_fixed {
                 // 转动视角
                 MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
                 executor.mTurn(303, 10);
+                SleepThread(3000);
             }
         }
         if(!result[0]){
@@ -235,81 +250,24 @@ public class llm_agent_fixed {
      *
      * @param currentAttempt 当前尝试次数
      * @param maxAttempts    最大尝试次数
-     * @param ascendHeight   每次上升的高度
      */
-    private void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) throws Exception {
-        // 每次旋转角度
-        final int ROTATION_ANGLE = 45;
-        // 当前高度的旋转次数 (360度 / 45度 = 8次)
-        final int MAX_ROTATIONS = 8;
-        
-        // 执行360度环视搜索
-        performRotationalSearch(currentAttempt, maxAttempts, ascendHeight, 0, MAX_ROTATIONS, ROTATION_ANGLE);
-    }
-    
-    /**
-     * 执行旋转式搜索，先旋转一周，如果没找到再上升高度
-     * 
-     * @param currentAttempt 当前高度尝试次数
-     * @param maxAttempts 最大高度尝试次数
-     * @param ascendHeight 每次上升高度
-     * @param currentRotation 当前旋转次数
-     * @param maxRotations 最大旋转次数(一般为8，对应360度)
-     * @param rotationAngle 每次旋转角度
-     */
-    private void performRotationalSearch(
-            int currentAttempt, 
-            int maxAttempts, 
-            int ascendHeight, 
-            int currentRotation, 
-            int maxRotations, 
-            int rotationAngle) throws Exception {
-        
-        // 当前位置执行搜索
-        boolean isFound = doSearch(0);
-        
-        // 如果找到目标，停止搜索
-        if (isFound) {
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
-//            mSingletonVirtualStickExecutor.mStop();
+    private void performSearch(int currentAttempt, int maxAttempts) throws Exception {
+        boolean isFind = doSearch(0);
+        if (isFind) {
             return;
         }
-        
-        // 如果已经旋转完一周仍未找到目标
-        if (currentRotation >= maxRotations) {
-            // 已经达到最大尝试次数，结束搜索
-            if (currentAttempt >= maxAttempts) {
-                runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, 
-                    "已完成" + maxAttempts + "次高度搜索，共" + (maxRotations * maxAttempts) + "次扫描，未找到车辆。"));
-                mSingletonVirtualStickExecutor.mStop();
-                return;
-            }
-            
-            // 上升到新高度
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, 
-                String.format("已旋转360度未找到车辆，当前为第%d次搜索，上升%d米继续...", 
-                currentAttempt + 1, ascendHeight)));
-            
-            mSingletonVirtualStickExecutor.mUp(ascendHeight);
+
+        if (currentAttempt < maxAttempts) {
+            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 "));
+            mSingletonVirtualStickExecutor.mUp(3);
+            // 睡 6 秒再搜下一次
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
-            
-            // 在新高度开始新一轮360度搜索
-            performRotationalSearch(currentAttempt + 1, maxAttempts, ascendHeight, 0, maxRotations, rotationAngle);
+            performSearch(currentAttempt+1,maxAttempts);
         } else {
-            // 继续旋转搜索
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, 
-                String.format("第%d次高度，第%d次旋转搜索未找到车辆，旋转%d度继续搜索...", 
-                currentAttempt + 1, currentRotation + 1, rotationAngle)));
-            
-            // 旋转无人机
-            mSingletonVirtualStickExecutor.mTurn(303, rotationAngle);
-            SleepThread(SLEEP_BETWEEN_SEARCH_MS); // 等待旋转和稳定
-            
-            // 在新角度继续搜索
-            performRotationalSearch(currentAttempt, maxAttempts, ascendHeight, currentRotation + 1, maxRotations, rotationAngle);
+            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
+            mSingletonVirtualStickExecutor.mStop();
         }
     }
-
 
     //靠近
 
@@ -320,9 +278,14 @@ public class llm_agent_fixed {
         performCloseToSearch(1, MAX_SEARCH_ATTEMPTS);
     }
 
+    boolean use_front = true;
+    int count_false_back = 0;
+    int count_false_front = 0;
+    int count_center = 0;
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
+    @SuppressLint("DefaultLocale")
     private void performCloseToSearch(int currentAttempt, int maxAttempts) {
         if( currentAttempt>maxAttempts ){
             recognizeCarBrand();
@@ -332,44 +295,95 @@ public class llm_agent_fixed {
             return;
         }
 
-        File imageFile = CaptureImage();
-        Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+        if(use_front){
+            File imageFile = CaptureImage();
+            Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
 
-        callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
-        callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
-        callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
+            callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
+            callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
+            callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
 
-        try {
-            String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile, true);
-            JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
-            String response = parseResult.getInferenceProcess();
+            try {
+                String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile, true);
+                JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
+                String response = parseResult.getInferenceProcess();
 
-            if (parseResult.getJsonData() == null) {
-                callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
-            } else {
-                String locationDesc = parseResult.getJsonData().optString("location_description", "center");
-                int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
-                int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
-
-                if(has_car && confidence>=80){
-                    callback.addChatMessage(Constant.OWNER_BOT,
-                            String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
-                                    locationDesc, confidence, proportion)
-                    );
-
-                    // 调整无人机位置
-                    adjustDronePosition(locationDesc, proportion);
+                if (parseResult.getJsonData() == null) {
+                    callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
                 } else {
-                    isfindCar = true;
-//                    recognizeCarBrand();
-                    getObjInformation();
-                    callback.addChatMessage(Constant.OWNER_BOT, "靠近车辆完毕。");
+                    String locationDesc = parseResult.getJsonData().optString("location_description", "center");
+                    int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
+                    int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
+                    boolean has_car = parseResult.getJsonData().optBoolean("has_car", false);
+
+                    if(has_car && confidence>=80){
+                        callback.addChatMessage(Constant.OWNER_BOT,
+                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                                        locationDesc, confidence, proportion)
+                        );
+                        // 调整无人机位置
+                        adjustDronePosition(locationDesc, proportion);
+                    } else {
+                        count_false_front ++;
+                        if(count_false_front == 2){
+                            use_front = false;
+                            gimbalControl gimbalControl = new gimbalControl();
+                            gimbalControl.rotateGimbalDownwardView();
+                            callback.addChatMessage(Constant.OWNER_BOT,"正在切换俯视图");
+                        }
+                    }
                 }
+            } catch (Exception e) {
+                callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
             }
-        } catch (Exception e) {
-            callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+        } else{
+            File imageFile = CaptureImage();
+            Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+
+            callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
+            callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
+            callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
+
+            try {
+                String gptResult = callback.sendQuestionToGPTSync(center_prompt, imageFile, true);
+                JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
+                String response = parseResult.getInferenceProcess();
+
+                if (parseResult.getJsonData() == null) {
+                    callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");
+                } else {
+                    String locationDesc = parseResult.getJsonData().optString("location_description", "center");
+                    int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
+                    int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
+                    boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
+
+                    if(has_car && confidence>=80){
+                        callback.addChatMessage(Constant.OWNER_BOT,
+                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                                        locationDesc, confidence, proportion)
+                        );
+                        if(!locationDesc.equals("center")){
+                            // 调整无人机位置
+                            adjustDronePosition(locationDesc, proportion);
+                        } else{
+                            count_center ++;
+                            if(count_center == 2){
+                                isfindCar = true;
+                            }
+                        }
+                    } else {
+                        count_false_back ++;
+                        if(count_false_back == 3){
+                            performSearch(0,MAX_SEARCH_ATTEMPTS);
+                            callback.addChatMessage(Constant.OWNER_BOT,"俯视图和前视图均未找到，重新搜索场景");
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+            }
         }
+
         if (!isfindCar) {
             // 递归调用，继续靠近搜索
             performCloseToSearch(currentAttempt+1,maxAttempts);
@@ -387,16 +401,19 @@ public class llm_agent_fixed {
 
         // 计算位置偏移量（-1.0到1.0之间的值，0表示中心）
         double horizontalOffset = calculateHorizontalOffset(locationDesc);
+
+        double verticalOffset = calculateVerticalOffset(locationDesc);
         
         // 计算基于占比的接近程度（0-1之间，1表示非常近）
         double proximityFactor = calculateProximityFactor(proportion);
         
         // 根据偏移量和接近程度计算移动距离和方向
         double horizontalMoveDistance = calculateHorizontalMoveDistance(horizontalOffset, proximityFactor);
+        double verticalMoveDistance = calculateHorizontalMoveDistance(verticalOffset, proximityFactor);
         double forwardMoveDistance = calculateForwardMoveDistance(proximityFactor);
 
         // 执行调整动作
-        executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, forwardMoveDistance, proximityFactor);
+        executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, verticalOffset, verticalMoveDistance, forwardMoveDistance, proximityFactor);
     }
     
     /**
@@ -410,6 +427,24 @@ public class llm_agent_fixed {
                 return -0.7; // 左侧偏移
             case "right":
                 return 0.7;  // 右侧偏移
+            case "center":
+                return 0.0;  // 居中
+            default:
+                return 0.0;  // 默认居中
+        }
+    }
+
+    /**
+     * 根据位置描述计算竖直偏移量
+     * @param locationDesc 位置描述（left, center, right）
+     * @return 偏移量（-1.0到1.0之间，负值表示左侧，正值表示右侧）
+     */
+    private double calculateVerticalOffset(String locationDesc) {
+        switch (locationDesc) {
+            case "backward":
+                return -0.7; // 后方偏移
+            case "forward":
+                return 0.7;  // 前方偏移
             case "center":
                 return 0.0;  // 居中
             default:
@@ -470,7 +505,8 @@ public class llm_agent_fixed {
      * @param forwardMoveDistance 前进距离
      * @param proximityFactor 接近因子
      */
-    private void executeAdjustmentMovement(double horizontalOffset, double horizontalMoveDistance, 
+    private void executeAdjustmentMovement(double horizontalOffset, double horizontalMoveDistance,
+                                           double verticalOffset, double verticalMoveDistance,
                                           double forwardMoveDistance, double proximityFactor) {
         // 根据目标情况优化运动序列
         if (Math.abs(horizontalOffset) > 0.3) {
@@ -489,12 +525,28 @@ public class llm_agent_fixed {
             
             // 水平移动后短暂暂停，让无人机稳定
             SleepThread(500);
+        } else if (Math.abs(verticalOffset) > 0.3){
+            // 目标不在中心，优先调整水平位置
+            if (verticalOffset < 0) {
+                // 目标在后，向后移动
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("车辆在图像后，向后移动%.2f米", verticalMoveDistance));
+                mSingletonVirtualStickExecutor.mGo(302, verticalMoveDistance);
+            } else {
+                // 目标在前，向前移动
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("车辆在图像前，向前移动%.2f米", verticalMoveDistance));
+                mSingletonVirtualStickExecutor.mGo(301, verticalMoveDistance);
+            }
+            // 水平移动后短暂暂停，让无人机稳定
+            SleepThread(500);
         } else if (proximityFactor < 0.6) {
             // 目标接近中心但距离较远，向前移动
             callback.addChatMessage(Constant.OWNER_BOT, 
                 String.format("车辆已大致位于中心，占比为%.0f%%，向前移动%.2f米靠近...", 
                 proximityFactor * 100, forwardMoveDistance));
             mSingletonVirtualStickExecutor.mGo(301, forwardMoveDistance);
+            SleepThread(500);
         } else {
             // 目标基本居中且接近，微调位置
             if (proximityFactor < 0.8) {
@@ -553,6 +605,63 @@ public class llm_agent_fixed {
         }
     }
 
+    //辅助函数
+    /**
+     * 保存为图像文件
+     * @param bitmap
+     * @param filename
+     * @return
+     */
+    private File saveBitmapAsFile(Bitmap bitmap, String filename) {
+        File file = new File(callback.mgetCacheDir(), filename); // 保存到应用的缓存目录
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out); // 压缩并保存为 JPEG
+        } catch (IOException e) {
+
+            e.printStackTrace();
+            return null;
+        }
+        return file;
+    }
+
+    /**
+     * 获取当前帧图像
+     */
+    public File CaptureImage(){
+
+//        Resources res = callback.mgetResources();
+//        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.search_frame1);
+//        File imageFile = saveBitmapAsFile(bitmap,"frame1.jpg");
+
+        Bitmap bitmap = mfpvTexture.getBitmap();
+        if (bitmap == null) {
+            callback.addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
+            return null;
+        }
+
+        File imageFile = saveBitmapAsFile(bitmap, IMAGE_FILE_NAME);
+        if (imageFile == null) {
+            callback.addChatMessage(Constant.OWNER_BOT, "图片保存失败");
+            return null;
+        }
+        return imageFile;
+    }
+
+    /**
+     * 阻塞主线程
+     */
+    private void SleepThread(int time){
+        try {
+            Thread.sleep(time);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            callback.addChatMessage(Constant.OWNER_BOT, "线程被中断");
+        }
+    }
+
+    //endregion
+
+
     //收集车辆信息
 
     /**
@@ -566,8 +675,6 @@ public class llm_agent_fixed {
 
         //绕圈飞行
         flyWithCircle(distance);
-
-
     }
 
     private WaypointMissionOperatorListener eventNotificationListener = new WaypointMissionOperatorListener() {
@@ -578,6 +685,16 @@ public class llm_agent_fixed {
 
         @Override
         public void onUploadUpdate(WaypointMissionUploadEvent uploadEvent) {
+            if ((uploadEvent.getError() != null)) {
+                Log.d(TAG, uploadEvent.getError().getDescription());
+            }
+
+            if (uploadEvent.getPreviousState() == WaypointMissionState.UPLOADING
+                    && uploadEvent.getCurrentState() == WaypointMissionState.READY_TO_EXECUTE ) {
+                // upload complete, can start mission
+                // getWaypointMissionOperator().startMission();
+                mWaypoint.canStartMission = true;
+            }
             mWaypoint.startWaypointMission(mMissionOperator);
         }
 
@@ -627,7 +744,7 @@ public class llm_agent_fixed {
 
         // 设置飞行高度（海拔高度）
         mWaypoint.altitude = (float) droneAlt;
-        
+
         // 定义航点数量 - 8个点可以形成一个较为平滑的圆形
         int numberOfWaypoints = 6;
 
@@ -648,39 +765,24 @@ public class llm_agent_fixed {
             double[] destination = Utils.calcDestination(objLat, objLon, bearing, r);
             double waypointLat = destination[0];
             double waypointLon = destination[1];
-            
+
             // 添加航点
             mWaypoint.AddWaypoint(waypointLat, waypointLon);
-            
+
             // 记录日志
             int finalI = i;
             runOnUiThread(() -> {
-                callback.addChatMessage(Constant.OWNER_BOT, 
-                    String.format("添加航点 %d: 纬度 %.6f, 经度 %.6f", finalI +1, waypointLat, waypointLon));
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("添加航点 %d: 纬度 %.6f, 经度 %.6f", finalI +1, waypointLat, waypointLon));
             });
         }
-        
+
         // 添加最后一个航点（返回起始点，形成闭环）
         double[] firstPoint = Utils.calcDestination(objLat, objLon, inital_bearing, r);
         mWaypoint.AddWaypoint(firstPoint[0], firstPoint[1]);
-        
+
         // 执行航点任务
         startWaypointMission(r);
-
-        new Thread(() -> {
-            try{
-                //调整云台位姿定时任务，在绕圈飞行过程中，每5秒调整一次云台位姿
-                while(!isend){
-                    adjustGimbal();
-                    SleepThread(5000);
-                }
-                
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    callback.addChatMessage(Constant.OWNER_BOT, "绕圈飞行过程中出错: " + e.getMessage());
-                });
-            }
-        }).start();
     }
 
     /**
@@ -690,7 +792,7 @@ public class llm_agent_fixed {
         runOnUiThread(() -> {
             callback.addChatMessage(Constant.OWNER_BOT, "开始执行绕圈飞行任务...");
         });
-        
+
         if (mMissionOperator != null) {
             try {
                 mWaypoint.configWayPointMission(mMissionOperator);
@@ -704,117 +806,6 @@ public class llm_agent_fixed {
             runOnUiThread(() -> {
                 callback.addChatMessage(Constant.OWNER_BOT, "任务操作器或任务构建器未初始化");
             });
-
-            // 备用方案：如果无法使用航点任务，则使用虚拟摇杆进行简单圆形飞行
-            performManualCircularFlight(r);
-        }
-    }
-    
-    /**
-     * 使用虚拟摇杆执行简单的圆形飞行（备用方案）
-     * @param radius 圆形半径
-     */
-    private void performManualCircularFlight(double radius) {
-        runOnUiThread(() -> {
-            callback.addChatMessage(Constant.OWNER_BOT, "使用手动控制模式执行绕圈飞行...");
-        });
-        
-        new Thread(() -> {
-            try {
-                // 定义飞行段数
-                int segments = 8;
-                double angleIncrement = 360.0 / segments;
-                
-                // 从北方向开始
-                double currentBearing = 0;
-                
-                // 执行每个飞行段
-                for (int i = 0; i < segments; i++) {
-                    // 计算目标方向（顺时针旋转）
-                    double targetBearing = currentBearing + angleIncrement;
-                    
-                    // 转向
-                    mSingletonVirtualStickExecutor.mTurn(303, (int)(targetBearing - currentBearing));
-                    SleepThread(2000); // 等待无人机转向
-                    
-                    // 计算弧长
-                    double arcLength = 2 * Math.PI * radius / segments;
-                    
-                    // 向前飞行弧长距离
-                    mSingletonVirtualStickExecutor.mGo(301, arcLength);
-                    SleepThread(3000); // 等待无人机到达位置
-                    
-                    // 更新当前方向
-                    currentBearing = targetBearing;
-                }
-                
-                // 完成圆形飞行后开始车辆识别
-                recognizeCarBrand();
-                
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    callback.addChatMessage(Constant.OWNER_BOT, "手动圆形飞行过程中出错: " + e.getMessage());
-                });
-            }
-        }).start();
-    }
-
-    /**
-     * 实时调整云台位姿，使其始终对准车辆
-     * 根据无人机与车辆的相对位置计算云台的绝对角度
-     */
-    @SuppressLint("DefaultLocale")
-    private void adjustGimbal() {
-        try {
-            // 1. 获取当前无人机位置
-            LocationCoordinate3D currentDroneLocation = callback.getDroneLocation();
-            double droneLat = currentDroneLocation.getLatitude();
-            double droneLon = currentDroneLocation.getLongitude();
-            double droneAlt = currentDroneLocation.getAltitude();
-            
-            // 2. 计算从无人机到车辆的方位角（航向角）
-            double bearingToVehicle = Utils.calcBearing(droneLat, droneLon, objLat, objLon);
-            
-            // 3. 获取无人机当前航向
-            float droneHeading = callback.getHeading();
-            
-            // 4. 计算云台需要的yaw角度（相对于无人机航向）
-            // 云台yaw需要补偿无人机航向，使其始终指向车辆
-            float yawAngle = (float)(bearingToVehicle - droneHeading);
-            
-            // 归一化角度到 -180° 到 180° 范围
-            while (yawAngle > 180) yawAngle -= 360;
-            while (yawAngle < -180) yawAngle += 360;
-            
-            // 5. 计算俯仰角（pitch）
-            // 计算水平距离
-            double horizontalDistance = Utils.calcDistance(droneLat, droneLon, objLat, objLon);
-            
-            // 计算高度差
-            double heightDifference = droneAlt - objAlt;
-            
-            // 计算俯仰角（负值表示向下）
-            // tan(pitch) = 高度差 / 水平距离
-            float pitchAngle = (float) -Math.toDegrees(Math.atan2(heightDifference, horizontalDistance));
-            
-            // 6. 计算横滚角（roll）- 通常在这种场景下保持为0
-            float rollAngle = 0.0f;
-            
-            // 记录日志
-            float finalYawAngle = yawAngle;
-            runOnUiThread(() -> {
-                callback.addChatMessage(Constant.OWNER_BOT, 
-                    String.format("调整云台: 航向(Yaw)=%.1f°, 俯仰(Pitch)=%.1f°, 横滚(Roll)=%.1f°",
-                            finalYawAngle, pitchAngle, rollAngle));
-            });
-            
-            // 7. 应用计算出的角度到云台
-            gimbalControl.rotateGimbalAbsolute(pitchAngle, yawAngle, rollAngle);
-            
-        } catch (Exception e) {
-            runOnUiThread(() -> {
-                callback.addChatMessage(Constant.OWNER_BOT, "云台调整出错: " + e.getMessage());
-            });
         }
     }
 
@@ -824,70 +815,22 @@ public class llm_agent_fixed {
      * @return
      */
     public WaypointMissionOperator getWaypointMissionOperator(WaypointMissionOperator instance) {
+        Log.d(TAG, "getWaypointMissionOperator: Called with instance " + (instance == null ? "null" : "not null"));
+
         if (instance == null) {
-            MissionControl missionControl = DJISDKManager.getInstance().getMissionControl();
-            if (missionControl != null) {
-                instance = missionControl.getWaypointMissionOperator();
+            Log.d(TAG, "getWaypointMissionOperator: Instance is null, requesting from DJISampleApplication");
+            instance = DJISampleApplication.getWaypointMissionOperator();
+            if (instance == null) {
+                Log.e(TAG, "getWaypointMissionOperator: Failed to get instance from DJISampleApplication");
+            } else {
+                Log.d(TAG, "getWaypointMissionOperator: Successfully obtained instance from DJISampleApplication");
             }
+        } else {
+            Log.d(TAG, "getWaypointMissionOperator: Using existing instance");
         }
+
         return instance;
     }
-
-
-    /**
-     * 保存为图像文件
-     * @param bitmap
-     * @param filename
-     * @return
-     */
-    private File saveBitmapAsFile(Bitmap bitmap, String filename) {
-        File file = new File(callback.mgetCacheDir(), filename); // 保存到应用的缓存目录
-        try (FileOutputStream out = new FileOutputStream(file)) {
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out); // 压缩并保存为 JPEG
-        } catch (IOException e) {
-
-            e.printStackTrace();
-            return null;
-        }
-        return file;
-    }
-
-    /**
-     * 获取当前帧图像
-     */
-    public File CaptureImage(){
-
-        Resources res = callback.mgetResources();
-        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.search_frame1);
-        File imageFile = saveBitmapAsFile(bitmap,"frame1.jpg");
-
-//        Bitmap bitmap = mfpvTexture.getBitmap();
-//        if (bitmap == null) {
-//            callback.addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
-//            return null;
-//        }
-//
-//        File imageFile = saveBitmapAsFile(bitmap, IMAGE_FILE_NAME);
-//        if (imageFile == null) {
-//            callback.addChatMessage(Constant.OWNER_BOT, "图片保存失败");
-//            return null;
-//        }
-        return imageFile;
-    }
-
-    /**
-     * 阻塞主线程
-     */
-    private void SleepThread(int time){
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            callback.addChatMessage(Constant.OWNER_BOT, "线程被中断");
-        }
-    }
-
-    //endregion
 
 
 }

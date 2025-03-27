@@ -101,13 +101,12 @@ import com.dji.sdk.voice_control.internal.controller.djitool.LiveStream;
 import com.dji.sdk.voice_control.internal.controller.djitool.VideoActivity;
 import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypointv1;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystick;
-import com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystickListener;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTS;
-import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent_fixed;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent_cycle;
 import com.dji.sdk.voice_control.internal.controller.interfaces.GPTSCallback;
 import com.dji.sdk.voice_control.internal.controller.interfaces.IChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.interfaces.IJSONMessage;
@@ -133,7 +132,6 @@ import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
 import dji.common.mission.waypoint.WaypointMissionFinishedAction;
 import dji.common.mission.waypoint.WaypointMissionState;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
-import dji.common.mission.waypointv2.WaypointV2MissionState;
 import dji.sdk.flightcontroller.FlightAssistant;
 
 import com.dji.sdk.voice_control.internal.djidemo.utils.AMapUtil;
@@ -180,7 +178,6 @@ import dji.common.battery.BatteryState;
 import dji.common.error.DJIError;
 import dji.common.error.DJISDKError;
 import dji.common.flightcontroller.FlightControllerState;
-import dji.common.flightcontroller.simulator.InitializationData;
 import dji.common.flightcontroller.simulator.SimulatorState;
 import dji.common.flightcontroller.virtualstick.FlightControlData;
 import dji.common.flightcontroller.virtualstick.FlightCoordinateSystem;
@@ -189,17 +186,13 @@ import dji.common.flightcontroller.virtualstick.VerticalControlMode;
 import dji.common.flightcontroller.virtualstick.YawControlMode;
 import dji.common.mission.waypoint.WaypointMissionHeadingMode;
 import dji.common.mission.waypointv2.WaypointV2;
-import dji.common.mission.waypointv2.WaypointV2MissionTypes;
-import dji.common.model.LocationCoordinate2D;
 import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
 import dji.log.DJILog;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
-import dji.sdk.mission.MissionControl;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
-import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
@@ -473,7 +466,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     gimbalControl gimbalControl = new gimbalControl();
     yoloSamTrack yoloSamTrack;
     llm_agent llmAgent;
-    llm_agent_fixed llmAgentFixed;
+    llm_agent_cycle llmAgentCycle;
     private boolean isflying = false;
     //endregion
 
@@ -704,7 +697,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //初始化
         yoloSamTrack = new yoloSamTrack(networkClient,mCI.mFlightController,mCI,uiCallback);
         llmAgent = new llm_agent(mCI,mCI.mFlightController,fpvTexture,uiCallback);
-        llmAgentFixed = new llm_agent_fixed(mCI,mCI.mFlightController,fpvTexture,uiCallback);
+        llmAgentCycle = new llm_agent_cycle(mCI,mCI.mFlightController,fpvTexture,uiCallback);
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -1164,7 +1157,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             yoloSamTrack.handleObjectTracking();
         });
         llm_agent_fixed.setOnClickListener(v -> {
-            llmAgentFixed.agentFindCar();
+            llmAgentCycle.agentFindCar();
         });
         test_control.setOnClickListener(v -> {
             showSimpleMoveDialog();
@@ -1855,7 +1848,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             //初始化设置飞控模式
             mCI.mFlightController = mCI.aircraft.getFlightController();
             mCI.mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
-            mCI.mFlightController.setYawControlMode(YawControlMode.ANGULAR_VELOCITY);
+            mCI.mFlightController.setYawControlMode(YawControlMode.ANGLE);
             mCI.mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
             //设置坐标系为地面坐标系
             mCI.mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
@@ -1903,6 +1896,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     mvs = -1 * flightControllerState.getVelocityZ();
                     mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
                     isflying = flightControllerState.isFlying();
+                    if(flightControllerState.getGPSSignalLevel()._equals(4) || flightControllerState.getGPSSignalLevel()._equals(5)){
+                        mCI.mFlightController.setVirtualStickAdvancedModeEnabled(true);
+                    } else{
+                        mCI.mFlightController.setVirtualStickAdvancedModeEnabled(false);
+                    }
                     updateFlightData();
                     updateDroneLocation();
                 }
@@ -2288,7 +2286,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * @param point
      */
     private void markWaypoint(LatLng point) {
-        mWaypoint.AddWaypoint(point.latitude,point.longitude);
+        mWaypoint.AddWaypoint(point.latitude,point.longitude,5,0,3,2);
         //Create MarkerOptions object
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(point);

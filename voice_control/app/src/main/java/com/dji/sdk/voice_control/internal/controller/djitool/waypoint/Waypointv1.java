@@ -22,6 +22,7 @@ import dji.common.model.LocationCoordinate2D;
 import dji.common.util.CommonCallbacks;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
+import io.reactivex.annotations.NonNull;
 
 public class Waypointv1 {
 
@@ -64,9 +65,12 @@ public class Waypointv1 {
     }
 
 
-    public void AddWaypoint(double latitude,double longitude) {
+    public void AddWaypoint(double latitude, double longitude, float altitude, int heading, @NonNull float speed, float cornermeters) {
         Log.d(TAG, "Adding waypoint at latitude: " + latitude + ", longitude: " + longitude + ", altitude: " + altitude);
         Waypoint mWaypoint = new Waypoint(latitude,longitude,altitude);
+        mWaypoint.heading =heading;
+        mWaypoint.speed = speed;
+        mWaypoint.cornerRadiusInMeters = cornermeters;
         //Add Waypoints to Waypoint arraylist;
         if (waypointMissionBuilder == null) {
             Log.d(TAG, "waypointMissionBuilder was null, creating new instance");
@@ -74,6 +78,13 @@ public class Waypointv1 {
         }
         waypointMissionBuilder.addWaypoint(mWaypoint);
         Log.d(TAG, "Waypoint added successfully, total waypoints: " + waypointMissionBuilder.getWaypointCount());
+    }
+
+    public void AddPointInterst(double lattitude, double longitude){
+        if(waypointMissionBuilder == null){
+            waypointMissionBuilder = new WaypointMission.Builder();
+        }
+        waypointMissionBuilder.setPointOfInterest(new LocationCoordinate2D(lattitude,longitude));
     }
 
     public void RemoveWaypoint(int index){

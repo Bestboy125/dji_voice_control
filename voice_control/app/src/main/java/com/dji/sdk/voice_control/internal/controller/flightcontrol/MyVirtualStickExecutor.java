@@ -705,37 +705,41 @@ public class MyVirtualStickExecutor {
      * Move
      */
     public void mGo(int movingDirection, double optionalDis) {
-        mMode = MyVirtualStickExecutorMode.MOVE_WITHOUT_DIS;
-        checkSendVirtualStickDataTimer();
-        destroyLocationTrackTimer();
+        if(optionalDis>2){
+            mMode = MyVirtualStickExecutorMode.MOVE_WITHOUT_DIS;
+            checkSendVirtualStickDataTimer();
+            destroyLocationTrackTimer();
 
-        int dir[] = {0, 1, 0, -1, 0};
-        int idx = 0;
-        if (movingDirection == 302) {
-            idx = 2;
-        } else if (movingDirection == 303) {
-            idx = 3;
-        } else if (movingDirection == 304) {
-            idx = 1;
-        }
-        mPitch = (float) (mSpeed * dir[idx]);
-        mRoll = (float) (mSpeed * dir[idx + 1]);
-
-        if (optionalDis != -1) {
-            secFlag = true;
-            mMode = MyVirtualStickExecutorMode.MOVE_DIS;
-            double bearing = mFlightController.getCompass().getHeading();
+            int dir[] = {0, 1, 0, -1, 0};
+            int idx = 0;
             if (movingDirection == 302) {
-                bearing -= 180;
+                idx = 2;
             } else if (movingDirection == 303) {
-                bearing -= 90;
+                idx = 3;
             } else if (movingDirection == 304) {
-                bearing += 90;
+                idx = 1;
             }
-            double homeLat = mFlightController.getState().getAircraftLocation().getLatitude();
-            double homeLog = mFlightController.getState().getAircraftLocation().getLongitude();
-            double tar[] = Utils.calcDestination(homeLat, homeLog, bearing, optionalDis);
-            check2DLocationTrackTimer(mMode, homeLat, homeLog, tar[0], tar[1]);
+            mPitch = (float) (mSpeed * dir[idx]);
+            mRoll = (float) (mSpeed * dir[idx + 1]);
+
+            if (optionalDis != -1) {
+                secFlag = true;
+                mMode = MyVirtualStickExecutorMode.MOVE_DIS;
+                double bearing = mFlightController.getCompass().getHeading();
+                if (movingDirection == 302) {
+                    bearing -= 180;
+                } else if (movingDirection == 303) {
+                    bearing -= 90;
+                } else if (movingDirection == 304) {
+                    bearing += 90;
+                }
+                double homeLat = mFlightController.getState().getAircraftLocation().getLatitude();
+                double homeLog = mFlightController.getState().getAircraftLocation().getLongitude();
+                double tar[] = Utils.calcDestination(homeLat, homeLog, bearing, optionalDis);
+                check2DLocationTrackTimer(mMode, homeLat, homeLog, tar[0], tar[1]);
+            }
+        } else{
+            simpleMove(movingDirection,optionalDis);
         }
     }
 
@@ -774,6 +778,7 @@ public class MyVirtualStickExecutor {
     public void mMovewith(float yaw, float roll) {
         checkSendVirtualStickDataTimer();
         destroyLocationTrackTimer();
+
         mYaw = yaw;
         mRoll = roll;
     }
@@ -794,23 +799,23 @@ public class MyVirtualStickExecutor {
      * @param direction 移动方向 (1=前, 2=后, 3=左, 4=右)
      * @param distance 移动距离（米）
      */
-    public void simpleMove(int direction, float distance) {
+    public void simpleMove(int direction, double distance) {
         // 停止当前所有移动
         mStop();
 
         // 根据方向设置控制值
         switch (direction) {
-            case 1: // 前
-                mPitch = distance/2; // 正值向前
+            case 301: // 前
+                mRoll = (float) distance/2; // 正值向前
                 break;
-            case 2: // 后
-                mPitch = -distance/2; // 负值向后
+            case 302: // 后
+                mRoll = (float) -distance/2; // 负值向后
                 break;
-            case 3: // 左
-                mRoll = -distance/2; // 负值向左
+            case 303: // 左
+                mPitch = (float) -distance/2; // 负值向左
                 break;
-            case 4: // 右
-                mRoll = distance/2; // 正值向右
+            case 304: // 右
+                mPitch = (float) distance/2; // 正值向右
                 break;
         }
 

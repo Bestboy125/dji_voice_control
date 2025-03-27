@@ -1,5 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller.flightcontrol.agent;
 
+import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.setResultToToast;
 import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.showToast;
 import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
@@ -10,14 +11,18 @@ import android.graphics.BitmapFactory;
 import android.util.Log;
 import android.view.TextureView;
 
+import androidx.annotation.Nullable;
+
 import com.dji.sdk.voice_control.R;
 import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
+import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypointv1;
 import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.ControlActivity;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.MyVirtualStickExecutor;
 import com.dji.sdk.voice_control.internal.controller.utils.JsonUtils;
+import com.dji.sdk.voice_control.internal.controller.utils.Utils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -25,8 +30,16 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import dji.common.error.DJIError;
 import dji.common.flightcontroller.LocationCoordinate3D;
+import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
+import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
+import dji.common.mission.waypoint.WaypointMissionUploadEvent;
 import dji.sdk.flightcontroller.FlightController;
+import dji.sdk.mission.MissionControl;
+import dji.sdk.mission.waypoint.WaypointMissionOperator;
+import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
+import dji.sdk.sdkmanager.DJISDKManager;
 
 public class llm_agent {
 
@@ -65,9 +78,9 @@ public class llm_agent {
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
-            "  \"has_white_car\": 布尔值（true或false），\n" +
+            "  \"has_car\": 布尔值（true或false），\n" +
             "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
-            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述黑色轿车在图像中的位置\",\n" +
+            "  \"location_description\": \"字符串，'left'、'center' 或 'right'，描述黑色轿车在图像中的位置\",\n" +
             "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
             "}\n" +
             "\n" +
@@ -83,15 +96,15 @@ public class llm_agent {
             "\n" +
             "推理过程：\n" +
             "- 描述您如何判断图中是否有黑色轿车,置信度水平如何。\n" +
-            "- 解释您对黑色轿车位置（左、中、右）的判断依据。\n" +
+            "- 解释您对黑色轿车位置（中、上，下）的判断依据。\n" +
             "- 描述您如何估算黑色轿车占据图像的比例。\n" +
             "\n" +
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
-            "  \"has_white_car\": 布尔值（true或false），\n" +
+            "  \"has_car\": 布尔值（true或false），\n" +
             "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
-            "  \"location_description\": \"字符串，'left'、'center'或'right'，描述黑色轿车在图像中的位置\",\n" +
+            "  \"location_description\": \"字符串，'forward'、'center' 或 'backward'，描述黑色轿车在图像中的位置\",\n" +
             "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
             "}\n" +
             "\n" +
@@ -99,7 +112,7 @@ public class llm_agent {
             "- 请先输出推理过程，然后在下一行输出JSON对象。\n" +
             "- 不要在JSON对象之外添加额外的文本或注释。\n" +
             "- 请避免使用诸如抱歉，我无法查看或分析图片内容的句子，尽可能基于图像提供回答。\n" +
-            "- 只需要判断目标在图像的左、右或者中间，不要回复类似左中(center-left)的回答。\n" +
+            "- 只需要判断目标在图像的前、后或者中间，不要回复类似左中(center-left)的回答。\n" +
             "- 请注意轿车通常具有完整黑色轿车轮廓。";
     private String Gpt_result;
 
@@ -191,7 +204,7 @@ public class llm_agent {
         if (parseResult.getJsonData() == null) {
             runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");});
         } else {
-            boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_white_car", false);
+            boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_car", false);
             int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
 
             if (hasWhiteCar && confidence >= 80) {
@@ -205,6 +218,7 @@ public class llm_agent {
                     public void run() {
                         count_false_front = 0;
                         count_false_back = 0;
+                        count_center = 0;
                         Close_to();
                     }
                 }).start();
@@ -260,6 +274,7 @@ public class llm_agent {
     boolean use_front = true;
     int count_false_back = 0;
     int count_false_front = 0;
+    int count_center = 0;
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
@@ -292,7 +307,7 @@ public class llm_agent {
                     String locationDesc = parseResult.getJsonData().optString("location_description", "center");
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                     int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                    boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
+                    boolean has_car = parseResult.getJsonData().optBoolean("has_car", false);
 
                     if(has_car && confidence>=80){
                         callback.addChatMessage(Constant.OWNER_BOT,
@@ -340,8 +355,15 @@ public class llm_agent {
                                 String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
                                         locationDesc, confidence, proportion)
                         );
-                        // 调整无人机位置
-                        adjustDronePosition(locationDesc, proportion);
+                        if(!locationDesc.equals("center")){
+                            // 调整无人机位置
+                            adjustDronePosition(locationDesc, proportion);
+                        } else{
+                            count_center ++;
+                            if(count_center == 2){
+                                isfindCar = true;
+                            }
+                        }
                     } else {
                         count_false_back ++;
                         if(count_false_back == 3){
@@ -372,16 +394,19 @@ public class llm_agent {
 
         // 计算位置偏移量（-1.0到1.0之间的值，0表示中心）
         double horizontalOffset = calculateHorizontalOffset(locationDesc);
+
+        double verticalOffset = calculateVerticalOffset(locationDesc);
         
         // 计算基于占比的接近程度（0-1之间，1表示非常近）
         double proximityFactor = calculateProximityFactor(proportion);
         
         // 根据偏移量和接近程度计算移动距离和方向
         double horizontalMoveDistance = calculateHorizontalMoveDistance(horizontalOffset, proximityFactor);
+        double verticalMoveDistance = calculateHorizontalMoveDistance(verticalOffset, proximityFactor);
         double forwardMoveDistance = calculateForwardMoveDistance(proximityFactor);
 
         // 执行调整动作
-        executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, forwardMoveDistance, proximityFactor);
+        executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, verticalOffset, verticalMoveDistance, forwardMoveDistance, proximityFactor);
     }
     
     /**
@@ -395,6 +420,24 @@ public class llm_agent {
                 return -0.7; // 左侧偏移
             case "right":
                 return 0.7;  // 右侧偏移
+            case "center":
+                return 0.0;  // 居中
+            default:
+                return 0.0;  // 默认居中
+        }
+    }
+
+    /**
+     * 根据位置描述计算竖直偏移量
+     * @param locationDesc 位置描述（left, center, right）
+     * @return 偏移量（-1.0到1.0之间，负值表示左侧，正值表示右侧）
+     */
+    private double calculateVerticalOffset(String locationDesc) {
+        switch (locationDesc) {
+            case "backward":
+                return -0.7; // 后方偏移
+            case "forward":
+                return 0.7;  // 前方偏移
             case "center":
                 return 0.0;  // 居中
             default:
@@ -455,7 +498,8 @@ public class llm_agent {
      * @param forwardMoveDistance 前进距离
      * @param proximityFactor 接近因子
      */
-    private void executeAdjustmentMovement(double horizontalOffset, double horizontalMoveDistance, 
+    private void executeAdjustmentMovement(double horizontalOffset, double horizontalMoveDistance,
+                                           double verticalOffset, double verticalMoveDistance,
                                           double forwardMoveDistance, double proximityFactor) {
         // 根据目标情况优化运动序列
         if (Math.abs(horizontalOffset) > 0.3) {
@@ -472,6 +516,21 @@ public class llm_agent {
                 mSingletonVirtualStickExecutor.mGo(304, horizontalMoveDistance);
             }
             
+            // 水平移动后短暂暂停，让无人机稳定
+            SleepThread(500);
+        } else if (Math.abs(verticalOffset) > 0.3){
+            // 目标不在中心，优先调整水平位置
+            if (verticalOffset < 0) {
+                // 目标在后，向后移动
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("车辆在图像后，向后移动%.2f米", verticalMoveDistance));
+                mSingletonVirtualStickExecutor.mGo(302, verticalMoveDistance);
+            } else {
+                // 目标在前，向前移动
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("车辆在图像前，向前移动%.2f米", verticalMoveDistance));
+                mSingletonVirtualStickExecutor.mGo(301, verticalMoveDistance);
+            }
             // 水平移动后短暂暂停，让无人机稳定
             SleepThread(500);
         } else if (proximityFactor < 0.6) {
@@ -594,6 +653,5 @@ public class llm_agent {
     }
 
     //endregion
-
 
 }
