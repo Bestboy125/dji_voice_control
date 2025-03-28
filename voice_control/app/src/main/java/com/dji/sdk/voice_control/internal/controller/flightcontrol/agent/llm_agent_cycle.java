@@ -33,6 +33,8 @@ import dji.common.error.DJIError;
 import dji.common.flightcontroller.LocationCoordinate3D;
 import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
 import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
+import dji.common.mission.waypoint.WaypointMissionFlightPathMode;
+import dji.common.mission.waypoint.WaypointMissionHeadingMode;
 import dji.common.mission.waypoint.WaypointMissionState;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
 import dji.sdk.flightcontroller.FlightController;
@@ -133,6 +135,7 @@ public class llm_agent_cycle {
     private gimbalControl gimbalControl;
 
     private boolean isend = false;
+    private float reduis = 0f;
     //endregion
 
     //构造函数
@@ -670,6 +673,7 @@ public class llm_agent_cycle {
     private void getObjInformation(){
         //后退2.5米
         double distance = 2.5;
+        reduis = 2.5f;
         mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
         mSingletonVirtualStickExecutor.mGo(302,distance);
 
@@ -715,6 +719,7 @@ public class llm_agent_cycle {
         }
     };
 
+    //region 基于航点的绕圈飞行
     /**
      * 绕圈飞行
      * @param r 圆形轨迹的半径（米）
@@ -767,7 +772,7 @@ public class llm_agent_cycle {
             double waypointLon = destination[1];
 
             // 添加航点
-            mWaypoint.AddWaypoint(waypointLat, waypointLon);
+            mWaypoint.AddWaypoint(waypointLat, waypointLon, callback.gerAltitude(),reduis);
 
             // 记录日志
             int finalI = i;
@@ -779,7 +784,7 @@ public class llm_agent_cycle {
 
         // 添加最后一个航点（返回起始点，形成闭环）
         double[] firstPoint = Utils.calcDestination(objLat, objLon, inital_bearing, r);
-        mWaypoint.AddWaypoint(firstPoint[0], firstPoint[1]);
+        mWaypoint.AddWaypoint(firstPoint[0], firstPoint[1],callback.gerAltitude(),reduis);
 
         // 执行航点任务
         startWaypointMission(r);
@@ -795,6 +800,8 @@ public class llm_agent_cycle {
 
         if (mMissionOperator != null) {
             try {
+                mWaypoint.waypointMissionFlightPathMode = WaypointMissionFlightPathMode.CURVED;
+                mWaypoint.mHeadingMode = WaypointMissionHeadingMode.TOWARD_POINT_OF_INTEREST;
                 mWaypoint.configWayPointMission(mMissionOperator);
                 mWaypoint.uploadWayPointMission(mMissionOperator);
             } catch (Exception e) {
@@ -831,6 +838,14 @@ public class llm_agent_cycle {
 
         return instance;
     }
+    //endregion
+
+    //region 基于HotMission的绕圈飞行
+
+    //endregion
+
+
+
 
 
 }

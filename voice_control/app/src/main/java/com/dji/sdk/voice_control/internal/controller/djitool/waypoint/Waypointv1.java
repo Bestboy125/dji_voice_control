@@ -54,6 +54,7 @@ public class Waypointv1 {
     public WaypointMissionFinishedAction mFinishedAction = WaypointMissionFinishedAction.NO_ACTION;
     public WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
     public WaypointV2MissionTypes.MissionGotoWaypointMode firstMode = WaypointV2MissionTypes.MissionGotoWaypointMode.SAFELY;
+    public WaypointMissionFlightPathMode waypointMissionFlightPathMode = WaypointMissionFlightPathMode.NORMAL;
     public boolean canUploadMission;
     public boolean canStartMission;
     //endregion
@@ -65,11 +66,24 @@ public class Waypointv1 {
     }
 
 
-    public void AddWaypoint(double latitude, double longitude, float altitude, int heading, @NonNull float speed, float cornermeters) {
+    public void AddWaypoint(double latitude, double longitude, float altitude, @NonNull int heading, @NonNull float speed, float cornermeters) {
         Log.d(TAG, "Adding waypoint at latitude: " + latitude + ", longitude: " + longitude + ", altitude: " + altitude);
         Waypoint mWaypoint = new Waypoint(latitude,longitude,altitude);
         mWaypoint.heading =heading;
         mWaypoint.speed = speed;
+        mWaypoint.cornerRadiusInMeters = cornermeters;
+        //Add Waypoints to Waypoint arraylist;
+        if (waypointMissionBuilder == null) {
+            Log.d(TAG, "waypointMissionBuilder was null, creating new instance");
+            waypointMissionBuilder = new WaypointMission.Builder();
+        }
+        waypointMissionBuilder.addWaypoint(mWaypoint);
+        Log.d(TAG, "Waypoint added successfully, total waypoints: " + waypointMissionBuilder.getWaypointCount());
+    }
+
+    public void AddWaypoint(double latitude, double longitude, float altitude, float cornermeters) {
+        Log.d(TAG, "Adding waypoint at latitude: " + latitude + ", longitude: " + longitude + ", altitude: " + altitude);
+        Waypoint mWaypoint = new Waypoint(latitude,longitude,altitude);
         mWaypoint.cornerRadiusInMeters = cornermeters;
         //Add Waypoints to Waypoint arraylist;
         if (waypointMissionBuilder == null) {
@@ -124,7 +138,7 @@ public class Waypointv1 {
                 .headingMode(mHeadingMode)
                 .autoFlightSpeed(mSpeed)
                 .maxFlightSpeed(mSpeed)
-                .flightPathMode(WaypointMissionFlightPathMode.NORMAL);
+                .flightPathMode(waypointMissionFlightPathMode);
 
         DJIError error = instance.loadMission(waypointMissionBuilder.build());
         if (error == null) {

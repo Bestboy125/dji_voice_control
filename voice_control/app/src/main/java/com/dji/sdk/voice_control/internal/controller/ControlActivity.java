@@ -1827,6 +1827,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     public float getHeading(){
         return mCI.mFlightController.getCompass().getHeading();
     }
+
+    @Override
+    public float gerAltitude(){
+        return (float) mAltitudeData;
+    }
     //endregion
 
     //region 飞行控制器

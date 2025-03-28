@@ -47,5 +47,7 @@ public interface ControlActivityCallback {
 
     float getHeading();
 
+    float gerAltitude();
+
 }
 
