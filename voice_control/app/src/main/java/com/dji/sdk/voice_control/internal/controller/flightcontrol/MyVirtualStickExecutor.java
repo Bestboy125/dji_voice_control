@@ -29,7 +29,6 @@ public class MyVirtualStickExecutor {
     //region 控制数据结构
     //设置虚拟控制指令模式
     private MyVirtualStickExecutorMode mMode = MyVirtualStickExecutorMode.UNINITIALIZED;
-    private Context mContext;
     //飞行控制数据
     private float mSpeed = 3;
     private float mPitch = 0;
@@ -58,9 +57,6 @@ public class MyVirtualStickExecutor {
     /**
      * always private, no use
      */
-    private MyVirtualStickExecutor(Context context) {
-        mContext = context;
-    }
     private MyVirtualStickExecutor() {
     }
     //endregion
@@ -299,7 +295,7 @@ public class MyVirtualStickExecutor {
         private MyVirtualStickExecutorMode m;
         private double homeH, tarH, curH, homeLat, homeLog, tarLat, tarLog, curLat, curLog;
         private CommandCompletionCallback mCallback; // 添加回调
-        
+
         // 添加调试日志文件相关属性
         private FileWriter debugLogWriter;
         private SimpleDateFormat dateFormat;
@@ -310,7 +306,6 @@ public class MyVirtualStickExecutor {
             this.m = mode;
             this.homeH = homeH;
             this.tarH = tarH;
-            initDebugLogFile();
         }
 
         public LocationTrackTask(MyVirtualStickExecutorMode mode, double homeLat, double homeLog, double tarLat, double tarLog) {
@@ -319,7 +314,6 @@ public class MyVirtualStickExecutor {
             this.homeLog = homeLog;
             this.tarLat = tarLat;
             this.tarLog = tarLog;
-            initDebugLogFile();
         }
 
         public LocationTrackTask(MyVirtualStickExecutorMode mode, double homeH, double tarH, CommandCompletionCallback callback) {
@@ -327,7 +321,6 @@ public class MyVirtualStickExecutor {
             this.homeH = homeH;
             this.tarH = tarH;
             this.mCallback = callback;
-            initDebugLogFile();
         }
 
         public LocationTrackTask(MyVirtualStickExecutorMode mode, double homeLat, double homeLog, double tarLat, double tarLog, CommandCompletionCallback callback) {
@@ -337,270 +330,151 @@ public class MyVirtualStickExecutor {
             this.tarLat = tarLat;
             this.tarLog = tarLog;
             this.mCallback = callback;
-            initDebugLogFile();
-        }
-        
-        // 初始化调试日志文件
-        private void initDebugLogFile() {
-            try {
-                dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault());
-                String timestamp = dateFormat.format(new Date());
-                String fileName = "LocationTrackTask_" + m.toString() + "_" + timestamp + ".txt";
-                
-                // 获取外部存储目录
-                File logDir = new File(mContext.getExternalFilesDir(null), "DJIDebugLogs");
-                if (!logDir.exists()) {
-                    logDir.mkdirs();
-                }
-                logFilePath = new File(logDir, fileName).getAbsolutePath();
-                debugLogWriter = new FileWriter(logFilePath, true);
-                
-                // 写入日志文件头
-                writeLog("====== LocationTrackTask Debug Log ======");
-                writeLog("Mode: " + m.toString());
-                writeLog("Start Time: " + timestamp);
-                writeLog("Initial Parameters:");
-                
-                if (m == MyVirtualStickExecutorMode.UP_DIS || m == MyVirtualStickExecutorMode.DOWN_DIS) {
-                    writeLog("Home Height: " + homeH);
-                    writeLog("Target Height: " + tarH);
-                } else {
-                    writeLog("Home Latitude: " + homeLat);
-                    writeLog("Home Longitude: " + homeLog);
-                    writeLog("Target Latitude: " + tarLat);
-                    writeLog("Target Longitude: " + tarLog);
-                }
-                writeLog("=======================================\n");
-            } catch (IOException e) {
-                Log.e("LocationTrackTask", "Failed to initialize debug log file", e);
-            }
-        }
-        
-        // 写入日志文件
-        private void writeLog(String message) {
-            try {
-                if (debugLogWriter != null) {
-                    String timestamp = dateFormat.format(new Date());
-                    debugLogWriter.write("[" + timestamp + "] " + message + "\n");
-                    debugLogWriter.flush();
-                }
-            } catch (IOException e) {
-                Log.e("LocationTrackTask", "Failed to write to debug log file", e);
-            }
-        }
-        
-        // 关闭日志文件
-        private void closeDebugLogFile() {
-            try {
-                if (debugLogWriter != null) {
-                    writeLog("Task completed at: " + dateFormat.format(new Date()));
-                    writeLog("=======================================");
-                    debugLogWriter.close();
-                    Log.i("LocationTrackTask", "Debug log saved to: " + logFilePath);
-                }
-            } catch (IOException e) {
-                Log.e("LocationTrackTask", "Failed to close debug log file", e);
-            }
         }
 
         @Override
         public void run() {
             runCounter++;
-            writeLog("RUN #" + runCounter + " STARTED");
-            
+
             if (mFlightController != null) {
                 if (m == MyVirtualStickExecutorMode.UP_DIS || m == MyVirtualStickExecutorMode.DOWN_DIS) {
                     curH = getCurrentAltitude();
                     double home2cur = curH - homeH;
                     double cur2tar = tarH - curH;
-                    
-                    // 记录高度相关数据
-                    writeLog("Current Height: " + curH);
-                    writeLog("Home to Current Height: " + home2cur);
-                    writeLog("Current to Target Height: " + cur2tar);
-                    writeLog("Current Throttle: " + mThrottle);
-                    writeLog("SecFlag: " + secFlag);
-                    
+
+
                     if (Math.abs(cur2tar) <= 0.5 || home2cur * cur2tar < 0) {
                         mThrottle = 0;
                         secFlag = false;
-                        
-                        writeLog("Target reached or overshot. Stopping. abs(cur2tar)=" + Math.abs(cur2tar) + ", home2cur*cur2tar=" + (home2cur * cur2tar));
-                        writeLog("Setting Throttle to 0");
+
 
                         // 取消定时器任务
                         this.cancel();
                         destroyLocationTrackTimer();
-                        
-                        writeLog("Task cancelled and timer destroyed");
-                        
+
+
                         // 调用回调，指令成功完成
                         if (mCallback != null) {
-                            writeLog("Calling completion callback");
                             mCallback.onComplete(null);
                         }
-                        
-                        closeDebugLogFile();
+
                     } else if (Math.abs(cur2tar) < Math.abs(mThrottle)) {
-                        writeLog("Approaching target. abs(cur2tar)=" + Math.abs(cur2tar) + ", abs(mThrottle)=" + Math.abs(mThrottle));
-                        
+
                         if (secFlag) {
                             if (mThrottle > 0) {
                                 mThrottle = 1;
-                                writeLog("Reducing throttle to 1");
                             } else {
                                 mThrottle = -1;
-                                writeLog("Increasing throttle to -1");
                             }
                         }
                     }
                 } else if (m == MyVirtualStickExecutorMode.MOVE_DIS || m == MyVirtualStickExecutorMode.FLY_TO) {
                     curLat = mFlightController.getState().getAircraftLocation().getLatitude();
                     curLog = mFlightController.getState().getAircraftLocation().getLongitude();
-                    
-                    writeLog("Current Location: Lat=" + curLat + ", Lon=" + curLog);
+
 
                     double home2curX = curLat - homeLat;
                     double home2curY = curLog - homeLog;
                     double home2curMag = Math.sqrt(home2curX * home2curX + home2curY * home2curY);
-                    
-                    writeLog("Vector Home to Current: X=" + home2curX + ", Y=" + home2curY + ", Mag=" + home2curMag);
+
 
                     double cur2tarX = tarLat - curLat;
                     double cur2tarY = tarLog - curLog;
                     double cur2tarMag = Math.sqrt(cur2tarX * cur2tarX + cur2tarY * cur2tarY);
-                    
-                    writeLog("Vector Current to Target: X=" + cur2tarX + ", Y=" + cur2tarY + ", Mag=" + cur2tarMag);
+
 
                     double cosUp = home2curX * cur2tarX + home2curY * cur2tarY;
                     double cosDown = home2curMag * cur2tarMag;
-                    
-                    writeLog("Dot Product: " + cosUp);
-                    writeLog("Product of Magnitudes: " + cosDown);
+
+
                     if (cosDown != 0) {
-                        writeLog("Cosine Ratio: " + (cosUp / cosDown));
                     }
 
                     // For precise stopping and hovering
                     double dist = Utils.calcDistance(curLat, curLog, tarLat, tarLog);
-                    writeLog("Distance to Target: " + dist + " meters");
-                    writeLog("Current Pitch: " + mPitch + ", Roll: " + mRoll + ", Yaw: " + mYaw);
-                    writeLog("SecFlag: " + secFlag);
 
                     if (dist < 0.33 || cosUp / cosDown < 0) {
                         mPitch = 0;
                         mRoll = 0;
                         secFlag = false;
-                        
-                        writeLog("Target reached or overshot. Stopping. dist=" + dist + ", cosUp/cosDown=" + (cosUp / cosDown));
-                        writeLog("Setting Pitch and Roll to 0");
+
 
                         // 取消定时器任务
                         this.cancel();
                         destroyLocationTrackTimer();
-                        
-                        writeLog("Task cancelled and timer destroyed");
 
                         // 调用回调，指令成功完成
                         if (mCallback != null) {
-                            writeLog("Calling completion callback");
                             mCallback.onComplete(null);
                         }
-                        
-                        closeDebugLogFile();
+
                     } else if (secFlag) {
                         if (dist < Math.abs(mPitch) || dist < Math.abs(mRoll)) {
-                            writeLog("Approaching target. Adjusting controls...");
-                            
+
                             if (mPitch != 0) {
                                 mPitch = 1;
-                                writeLog("Reducing Pitch to 1");
                             }
                             if (mRoll != 0) {
                                 mRoll = 1;
-                                writeLog("Reducing Roll to 1");
                             }
                         } else if (m == MyVirtualStickExecutorMode.FLY_TO) {
                             //set direction
                             float previousYaw = mYaw;
                             mYaw = (float) Utils.calcBearing(curLat, curLog, tarLat, tarLog);
-                            writeLog("Updated Yaw from " + previousYaw + " to " + mYaw + " (bearing to target)");
                         }
                     }
                 } else if (m == MyVirtualStickExecutorMode.MOVE_DIS_SPEED) {
                     curLat = mFlightController.getState().getAircraftLocation().getLatitude();
                     curLog = mFlightController.getState().getAircraftLocation().getLongitude();
-                    
-                    writeLog("Current Location: Lat=" + curLat + ", Lon=" + curLog);
+
 
                     double home2curX = curLat - homeLat;
                     double home2curY = curLog - homeLog;
                     double home2curMag = Math.sqrt(home2curX * home2curX + home2curY * home2curY);
-                    
-                    writeLog("Vector Home to Current: X=" + home2curX + ", Y=" + home2curY + ", Mag=" + home2curMag);
+
 
                     double cur2tarX = tarLat - curLat;
                     double cur2tarY = tarLog - curLog;
                     double cur2tarMag = Math.sqrt(cur2tarX * cur2tarX + cur2tarY * cur2tarY);
-                    
-                    writeLog("Vector Current to Target: X=" + cur2tarX + ", Y=" + cur2tarY + ", Mag=" + cur2tarMag);
+
 
                     double cosUp = home2curX * cur2tarX + home2curY * cur2tarY;
                     double cosDown = home2curMag * cur2tarMag;
-                    
-                    writeLog("Dot Product: " + cosUp);
-                    writeLog("Product of Magnitudes: " + cosDown);
+
                     if (cosDown != 0) {
-                        writeLog("Cosine Ratio: " + (cosUp / cosDown));
                     }
 
                     // For precise stopping and hovering
                     double dist = Utils.calcDistance(curLat, curLog, tarLat, tarLog);
-                    writeLog("Distance to Target: " + dist + " meters");
-                    writeLog("Current Pitch: " + mPitch + ", Roll: " + mRoll);
-                    writeLog("SecFlag: " + secFlag);
 
                     if (dist < 0.33 || cosUp / cosDown < 0) {
                         mPitch = 0;
                         mRoll = 0;
                         secFlag = false;
-                        
-                        writeLog("Target reached or overshot. Stopping. dist=" + dist + ", cosUp/cosDown=" + (cosUp / cosDown));
-                        writeLog("Setting Pitch and Roll to 0");
 
                         // 取消定时器任务
                         this.cancel();
                         destroyLocationTrackTimer();
-                        
-                        writeLog("Task cancelled and timer destroyed");
 
                         // 调用回调，指令成功完成
                         if (mCallback != null) {
-                            writeLog("Calling completion callback");
                             mCallback.onComplete(null);
                         }
-                        
-                        closeDebugLogFile();
+
                     } else if (secFlag) {
                         if (dist < Math.abs(mPitch) || dist < Math.abs(mRoll)) {
-                            writeLog("Approaching target. Adjusting controls...");
-                            
+
                             if (mPitch != 0) {
                                 mPitch = 1;
-                                writeLog("Reducing Pitch to 1");
                             }
                             if (mRoll != 0) {
                                 mRoll = 1;
-                                writeLog("Reducing Roll to 1");
                             }
                         }
                     }
                 }
             } else {
-                writeLog("ERROR: mFlightController is null");
             }
-            
-            writeLog("RUN #" + runCounter + " COMPLETED\n");
         }
     }
 

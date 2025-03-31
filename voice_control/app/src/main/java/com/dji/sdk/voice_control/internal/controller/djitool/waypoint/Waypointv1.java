@@ -35,11 +35,6 @@ public class Waypointv1 {
         Log.d(TAG, "Waypoint initialized with view");
     }
 
-    public Waypointv1(Context mContext){
-        this.mContext = mContext;
-        Log.d(TAG, "Waypoint initialized with context");
-    }
-
     public Waypointv1(){
         Log.d(TAG, "Waypoint initialized with default constructor");
     }
@@ -66,7 +61,7 @@ public class Waypointv1 {
     }
 
 
-    public void AddWaypoint(double latitude, double longitude, float altitude, @NonNull int heading, @NonNull float speed, float cornermeters) {
+    public void AddWaypoint(double latitude, double longitude, float altitude, int heading, float speed, float cornermeters) {
         Log.d(TAG, "Adding waypoint at latitude: " + latitude + ", longitude: " + longitude + ", altitude: " + altitude);
         Waypoint mWaypoint = new Waypoint(latitude,longitude,altitude);
         mWaypoint.heading =heading;
@@ -99,6 +94,7 @@ public class Waypointv1 {
             waypointMissionBuilder = new WaypointMission.Builder();
         }
         waypointMissionBuilder.setPointOfInterest(new LocationCoordinate2D(lattitude,longitude));
+        Log.d(TAG,"设置兴趣点成功");
     }
 
     public void RemoveWaypoint(int index){
@@ -149,11 +145,37 @@ public class Waypointv1 {
         }
     }
 
+    public void configCycleWayPointMission(WaypointMissionOperator instance) {
+        Log.d(TAG, "Configuring waypoint mission");
+        if (waypointMissionBuilder == null) {
+            Log.d(TAG, "waypointMissionBuilder was null, creating new instance");
+            waypointMissionBuilder = new WaypointMission.Builder();
+        }
+
+        Log.d(TAG, "Mission config: finishedAction=" + mFinishedAction +
+                ", firstMode=" + firstMode +
+                ", speed=" + mSpeed +
+                ", waypointCount=" + waypointMissionBuilder.getWaypointCount());
+
+        waypointMissionBuilder.finishedAction(mFinishedAction)
+                .headingMode(mHeadingMode)
+                .autoFlightSpeed(mSpeed)
+                .maxFlightSpeed(mSpeed)
+                .flightPathMode(waypointMissionFlightPathMode);
+
+        DJIError error = instance.loadMission(waypointMissionBuilder.build());
+        if (error == null) {
+            setResultToToast("loadWaypoint succeeded");
+            canUploadMission = true;
+        } else {
+            setResultToToast("loadWaypoint failed " + error.getDescription());
+        }
+    }
+
     public void uploadWayPointMission(WaypointMissionOperator instance) {
         Log.d(TAG, "Attempting to upload waypoint mission, canUploadMission: " + canUploadMission);
         if (!canUploadMission) {
             Log.w(TAG, "Cannot upload mission, prerequisite not met");
-            Toast.makeText(mContext, "Can`t upload Mission", Toast.LENGTH_SHORT).show();
             return;
         }
         instance.uploadMission(new CommonCallbacks.CompletionCallback() {

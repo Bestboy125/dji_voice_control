@@ -362,6 +362,7 @@ public class llm_agent {
                             count_center ++;
                             if(count_center == 2){
                                 isfindCar = true;
+                                recognizeCarBrand();
                             }
                         }
                     } else {

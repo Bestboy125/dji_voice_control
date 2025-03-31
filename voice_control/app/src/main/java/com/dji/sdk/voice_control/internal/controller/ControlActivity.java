@@ -118,6 +118,7 @@ import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.Detecte
 import com.dji.sdk.voice_control.internal.controller.adapter.DetectedObjectsAdapter;
 import com.dji.sdk.voice_control.internal.controller.djitool.gimbal.gimbalControl;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.yoloSamTrack;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.llm_active_track;
 import com.dji.sdk.voice_control.internal.controller.utils.Utils;
 import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.view.BaseRtspFpvView;
@@ -211,6 +212,9 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import com.pedro.rtsp.utils.ConnectCheckerRtsp;
+
+// Import the new llm_active_track class
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.llm_active_track;
 
 public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator, ControlActivityCallback {
 
@@ -467,6 +471,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     yoloSamTrack yoloSamTrack;
     llm_agent llmAgent;
     llm_agent_cycle llmAgentCycle;
+    llm_active_track llmActiveTrack;
     private boolean isflying = false;
     //endregion
 
@@ -654,7 +659,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
 
         //初始化航点操作类
-        mWaypoint = new Waypointv1(ControlActivity.this);
+        mWaypoint = new Waypointv1();
         Log.d(TAG, "Before mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
         mMissionOperator = getWaypointMissionOperator(mMissionOperator);
         Log.d(TAG, "After mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
@@ -666,8 +671,42 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         //实例化命令分类器
         cc1 = new CommandClassifier();
 
+        // Initialize all agent instances
         // 初始化命令交互控制器
         mCI = CommandInterpreter.getUniqueInstance(mContext);
+        
+        // Initialize network client for yoloSamTrack
+        networkClient = new NetworkClient();
+        yoloSamTrack = new yoloSamTrack(
+                networkClient,
+                mCI.mFlightController,
+                mCI,
+                this
+        );
+        
+        // Initialize llm_agent
+        llmAgent = new llm_agent(
+                mCI,
+                mCI.mFlightController,
+                fpvTexture,
+                this
+        );
+        
+        // Initialize llm_agent_cycle
+        llmAgentCycle = new llm_agent_cycle(
+                mCI,
+                mCI.mFlightController,
+                fpvTexture,
+                this
+        );
+        
+        // Initialize llm_active_track
+        llmActiveTrack = new llm_active_track(
+                mCI,
+                mCI.mFlightController,
+                fpvTexture,
+                this
+        );
 
         //初始化UI事件
         initUI();
@@ -693,11 +732,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mChatMessageData = ChatMessageData.getInstance();
         mJSONMessage = JSONMessage.getInstance();
         initAdpater();
-
-        //初始化
-        yoloSamTrack = new yoloSamTrack(networkClient,mCI.mFlightController,mCI,uiCallback);
-        llmAgent = new llm_agent(mCI,mCI.mFlightController,fpvTexture,uiCallback);
-        llmAgentCycle = new llm_agent_cycle(mCI,mCI.mFlightController,fpvTexture,uiCallback);
 
         //注册广播器
         IntentFilter filter = new IntentFilter();
@@ -753,6 +787,12 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             mSendVirtualStickDataTimer.purge();
             mSendVirtualStickDataTimer = null;
         }
+        
+        // Cleanup llm_active_track
+        if (llmActiveTrack != null) {
+            llmActiveTrack.cleanup();
+        }
+        
         super.onDestroy();
     }
 
@@ -1157,7 +1197,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             yoloSamTrack.handleObjectTracking();
         });
         llm_agent_fixed.setOnClickListener(v -> {
-            llmAgentCycle.agentFindCar();
+//            llmAgentCycle.agentFindCar();
+            llmAgentCycle.hotFlyCircle(2.5);
         });
         test_control.setOnClickListener(v -> {
             showSimpleMoveDialog();
@@ -1169,7 +1210,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                    public void onResult(DJIError djiError) {
                        if (djiError != null) {
                            showToast(djiError.getDescription());
-                       }else
+                       } else
                        {
                            showToast("设置返航点成功");
                        }
@@ -2415,6 +2456,34 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         // 执行分类任务（假设是执行 NLC 的核心逻辑）
         ClassificationTask cft = new ClassificationTask(ControlActivity.this);
         cft.execute(tokenedCommand);
+    }
+    
+    /**
+     * 使用GPT-4o视觉识别开始追踪目标
+     * @param targetDescription 目标描述，例如"红色汽车"或"穿蓝色衣服的人"
+     */
+    private void handleActiveTrackWithGPT(String targetDescription) {
+        if (llmActiveTrack != null) {
+            if (TextUtils.isEmpty(targetDescription)) {
+                addChatMessage(Constant.OWNER_BOT, "请提供目标描述，例如'红色汽车'或'穿蓝色衣服的人'");
+                return;
+            }
+            addChatMessage(Constant.OWNER_BOT, "开始使用GPT-4o视觉识别进行目标追踪: " + targetDescription);
+            llmActiveTrack.startActiveTrackSearch(targetDescription);
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "目标追踪组件未初始化");
+        }
+    }
+
+    /**
+     * 停止当前的目标追踪任务
+     */
+    private void handleStopActiveTrack() {
+        if (llmActiveTrack != null) {
+            llmActiveTrack.stopTracking();
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "目标追踪组件未初始化");
+        }
     }
 
     /**
@@ -3874,6 +3943,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     @Override
     public File mgetCacheDir(){
         return  getCacheDir();
+    }
+
+    @Override
+    public Context getContext(){
+        return mContext;
     }
 
     /**

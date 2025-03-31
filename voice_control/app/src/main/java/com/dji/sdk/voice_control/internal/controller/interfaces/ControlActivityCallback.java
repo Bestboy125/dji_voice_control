@@ -1,5 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller.interfaces;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 
@@ -40,6 +41,8 @@ public interface ControlActivityCallback {
     Resources mgetResources();
 
     File mgetCacheDir();
+
+    Context getContext();
 
     boolean getisFlying();
 

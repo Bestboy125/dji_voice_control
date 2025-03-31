@@ -5,11 +5,14 @@ import static com.dji.sdk.voice_control.internal.djidemo.utils.ToastUtils.showTo
 import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.util.Log;
+import dji.common.util.CommonCallbacks;
 import android.view.TextureView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
@@ -31,14 +34,21 @@ import java.util.concurrent.Executors;
 
 import dji.common.error.DJIError;
 import dji.common.flightcontroller.LocationCoordinate3D;
+import dji.common.mission.hotpoint.HotpointHeading;
+import dji.common.mission.hotpoint.HotpointMission;
+import dji.common.mission.hotpoint.HotpointMissionEvent;
+import dji.common.mission.hotpoint.HotpointStartPoint;
 import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
 import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
 import dji.common.mission.waypoint.WaypointMissionFlightPathMode;
 import dji.common.mission.waypoint.WaypointMissionHeadingMode;
 import dji.common.mission.waypoint.WaypointMissionState;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
+import dji.common.model.LocationCoordinate2D;
 import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.mission.MissionControl;
+import dji.sdk.mission.hotpoint.HotpointMissionOperator;
+import dji.sdk.mission.hotpoint.HotpointMissionOperatorListener;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
 import dji.sdk.sdkmanager.DJISDKManager;
@@ -50,7 +60,10 @@ public class llm_agent_cycle {
     private MyVirtualStickExecutor mSingletonVirtualStickExecutor;
     private TextureView mfpvTexture;
     private ControlActivityCallback callback;
+    private HotpointMissionOperator hotpointMissionOperator = null;     // 圆形绕飞任务控制器
+    private HotpointMissionOperatorListener hotpointlistener;
 
+    private static final String TAG = "llm_agent_cycle";
 
     //region agent 数据结构
     private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
@@ -117,7 +130,6 @@ public class llm_agent_cycle {
             "- 只需要判断目标在图像的前、后或者中间，不要回复类似左中(center-left)的回答。\n" +
             "- 请注意轿车通常具有完整黑色轿车轮廓。";
     private String Gpt_result;
-    private static final String TAG = MainActivity.class.getName();
 
     //无人机信息
     LocationCoordinate3D droneLocation = new LocationCoordinate3D(0,0,0);
@@ -158,12 +170,12 @@ public class llm_agent_cycle {
      * 入口函数
      */
     public void agentFindCar() {
-        // 开启新线程 锁定目标线程
-        new Thread(() -> {
-            // 初始化虚拟摇杆执行器
+        executorService.execute(() -> {
+            // Initialize virtual stick if needed
+            Context context = callback.getContext();
             mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
 
-            //起飞
+            // Take off if drone is not flying
             if(!callback.getisFlying()){
                 mCI.mTakeoff();
             }
@@ -181,7 +193,7 @@ public class llm_agent_cycle {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        }).start();
+        });
     }
 
     //搜索
@@ -237,6 +249,7 @@ public class llm_agent_cycle {
                 String finalResponse1 = response;
                 runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, finalResponse1);});
                 // 转动视角
+                Context context = callback.getContext();
                 MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
                 executor.mTurn(303, 10);
                 SleepThread(3000);
@@ -262,12 +275,16 @@ public class llm_agent_cycle {
 
         if (currentAttempt < maxAttempts) {
             runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 "));
+            Context context = callback.getContext();
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
             mSingletonVirtualStickExecutor.mUp(3);
             // 睡 6 秒再搜下一次
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
             performSearch(currentAttempt+1,maxAttempts);
         } else {
             runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
+            Context context = callback.getContext();
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
             mSingletonVirtualStickExecutor.mStop();
         }
     }
@@ -307,6 +324,7 @@ public class llm_agent_cycle {
             callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
 
             try {
+                Context context = callback.getContext();
                 String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile, true);
                 JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
                 String response = parseResult.getInferenceProcess();
@@ -348,6 +366,7 @@ public class llm_agent_cycle {
             callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
 
             try {
+                Context context = callback.getContext();
                 String gptResult = callback.sendQuestionToGPTSync(center_prompt, imageFile, true);
                 JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
                 String response = parseResult.getInferenceProcess();
@@ -400,23 +419,28 @@ public class llm_agent_cycle {
      * @param proportion   车辆在画面中的占比
      */
     private void adjustDronePosition(String locationDesc, int proportion) {
-        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+        try {
+            // 获取虚拟摇杆控制实例
+            Context context = callback.getContext();
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
 
-        // 计算位置偏移量（-1.0到1.0之间的值，0表示中心）
-        double horizontalOffset = calculateHorizontalOffset(locationDesc);
+            // 计算水平和垂直偏移量（0.0到1.0之间的值，表示偏离中心的程度）
+            double horizontalOffset = calculateHorizontalOffset(locationDesc);
+            double verticalOffset = calculateVerticalOffset(locationDesc);
+            
+            // 计算基于占比的接近程度（0-1之间，1表示非常近）
+            double proximityFactor = calculateProximityFactor(proportion);
+            
+            // 根据偏移量和接近程度计算移动距离和方向
+            double horizontalMoveDistance = calculateHorizontalMoveDistance(horizontalOffset, proximityFactor);
+            double verticalMoveDistance = calculateHorizontalMoveDistance(verticalOffset, proximityFactor);
+            double forwardMoveDistance = calculateForwardMoveDistance(proximityFactor);
 
-        double verticalOffset = calculateVerticalOffset(locationDesc);
-        
-        // 计算基于占比的接近程度（0-1之间，1表示非常近）
-        double proximityFactor = calculateProximityFactor(proportion);
-        
-        // 根据偏移量和接近程度计算移动距离和方向
-        double horizontalMoveDistance = calculateHorizontalMoveDistance(horizontalOffset, proximityFactor);
-        double verticalMoveDistance = calculateHorizontalMoveDistance(verticalOffset, proximityFactor);
-        double forwardMoveDistance = calculateForwardMoveDistance(proximityFactor);
-
-        // 执行调整动作
-        executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, verticalOffset, verticalMoveDistance, forwardMoveDistance, proximityFactor);
+            // 执行调整动作
+            executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, verticalOffset, verticalMoveDistance, forwardMoveDistance, proximityFactor);
+        } catch (Exception e) {
+            callback.addChatMessage(Constant.OWNER_BOT, "调整无人机位置时出错: " + e.getMessage());
+        }
     }
     
     /**
@@ -518,11 +542,15 @@ public class llm_agent_cycle {
                 // 目标在左侧，向左移动
                 callback.addChatMessage(Constant.OWNER_BOT, 
                     String.format("车辆在图像左侧，向左移动%.2f米", horizontalMoveDistance));
+                Context context = callback.getContext();
+                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mGo(303, horizontalMoveDistance);
             } else {
                 // 目标在右侧，向右移动
                 callback.addChatMessage(Constant.OWNER_BOT, 
                     String.format("车辆在图像右侧，向右移动%.2f米", horizontalMoveDistance));
+                Context context = callback.getContext();
+                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mGo(304, horizontalMoveDistance);
             }
             
@@ -534,11 +562,15 @@ public class llm_agent_cycle {
                 // 目标在后，向后移动
                 callback.addChatMessage(Constant.OWNER_BOT,
                         String.format("车辆在图像后，向后移动%.2f米", verticalMoveDistance));
+                Context context = callback.getContext();
+                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mGo(302, verticalMoveDistance);
             } else {
                 // 目标在前，向前移动
                 callback.addChatMessage(Constant.OWNER_BOT,
                         String.format("车辆在图像前，向前移动%.2f米", verticalMoveDistance));
+                Context context = callback.getContext();
+                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mGo(301, verticalMoveDistance);
             }
             // 水平移动后短暂暂停，让无人机稳定
@@ -548,6 +580,8 @@ public class llm_agent_cycle {
             callback.addChatMessage(Constant.OWNER_BOT, 
                 String.format("车辆已大致位于中心，占比为%.0f%%，向前移动%.2f米靠近...", 
                 proximityFactor * 100, forwardMoveDistance));
+            Context context = callback.getContext();
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
             mSingletonVirtualStickExecutor.mGo(301, forwardMoveDistance);
             SleepThread(500);
         } else {
@@ -555,6 +589,8 @@ public class llm_agent_cycle {
             if (proximityFactor < 0.8) {
                 callback.addChatMessage(Constant.OWNER_BOT, 
                     String.format("车辆居中且接近，进行微调(占比%.0f%%)...", proximityFactor * 100));
+                Context context = callback.getContext();
+                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mGo(301, MIN_MOVE_DISTANCE);
             } else {
                 callback.addChatMessage(Constant.OWNER_BOT, "车辆已居中且足够接近，不需要移动。");
@@ -588,6 +624,7 @@ public class llm_agent_cycle {
 
         try{
             // 3. 调用 GPT 或 API
+            Context context = callback.getContext();
             String gptResult = callback.sendQuestionToGPTSync(brandPrompt, brandImgFile, true);
 
             // 4. 解析响应结果
@@ -670,12 +707,9 @@ public class llm_agent_cycle {
     /**
      * 收集目标的详细信息
      */
-    private void getObjInformation(){
+    public void getObjInformation(){
         //后退2.5米
         double distance = 2.5;
-        reduis = 2.5f;
-        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
-        mSingletonVirtualStickExecutor.mGo(302,distance);
 
         //绕圈飞行
         flyWithCircle(distance);
@@ -684,13 +718,16 @@ public class llm_agent_cycle {
     private WaypointMissionOperatorListener eventNotificationListener = new WaypointMissionOperatorListener() {
         @Override
         public void onDownloadUpdate(WaypointMissionDownloadEvent downloadEvent) {
-
+            if (downloadEvent.getError() != null) {
+                Log.e(TAG, "onDownloadUpdate: 下载错误: " + downloadEvent.getError().getDescription());
+            }
         }
 
         @Override
         public void onUploadUpdate(WaypointMissionUploadEvent uploadEvent) {
+            
             if ((uploadEvent.getError() != null)) {
-                Log.d(TAG, uploadEvent.getError().getDescription());
+                Log.e(TAG, "onUploadUpdate: 上传错误: " + uploadEvent.getError().getDescription());
             }
 
             if (uploadEvent.getPreviousState() == WaypointMissionState.UPLOADING
@@ -698,95 +735,210 @@ public class llm_agent_cycle {
                 // upload complete, can start mission
                 // getWaypointMissionOperator().startMission();
                 mWaypoint.canStartMission = true;
+                Log.d(TAG, "onUploadUpdate: 航点任务上传完成，准备执行");
             }
             mWaypoint.startWaypointMission(mMissionOperator);
         }
 
         @Override
         public void onExecutionUpdate(WaypointMissionExecutionEvent executionEvent) {
-
+            Log.d(TAG, "onExecutionUpdate: 收到航点任务执行事件 - 当前航点索引: " + executionEvent.getProgress().targetWaypointIndex + 
+                  ", 执行状态: " + executionEvent.getProgress().executeState.name());
+            
+            if (executionEvent.getError() != null) {
+                Log.e(TAG, "onExecutionUpdate: 执行错误: " + executionEvent.getError().getDescription());
+            }
         }
 
         @Override
         public void onExecutionStart() {
-
+            Log.d(TAG, "onExecutionStart: 航点任务开始执行");
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "航点任务开始执行");
+            });
         }
 
         @Override
         public void onExecutionFinish(@Nullable final DJIError error) {
             isend = true;
+            Log.d(TAG, "onExecutionFinish: 航点任务执行完成" + (error == null ? "" : ", 错误: " + error.getDescription()));
             setResultToToast("Execution finished: " + (error == null ? "Success!" : error.getDescription()));
         }
     };
 
     //region 基于航点的绕圈飞行
     /**
+     * 计算以给定中心点和半径的圆上均匀分布的n个点的经纬度坐标
+     * @param centerLat 中心点纬度
+     * @param centerLon 中心点经度
+     * @param radiusInMeters 圆半径（米）
+     * @param numberOfPoints 需要计算的点数量
+     * @param initialBearing 初始方位角（度），0表示正北，90表示正东，以此类推
+     * @return 包含所有点坐标的数组，每个点是一个double[2]数组，[0]为纬度，[1]为经度
+     */
+    public double[][] calculateCirclePoints(double centerLat, double centerLon,
+                                            double radiusInMeters, int numberOfPoints,
+                                            double initialBearing) {
+        Log.d(TAG, "calculateCirclePoints: 开始计算圆形航点 - 中心点: [" + centerLat + ", " + centerLon +
+                "], 半径: " + radiusInMeters + "米, 点数量: " + numberOfPoints +
+                ", 初始方位角: " + initialBearing + "°");
+
+        double[][] points = new double[numberOfPoints][2];
+
+        // 计算每个点之间的角度间隔（弧度）
+        double angleStep = 2 * Math.PI / numberOfPoints;
+        Log.d(TAG, "calculateCirclePoints: 角度步进值: " + Math.toDegrees(angleStep) + "°");
+
+        // 将初始方位角转换为弧度
+        double bearingRad = Math.toRadians(initialBearing);
+
+        for (int i = 0; i < numberOfPoints; i++) {
+            // 计算当前点的方位角（弧度）
+            double currentBearing = bearingRad + i * angleStep;
+
+            // 确保方位角在 0 到 2π 之间
+            while (currentBearing < 0) {
+                currentBearing += 2 * Math.PI;
+            }
+            while (currentBearing >= 2 * Math.PI) {
+                currentBearing -= 2 * Math.PI;
+            }
+
+            // 转换为度数，用于Utils.calcDestination方法
+            double bearingDegrees = Math.toDegrees(currentBearing);
+
+            Log.d(TAG, "calculateCirclePoints: 点 " + (i+1) + " 方位角: " + bearingDegrees + "°");
+
+            // 计算目标点坐标
+            double[] destination = Utils.calcDestination(centerLat, centerLon, bearingDegrees, radiusInMeters);
+
+            // 存储结果
+            points[i][0] = destination[0]; // 纬度
+            points[i][1] = destination[1]; // 经度
+
+            Log.d(TAG, "calculateCirclePoints: 点 " + (i+1) + " 坐标: [" + points[i][0] + ", " + points[i][1] + "]");
+        }
+
+        Log.d(TAG, "calculateCirclePoints: 圆形航点计算完成");
+        return points;
+    }
+    /**
      * 绕圈飞行
      * @param r 圆形轨迹的半径（米）
      */
     private void flyWithCircle(double r){
+        Log.d(TAG, "flyWithCircle: 开始绕圈飞行任务，半径: " + r + "米");
+        
         //获取车辆上方的无人机位置
         droneLocation = callback.getDroneLocation();
         droneAlt = droneLocation.getAltitude();
         droneLat = droneLocation.getLatitude();
         droneLon = droneLocation.getLongitude();
+        
+        Log.d(TAG, "flyWithCircle: 无人机当前位置 - 纬度: " + droneLat + 
+              ", 经度: " + droneLon + ", 高度: " + droneAlt + "米");
 
         //获取车辆的位置
         objAlt = 1;
         objLat = droneLat;
         objLon = droneLon;
+        
+        Log.d(TAG, "flyWithCircle: 目标物位置 - 纬度: " + objLat + 
+              ", 经度: " + objLon + ", 高度: " + objAlt + "米");
+
+        reduis = 2.5f;
+        Context context = callback.getContext();
+        if (context == null) {
+            Log.e(TAG, "flyWithCircle: 上下文为空，无法获取虚拟摇杆控制实例");
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "错误: 上下文为空，无法执行后退操作");
+            });
+            return;
+        }
+        
+        Log.d(TAG, "flyWithCircle: 无人机后退 " + r + "米以准备绕圈");
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+        mSingletonVirtualStickExecutor.mGo(302, r);
 
         //根据r 计算航点 绕圈飞行的航点坐标
         //初始化航点操作类
+        Log.d(TAG, "flyWithCircle: 初始化航点任务");
         mWaypoint = new Waypointv1();
         mMissionOperator = getWaypointMissionOperator(mMissionOperator);
+        if (mMissionOperator == null) {
+            Log.e(TAG, "flyWithCircle: 无法获取航点任务操作器，任务取消");
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "错误: 无法获取航点任务操作器，任务取消");
+            });
+            return;
+        }
+        
         mMissionOperator.addListener(eventNotificationListener);
+        Log.d(TAG, "flyWithCircle: 已添加航点任务监听器");
+
+        //设置兴趣点
+        mWaypoint.AddPointInterst(objLat,objLon);
+        Log.d(TAG, "flyWithCircle: 已设置兴趣点 - 纬度: " + objLat + ", 经度: " + objLon);
 
         // 清空现有航点
         if (mWaypoint.waypointMissionBuilder != null) {
+            Log.d(TAG, "flyWithCircle: 清空现有航点");
             mWaypoint.waypointMissionBuilder = null;
         }
 
         // 设置飞行高度（海拔高度）
         mWaypoint.altitude = (float) droneAlt;
+        Log.d(TAG, "flyWithCircle: 设置飞行高度: " + mWaypoint.altitude + "米");
 
-        // 定义航点数量 - 8个点可以形成一个较为平滑的圆形
-        int numberOfWaypoints = 6;
+        // 定义航点数量
+        int numberOfWaypoints = 10;
+        Log.d(TAG, "flyWithCircle: 定义航点数量: " + numberOfWaypoints);
 
-        float inital_angle = (float) (180 - (360 / numberOfWaypoints)) /2;
-        float normal_angle = (float) (360 / numberOfWaypoints);
-        float inital_bearing = callback.getHeading();
+        // 计算圆上的点
+        Log.d(TAG, "flyWithCircle: 开始计算圆上的点，使用初始方位角: " + callback.getHeading() + "°");
+        double[][] waypoints = calculateCirclePoints(
+            objLat, objLon,     // 中心点坐标
+            r,                  // 半径
+            numberOfWaypoints,  // 点数量
+            callback.getHeading() // 初始方位角
+        );
+        Log.d(TAG, "flyWithCircle: 圆上点计算完成");
 
-        // 计算并添加每个航点
-        for (int i = 0; i < numberOfWaypoints; i++) {
-            double bearing = 0;
-
-            if(i == 0) {
-                bearing = callback.getHeading() + inital_angle;
-            } else{
-                bearing -= normal_angle;
-            }
-            // 使用Utils工具类计算目标坐标
-            double[] destination = Utils.calcDestination(objLat, objLon, bearing, r);
-            double waypointLat = destination[0];
-            double waypointLon = destination[1];
-
+        // 添加所有航点
+        int heading = (int) callback.getHeading();
+        Log.d(TAG, "flyWithCircle: 开始添加航点");
+        for (int i = 0; i < waypoints.length; i++) {
+            double waypointLat = waypoints[i][0];
+            double waypointLon = waypoints[i][1];
+            
             // 添加航点
-            mWaypoint.AddWaypoint(waypointLat, waypointLon, callback.gerAltitude(),reduis);
-
+//            mWaypoint.AddWaypoint(waypointLat, waypointLon, callback.gerAltitude(), reduis);
+            mWaypoint.AddWaypoint(waypointLat, waypointLon, callback.gerAltitude(),heading,1f,reduis);
+            heading += (360/numberOfWaypoints);
+            if(heading>180){
+                heading = heading -180;
+            }
+            Log.d(TAG, "flyWithCircle: 添加航点 " + (i+1) + " - 纬度: " + waypointLat + 
+                  ", 经度: " + waypointLon + ", 高度: " + callback.gerAltitude() + 
+                  ", 半径: " + reduis);
+            
             // 记录日志
             int finalI = i;
             runOnUiThread(() -> {
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("添加航点 %d: 纬度 %.6f, 经度 %.6f", finalI +1, waypointLat, waypointLon));
+                        String.format("添加航点 %d: 纬度 %.6f, 经度 %.6f", finalI + 1, waypointLat, waypointLon));
             });
         }
 
         // 添加最后一个航点（返回起始点，形成闭环）
-        double[] firstPoint = Utils.calcDestination(objLat, objLon, inital_bearing, r);
-        mWaypoint.AddWaypoint(firstPoint[0], firstPoint[1],callback.gerAltitude(),reduis);
+        double[] firstPoint = Utils.calcDestination(objLat, objLon, callback.getHeading(), r);
+        mWaypoint.AddWaypoint(firstPoint[0], firstPoint[1], callback.gerAltitude(), reduis);
+        Log.d(TAG, "flyWithCircle: 添加闭环航点 - 纬度: " + firstPoint[0] + 
+              ", 经度: " + firstPoint[1] + ", 高度: " + callback.gerAltitude() + 
+              ", 半径: " + reduis);
 
         // 执行航点任务
+        Log.d(TAG, "flyWithCircle: 准备执行航点任务");
         startWaypointMission(r);
     }
 
@@ -794,22 +946,46 @@ public class llm_agent_cycle {
      * 开始执行航点任务
      */
     private void startWaypointMission(double r) {
+        Log.d(TAG, "startWaypointMission: 开始配置和执行航点任务，半径: " + r + "米");
+        
         runOnUiThread(() -> {
             callback.addChatMessage(Constant.OWNER_BOT, "开始执行绕圈飞行任务...");
         });
 
         if (mMissionOperator != null) {
             try {
-                mWaypoint.waypointMissionFlightPathMode = WaypointMissionFlightPathMode.CURVED;
-                mWaypoint.mHeadingMode = WaypointMissionHeadingMode.TOWARD_POINT_OF_INTEREST;
+                // Get context from callback to ensure it's not null
+                Context context = callback.getContext();
+                if (context == null) {
+                    Log.e(TAG, "startWaypointMission: 上下文为空，无法配置航点任务");
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "Error: Context is null");
+                    });
+                    return;
+                }
+                
+                Log.d(TAG, "startWaypointMission: 设置航点任务飞行路径模式为CURVED");
+                mWaypoint.waypointMissionFlightPathMode = WaypointMissionFlightPathMode.NORMAL;
+                
+                Log.d(TAG, "startWaypointMission: 设置航点任务朝向模式为TOWARD_POINT_OF_INTEREST");
+                mWaypoint.mHeadingMode = WaypointMissionHeadingMode.USING_WAYPOINT_HEADING;
+                
+                Log.d(TAG, "startWaypointMission: 开始配置航点任务");
                 mWaypoint.configWayPointMission(mMissionOperator);
+                
+                Log.d(TAG, "startWaypointMission: 等待1秒");
+                Thread.sleep(1000);
+                
+                Log.d(TAG, "startWaypointMission: 开始上传航点任务");
                 mWaypoint.uploadWayPointMission(mMissionOperator);
             } catch (Exception e) {
+                Log.e(TAG, "startWaypointMission: 创建任务异常: " + e.getMessage(), e);
                 runOnUiThread(() -> {
                     callback.addChatMessage(Constant.OWNER_BOT, "创建任务异常: " + e.getMessage());
                 });
             }
         } else {
+            Log.e(TAG, "startWaypointMission: 任务操作器为空，无法执行航点任务");
             runOnUiThread(() -> {
                 callback.addChatMessage(Constant.OWNER_BOT, "任务操作器或任务构建器未初始化");
             });
@@ -841,10 +1017,282 @@ public class llm_agent_cycle {
     //endregion
 
     //region 基于HotMission的绕圈飞行
+    /**
+     * 获取航点控制权
+     * @param instance
+     * @return
+     */
+    public HotpointMissionOperator getHotMissionOperator(HotpointMissionOperator instance) {
+        Log.d(TAG, "getHotMissionOperator: Called with instance " + (instance == null ? "null" : "not null"));
 
+        if (instance == null) {
+            Log.d(TAG, "getHotMissionOperator: Instance is null, requesting from DJISampleApplication");
+            instance = DJISampleApplication.getHotMissionOperator();
+            if (instance == null) {
+                Log.e(TAG, "getHotMissionOperator: Failed to get instance from DJISampleApplication");
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "错误: 无法获取热点任务操作器");
+                });
+            } else {
+                Log.d(TAG, "getHotMissionOperator: Successfully obtained instance from DJISampleApplication");
+            }
+        } else {
+            Log.d(TAG, "getHotMissionOperator: Using existing instance");
+        }
+
+        return instance;
+    }
+
+    /**
+     * 热点绕圈飞行
+     * @param r 圆形轨迹的半径（米）
+     */
+     public void hotFlyCircle(double r){
+        Log.d(TAG, "hotFlyCircle: [开始] 热点绕圈飞行任务初始化，半径: " + r + "米");
+        
+        try {
+            //获取车辆上方的无人机位置
+            Log.d(TAG, "hotFlyCircle: 正在获取无人机当前位置信息...");
+            droneLocation = callback.getDroneLocation();
+            if (droneLocation == null) {
+                Log.e(TAG, "hotFlyCircle: 无人机位置数据为空!");
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "错误: 无法获取无人机位置数据");
+                });
+                return;
+            }
+            
+            droneAlt = droneLocation.getAltitude();
+            droneLat = droneLocation.getLatitude();
+            droneLon = droneLocation.getLongitude();
+            
+            Log.d(TAG, "hotFlyCircle: 无人机当前位置 - 纬度: " + droneLat + 
+                ", 经度: " + droneLon + ", 高度: " + droneAlt + "米");
+
+            // 检查位置数据有效性
+            if (droneLat == 0 && droneLon == 0) {
+                Log.w(TAG, "hotFlyCircle: 警告 - 无人机位置数据可能无效 (0,0)");
+            }
+
+            //获取车辆的位置（此处直接使用无人机当前位置作为目标位置）
+            Log.d(TAG, "hotFlyCircle: 设置目标物位置（使用无人机当前位置）");
+            objAlt = 10;
+            objLat = droneLat;
+            objLon = droneLon;
+            
+            Log.d(TAG, "hotFlyCircle: 目标物位置 - 纬度: " + objLat + 
+                ", 经度: " + objLon + ", 高度: " + objAlt + "米");
+
+            reduis = 2.5f;
+            
+            Log.d(TAG, "hotFlyCircle: 准备调用热点圆形绕飞任务方法，参数：纬度=" + objLat + 
+                ", 经度=" + objLon + ", 高度=" + objAlt + ", 半径=" + r + ", 角速度=2.0");
+            
+            exechotpointmission(objLat, objLon, objAlt, r, 2.0f);
+            
+            Log.d(TAG, "hotFlyCircle: [完成] 热点绕圈飞行方法调用完成");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "hotFlyCircle: 发生异常: " + e.getMessage(), e);
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "执行热点圆形绕飞过程中发生错误: " + e.getMessage());
+            });
+        }
+    }
+
+    /***
+     * 执行热点圆形绕飞任务
+     */
+    protected void exechotpointmission(double hotlat, double hotlng, double hotalt, double hotr, float hotw) {
+        Log.d(TAG, "exechotpointmission: [开始] 执行热点圆形绕飞任务");
+        Log.d(TAG, "exechotpointmission: 任务参数 - 纬度: " + hotlat + 
+              ", 经度: " + hotlng + ", 高度: " + hotalt + 
+              ", 半径: " + hotr + ", 角速度: " + hotw);
+        
+        try {
+            // 圆形绕飞
+            Log.d(TAG, "exechotpointmission: 创建热点任务对象");
+            HotpointMission hotpointMission = new HotpointMission();
+            
+            Log.d(TAG, "exechotpointmission: 设置热点位置");
+            LocationCoordinate2D hotpoint = new LocationCoordinate2D(hotlat, hotlng);
+            hotpointMission.setHotpoint(hotpoint);
+            
+            Log.d(TAG, "exechotpointmission: 设置飞行高度: " + hotalt + "米");
+            hotpointMission.setAltitude(hotalt);
+            
+            Log.d(TAG, "exechotpointmission: 设置绕飞半径: " + hotr + "米");
+            hotpointMission.setRadius(5);
+            
+            Log.d(TAG, "exechotpointmission: 设置角速度: " + hotw + "度/秒");
+            hotpointMission.setAngularVelocity(20);
+            
+            Log.d(TAG, "exechotpointmission: 设置起始点为最近点");
+            HotpointStartPoint startPoint = HotpointStartPoint.NEAREST;
+            hotpointMission.setStartPoint(startPoint);
+            
+            Log.d(TAG, "exechotpointmission: 设置航向为朝向兴趣点");
+            HotpointHeading heading = HotpointHeading.TOWARDS_HOT_POINT;
+            hotpointMission.setHeading(heading);
+            hotpointMission.setClockwise(true);
+            
+            Log.d(TAG, "exechotpointmission: 等待5秒钟准备执行任务");
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "exechotpointmission: 等待被中断", e);
+                e.printStackTrace();
+            }
+
+            Log.d(TAG, "exechotpointmission: 获取热点任务操作器");
+            hotpointMissionOperator = getHotMissionOperator(hotpointMissionOperator);
+            
+            if (hotpointMissionOperator == null) {
+                Log.e(TAG, "exechotpointmission: 热点任务操作器为空，无法执行任务");
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "错误: 热点任务操作器为空，无法执行任务");
+                });
+                return;
+            }
+            
+            Log.d(TAG, "exechotpointmission: 设置热点任务监听器");
+            setUpHotpointListener();
+
+            Log.d(TAG, "exechotpointmission: 开始执行热点任务");
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "开始执行热点圆形绕飞任务，半径: " + hotr + "米");
+            });
+            
+            hotpointMissionOperator.startMission(hotpointMission, new CommonCallbacks.CompletionCallback() {
+                @Override
+                public void onResult(DJIError djiError) {
+                    if(djiError == null) {
+                        Log.d(TAG, "onResult: 热点任务成功启动");
+                        runOnUiThread(() -> {
+                            callback.addChatMessage(Constant.OWNER_BOT, "热点圆形绕飞任务成功启动");
+                            showToast("热点任务已成功启动");
+                        });
+                    } else {
+                        Log.e(TAG, "onResult: 热点任务执行失败: " + djiError.getDescription());
+                        Log.e(TAG, "onResult: 错误代码: " + djiError.getErrorCode());
+                        runOnUiThread(() -> {
+                            callback.addChatMessage(Constant.OWNER_BOT, 
+                                "热点任务启动失败: " + djiError.getDescription() + 
+                                " (错误代码: " + djiError.getErrorCode() + ")");
+                            showToast("热点任务启动失败，查看日志了解详情");
+                        });
+                    }
+                }
+            });
+            
+            Log.d(TAG, "exechotpointmission: [完成] 热点任务启动命令已发送");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "exechotpointmission: 执行过程中发生异常", e);
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "执行热点圆形绕飞任务时发生异常: " + e.getMessage());
+            });
+        }
+    }
+
+    private void setUpHotpointListener() {
+        Log.d(TAG, "setUpHotpointListener: [开始] 设置热点任务监听器");
+        
+        hotpointlistener = new HotpointMissionOperatorListener() {
+            @Override
+            public void onExecutionUpdate(@NonNull HotpointMissionEvent hotpointMissionEvent) {
+                Log.d(TAG, "onExecutionUpdate: 收到热点任务更新事件");
+
+                
+                // 检查是否有错误
+                if (hotpointMissionEvent.getError() != null) {
+                    Log.e(TAG, "onExecutionUpdate: 执行中出现错误: " + 
+                          hotpointMissionEvent.getError().getDescription());
+                    Log.e(TAG, "onExecutionUpdate: 错误代码: " + 
+                          hotpointMissionEvent.getError().getErrorCode());
+                }
+//                showToast("Execution update!");
+            }
+
+            @Override
+            public void onExecutionStart() {
+                Log.d(TAG, "onExecutionStart: 热点任务开始执行");
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "热点圆形绕飞任务开始执行");
+                });
+                showToast("Execution started!");
+            }
+
+            @Override
+            public void onExecutionFinish(@Nullable DJIError djiError) {
+                if (djiError == null) {
+                    Log.d(TAG, "onExecutionFinish: 热点任务成功完成");
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "热点圆形绕飞任务已成功完成");
+                    });
+                } else {
+                    Log.e(TAG, "onExecutionFinish: 热点任务完成但有错误: " + djiError.getDescription());
+                    Log.e(TAG, "onExecutionFinish: 错误代码: " + djiError.getErrorCode());
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, 
+                            "热点圆形绕飞任务完成但有错误: " + djiError.getDescription());
+                    });
+                }
+                showToast("Execution finished!");
+            }
+        };
+
+        if (hotpointMissionOperator != null && hotpointlistener != null) {
+            Log.d(TAG, "setUpHotpointListener: 添加监听器到热点任务操作器");
+            hotpointMissionOperator.addListener(hotpointlistener);
+            Log.d(TAG, "setUpHotpointListener: 监听器添加成功");
+        } else {
+            Log.e(TAG, "setUpHotpointListener: 无法添加监听器 - " + 
+                  "热点任务操作器为" + (hotpointMissionOperator == null ? "null" : "not null") + 
+                  ", 监听器为" + (hotpointlistener == null ? "null" : "not null"));
+        }
+        
+        Log.d(TAG, "setUpHotpointListener: [完成] 热点任务监听器设置完成");
+    }
+    
+    /**
+     * 停止当前热点任务
+     */
+    public void stopHotpointMission() {
+        Log.d(TAG, "stopHotpointMission: [开始] 尝试停止热点任务");
+        
+        if (hotpointMissionOperator == null) {
+            Log.e(TAG, "stopHotpointMission: 热点任务操作器为空，无法停止任务");
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "错误: 热点任务操作器为空，无法停止任务");
+            });
+            return;
+        }
+        
+        hotpointMissionOperator.stop(new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                if (djiError == null) {
+                    Log.d(TAG, "stopHotpointMission: 热点任务成功停止");
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "热点圆形绕飞任务已成功停止");
+                        showToast("热点任务已停止");
+                    });
+                } else {
+                    Log.e(TAG, "stopHotpointMission: 停止热点任务失败: " + djiError.getDescription());
+                    Log.e(TAG, "stopHotpointMission: 错误代码: " + djiError.getErrorCode());
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, 
+                            "停止热点任务失败: " + djiError.getDescription());
+                        showToast("停止热点任务失败");
+                    });
+                }
+            }
+        });
+        
+        Log.d(TAG, "stopHotpointMission: [完成] 停止任务命令已发送");
+    }
     //endregion
-
-
 
 
 

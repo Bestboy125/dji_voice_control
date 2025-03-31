@@ -18,6 +18,7 @@ import dji.sdk.base.BaseProduct;
 import dji.sdk.camera.Camera;
 import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.gimbal.Gimbal;
+import dji.sdk.mission.hotpoint.HotpointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointV2MissionOperator;
 import dji.sdk.products.Aircraft;
@@ -97,6 +98,27 @@ public class DJISampleApplication extends Application {
             Log.e(TAG, "getWaypointMissionOperator: Exception getting waypointMissionV2Operator: " + e.getMessage());
         }
         
+        return operator;
+    }
+
+    public static synchronized HotpointMissionOperator getHotMissionOperator() {
+        if (getProductInstance() == null) {
+            Log.e(TAG, "getHotMissionOperator: Product instance is null - drone not connected?");
+            return null;
+        }
+
+        HotpointMissionOperator operator = null;
+        try {
+            operator = DJISDKManager.getInstance().getMissionControl().getHotpointMissionOperator();
+            if (operator == null) {
+                Log.e(TAG, "getHotMissionOperator: Failed to get waypointMissionV2Operator from MissionControl");
+            } else {
+                Log.d(TAG, "getHotMissionOperator: Successfully obtained waypointMissionV2Operator");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "getHotMissionOperator: Exception getting waypointMissionV2Operator: " + e.getMessage());
+        }
+
         return operator;
     }
 
