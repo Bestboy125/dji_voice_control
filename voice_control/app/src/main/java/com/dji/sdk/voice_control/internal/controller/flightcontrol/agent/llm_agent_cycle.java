@@ -1082,13 +1082,11 @@ public class llm_agent_cycle {
             
             Log.d(TAG, "hotFlyCircle: 目标物位置 - 纬度: " + objLat + 
                 ", 经度: " + objLon + ", 高度: " + objAlt + "米");
-
-            reduis = 2.5f;
             
             Log.d(TAG, "hotFlyCircle: 准备调用热点圆形绕飞任务方法，参数：纬度=" + objLat + 
                 ", 经度=" + objLon + ", 高度=" + objAlt + ", 半径=" + r + ", 角速度=2.0");
             
-            exechotpointmission(objLat, objLon, objAlt, r, 2.0f);
+            exechotpointmission(objLat, objLon, objAlt, r, 20f);
             
             Log.d(TAG, "hotFlyCircle: [完成] 热点绕圈飞行方法调用完成");
             
@@ -1100,7 +1098,7 @@ public class llm_agent_cycle {
         }
     }
 
-    /***
+    /**
      * 执行热点圆形绕飞任务
      */
     protected void exechotpointmission(double hotlat, double hotlng, double hotalt, double hotr, float hotw) {
@@ -1108,91 +1106,96 @@ public class llm_agent_cycle {
         Log.d(TAG, "exechotpointmission: 任务参数 - 纬度: " + hotlat + 
               ", 经度: " + hotlng + ", 高度: " + hotalt + 
               ", 半径: " + hotr + ", 角速度: " + hotw);
-        
-        try {
-            // 圆形绕飞
-            Log.d(TAG, "exechotpointmission: 创建热点任务对象");
-            HotpointMission hotpointMission = new HotpointMission();
-            
-            Log.d(TAG, "exechotpointmission: 设置热点位置");
-            LocationCoordinate2D hotpoint = new LocationCoordinate2D(hotlat, hotlng);
-            hotpointMission.setHotpoint(hotpoint);
-            
-            Log.d(TAG, "exechotpointmission: 设置飞行高度: " + hotalt + "米");
-            hotpointMission.setAltitude(hotalt);
-            
-            Log.d(TAG, "exechotpointmission: 设置绕飞半径: " + hotr + "米");
-            hotpointMission.setRadius(5);
-            
-            Log.d(TAG, "exechotpointmission: 设置角速度: " + hotw + "度/秒");
-            hotpointMission.setAngularVelocity(20);
-            
-            Log.d(TAG, "exechotpointmission: 设置起始点为最近点");
-            HotpointStartPoint startPoint = HotpointStartPoint.NEAREST;
-            hotpointMission.setStartPoint(startPoint);
-            
-            Log.d(TAG, "exechotpointmission: 设置航向为朝向兴趣点");
-            HotpointHeading heading = HotpointHeading.TOWARDS_HOT_POINT;
-            hotpointMission.setHeading(heading);
-            hotpointMission.setClockwise(true);
-            
-            Log.d(TAG, "exechotpointmission: 等待5秒钟准备执行任务");
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                Log.e(TAG, "exechotpointmission: 等待被中断", e);
-                e.printStackTrace();
-            }
-
-            Log.d(TAG, "exechotpointmission: 获取热点任务操作器");
-            hotpointMissionOperator = getHotMissionOperator(hotpointMissionOperator);
-            
-            if (hotpointMissionOperator == null) {
-                Log.e(TAG, "exechotpointmission: 热点任务操作器为空，无法执行任务");
-                runOnUiThread(() -> {
-                    callback.addChatMessage(Constant.OWNER_BOT, "错误: 热点任务操作器为空，无法执行任务");
-                });
-                return;
-            }
-            
-            Log.d(TAG, "exechotpointmission: 设置热点任务监听器");
-            setUpHotpointListener();
-
-            Log.d(TAG, "exechotpointmission: 开始执行热点任务");
-            runOnUiThread(() -> {
-                callback.addChatMessage(Constant.OWNER_BOT, "开始执行热点圆形绕飞任务，半径: " + hotr + "米");
-            });
-            
-            hotpointMissionOperator.startMission(hotpointMission, new CommonCallbacks.CompletionCallback() {
-                @Override
-                public void onResult(DJIError djiError) {
-                    if(djiError == null) {
-                        Log.d(TAG, "onResult: 热点任务成功启动");
-                        runOnUiThread(() -> {
-                            callback.addChatMessage(Constant.OWNER_BOT, "热点圆形绕飞任务成功启动");
-                            showToast("热点任务已成功启动");
-                        });
-                    } else {
-                        Log.e(TAG, "onResult: 热点任务执行失败: " + djiError.getDescription());
-                        Log.e(TAG, "onResult: 错误代码: " + djiError.getErrorCode());
-                        runOnUiThread(() -> {
-                            callback.addChatMessage(Constant.OWNER_BOT, 
-                                "热点任务启动失败: " + djiError.getDescription() + 
-                                " (错误代码: " + djiError.getErrorCode() + ")");
-                            showToast("热点任务启动失败，查看日志了解详情");
-                        });
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                // 圆形绕飞
+                try {
+                    // 圆形绕飞
+                    Log.d(TAG, "exechotpointmission: 创建热点任务对象");
+                    HotpointMission hotpointMission = new HotpointMission();
+                    
+                    Log.d(TAG, "exechotpointmission: 设置热点位置");
+                    LocationCoordinate2D hotpoint = new LocationCoordinate2D(hotlat, hotlng);
+                    hotpointMission.setHotpoint(hotpoint);
+                    
+                    Log.d(TAG, "exechotpointmission: 设置飞行高度: " + hotalt + "米");
+                    hotpointMission.setAltitude(hotalt);
+                    
+                    Log.d(TAG, "exechotpointmission: 设置绕飞半径: " + hotr + "米");
+                    hotpointMission.setRadius(hotr);
+                    
+                    Log.d(TAG, "exechotpointmission: 设置角速度: " + hotw + "度/秒");
+                    hotpointMission.setAngularVelocity(hotw);
+                    
+                    Log.d(TAG, "exechotpointmission: 设置起始点为最近点");
+                    HotpointStartPoint startPoint = HotpointStartPoint.NEAREST;
+                    hotpointMission.setStartPoint(startPoint);
+                    
+                    Log.d(TAG, "exechotpointmission: 设置航向为朝向兴趣点");
+                    HotpointHeading heading = HotpointHeading.TOWARDS_HOT_POINT;
+                    hotpointMission.setHeading(heading);
+                    hotpointMission.setClockwise(true);
+                    
+                    Log.d(TAG, "exechotpointmission: 等待5秒钟准备执行任务");
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        Log.e(TAG, "exechotpointmission: 等待被中断", e);
+                        e.printStackTrace();
                     }
+        
+                    Log.d(TAG, "exechotpointmission: 获取热点任务操作器");
+                    hotpointMissionOperator = getHotMissionOperator(hotpointMissionOperator);
+                    
+                    if (hotpointMissionOperator == null) {
+                        Log.e(TAG, "exechotpointmission: 热点任务操作器为空，无法执行任务");
+                        runOnUiThread(() -> {
+                            callback.addChatMessage(Constant.OWNER_BOT, "错误: 热点任务操作器为空，无法执行任务");
+                        });
+                        return;
+                    }
+                    
+                    Log.d(TAG, "exechotpointmission: 设置热点任务监听器");
+                    setUpHotpointListener();
+        
+                    Log.d(TAG, "exechotpointmission: 开始执行热点任务");
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "开始执行热点圆形绕飞任务，半径: " + hotr + "米");
+                    });
+                    
+                    hotpointMissionOperator.startMission(hotpointMission, new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onResult(DJIError djiError) {
+                            if(djiError == null) {
+                                Log.d(TAG, "onResult: 热点任务成功启动");
+                                runOnUiThread(() -> {
+                                    callback.addChatMessage(Constant.OWNER_BOT, "热点圆形绕飞任务成功启动");
+                                    showToast("热点任务已成功启动");
+                                });
+                            } else {
+                                Log.e(TAG, "onResult: 热点任务执行失败: " + djiError.getDescription());
+                                Log.e(TAG, "onResult: 错误代码: " + djiError.getErrorCode());
+                                runOnUiThread(() -> {
+                                    callback.addChatMessage(Constant.OWNER_BOT, 
+                                        "热点任务启动失败: " + djiError.getDescription() + 
+                                        " (错误代码: " + djiError.getErrorCode() + ")");
+                                    showToast("热点任务启动失败，查看日志了解详情");
+                                });
+                            }
+                        }
+                    });
+                    
+                    Log.d(TAG, "exechotpointmission: [完成] 热点任务启动命令已发送");
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "exechotpointmission: 执行过程中发生异常", e);
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "执行热点圆形绕飞任务时发生异常: " + e.getMessage());
+                    });
                 }
-            });
-            
-            Log.d(TAG, "exechotpointmission: [完成] 热点任务启动命令已发送");
-            
-        } catch (Exception e) {
-            Log.e(TAG, "exechotpointmission: 执行过程中发生异常", e);
-            runOnUiThread(() -> {
-                callback.addChatMessage(Constant.OWNER_BOT, "执行热点圆形绕飞任务时发生异常: " + e.getMessage());
-            });
-        }
+            }
+        }).start();
     }
 
     private void setUpHotpointListener() {

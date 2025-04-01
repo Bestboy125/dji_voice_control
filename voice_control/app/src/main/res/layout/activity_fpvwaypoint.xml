@@ -315,6 +315,30 @@
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 
+            <Button
+                android:id="@+id/stop_cycle"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/round_btn"
+                android:text="停止绕圈"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/waypoint_cycle"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/round_btn"
+                android:text="航点绕飞"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
 
             <Button
                 android:id="@+id/llm_agent_fixed"

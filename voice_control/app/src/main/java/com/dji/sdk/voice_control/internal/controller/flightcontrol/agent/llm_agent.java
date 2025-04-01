@@ -48,7 +48,7 @@ public class llm_agent {
     private MyVirtualStickExecutor mSingletonVirtualStickExecutor;
     private TextureView mfpvTexture;
     private ControlActivityCallback callback;
-
+    private static final String TAG = "llm_agent";
 
     //region agent 数据结构
     private static final String AGENT_URL = "http://122.207.106.69:25130/chat";
@@ -229,6 +229,7 @@ public class llm_agent {
                 // 转动视角
                 MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
                 executor.mTurn(303, 10);
+                Log.d(TAG,"未能识别车辆，旋转10度");
                 SleepThread(3000);
             }
         }
@@ -328,6 +329,7 @@ public class llm_agent {
                 }
             } catch (Exception e) {
                 callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+                Log.d(TAG,"前视出错: " + e.getMessage());
             }
         } else{
             File imageFile = CaptureImage();
@@ -348,7 +350,7 @@ public class llm_agent {
                     String locationDesc = parseResult.getJsonData().optString("location_description", "center");
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                     int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                    boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
+                    boolean has_car = parseResult.getJsonData().optBoolean("has_car", false);
 
                     if(has_car && confidence>=80){
                         callback.addChatMessage(Constant.OWNER_BOT,
@@ -361,6 +363,7 @@ public class llm_agent {
                         } else{
                             count_center ++;
                             if(count_center == 2){
+                                Log.d(TAG,"已经位于车辆中央");
                                 isfindCar = true;
                                 recognizeCarBrand();
                             }
@@ -375,6 +378,7 @@ public class llm_agent {
                 }
             } catch (Exception e) {
                 callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+                Log.e(TAG,"俯视搜索出错: " + e.getMessage());
             }
         }
 

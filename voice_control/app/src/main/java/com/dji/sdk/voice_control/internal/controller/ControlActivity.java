@@ -1104,6 +1104,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button yolo_track = findViewById(R.id.yolo_track);
         Button llm_agent_fixed = findViewById(R.id.llm_agent_fixed);
         Button test_control = findViewById(R.id.test_control);
+        Button stop_cycle = findViewById(R.id.stop_cycle);
+        Button waypoint_cycle = findViewById(R.id.waypoint_cycle);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
@@ -1137,43 +1139,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         // 设置点击事件
         openDrawerButton.setOnClickListener(v -> openDrawer());
-        
-        /*
-        mBtnEnableVirtualStick.setOnClickListener(v -> {
-            // 处理 Home 按钮点击逻辑
-            if (mCI.mFlightController != null){
 
-                mCI.mFlightController.setVirtualStickModeEnabled(true, new CommonCallbacks.CompletionCallback() {
-                    @Override
-                    public void onResult(DJIError djiError) {
-                        if (djiError != null){
-                            showToast(djiError.getDescription());
-                        }else
-                        {
-                            showToast("Enable Virtual Stick Success");
-                        }
-                    }
-                });
-
-            }
-            drawerLayout.closeDrawer(GravityCompat.START);
-        });
-        mBtnDisableVirtualStick.setOnClickListener(v -> {
-            if (mCI.mFlightController != null){
-                mCI.mFlightController.setVirtualStickModeEnabled(false, new CommonCallbacks.CompletionCallback() {
-                    @Override
-                    public void onResult(DJIError djiError) {
-                        if (djiError != null) {
-                            showToast(djiError.getDescription());
-                        } else {
-                            showToast("Disable Virtual Stick Success");
-                        }
-                    }
-                });
-            }
-            drawerLayout.closeDrawer(GravityCompat.START);
-        });
-        */
         mBtnPhoto.setOnClickListener(v -> {
             Intent intent2 = new Intent(v.getContext(), VideoActivity.class);
             v.getContext().startActivity(intent2);
@@ -1198,10 +1164,16 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         });
         llm_agent_fixed.setOnClickListener(v -> {
 //            llmAgentCycle.agentFindCar();
-            llmAgentCycle.hotFlyCircle(2.5);
+            llmAgentCycle.hotFlyCircle(5);
         });
         test_control.setOnClickListener(v -> {
             showSimpleMoveDialog();
+        });
+        stop_cycle.setOnClickListener(v -> {
+            llmAgentCycle.stopHotpointMission();
+        });
+        waypoint_cycle.setOnClickListener(v -> {
+            llmAgentCycle.getObjInformation();
         });
         set_home_current.setOnClickListener(v ->{
            if(mCI.mFlightController!=null){
@@ -4523,13 +4495,13 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             int direction = 1; // 默认向前
             int checkedId = rgDirection.getCheckedRadioButtonId();
             if (checkedId == R.id.rb_forward) {
-                direction = 1; // 前
+                direction = 301; // 前
             } else if (checkedId == R.id.rb_backward) {
-                direction = 2; // 后
+                direction = 302; // 后
             } else if (checkedId == R.id.rb_left) {
-                direction = 3; // 左
+                direction = 303; // 左
             } else if (checkedId == R.id.rb_right) {
-                direction = 4; // 右
+                direction = 304; // 右
             }
             
             // 获取距离
@@ -4550,10 +4522,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             // 显示执行的命令信息
             String dirStr = "";
             switch (direction) {
-                case 1: dirStr = "前"; break;
-                case 2: dirStr = "后"; break;
-                case 3: dirStr = "左"; break;
-                case 4: dirStr = "右"; break;
+                case 301: dirStr = "前"; break;
+                case 302: dirStr = "后"; break;
+                case 303: dirStr = "左"; break;
+                case 304: dirStr = "右"; break;
             }
             showToast("执行移动命令：" + dirStr + " " + distance + "米");
         });
