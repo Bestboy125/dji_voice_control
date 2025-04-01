@@ -496,7 +496,6 @@ public class MyVirtualStickExecutor {
     //endregion
 
     //region 飞行指令
-    //TODO 更改延迟，优化代码
     /**
      * Stop
      */
@@ -579,7 +578,7 @@ public class MyVirtualStickExecutor {
      * Move
      */
     public void mGo(int movingDirection, double optionalDis) {
-        if(optionalDis>2){
+        if(optionalDis>5){
             mMode = MyVirtualStickExecutorMode.MOVE_WITHOUT_DIS;
             checkSendVirtualStickDataTimer();
             destroyLocationTrackTimer();
@@ -641,10 +640,6 @@ public class MyVirtualStickExecutor {
             }
         }).start();
     }
-    //endregion
-
-    //region 飞行指令
-    //TODO 更改延迟，优化代码
 
     /**
      * move with yaw and speed

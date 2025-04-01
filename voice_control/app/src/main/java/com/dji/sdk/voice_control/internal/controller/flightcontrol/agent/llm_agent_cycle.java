@@ -701,7 +701,6 @@ public class llm_agent_cycle {
 
     //endregion
 
-
     //收集车辆信息
 
     /**
@@ -822,6 +821,7 @@ public class llm_agent_cycle {
         Log.d(TAG, "calculateCirclePoints: 圆形航点计算完成");
         return points;
     }
+
     /**
      * 绕圈飞行
      * @param r 圆形轨迹的半径（米）
@@ -1111,6 +1111,10 @@ public class llm_agent_cycle {
             public void run() {
                 // 圆形绕飞
                 try {
+                    // 设置云台的俯仰角
+                    gimbalControl = new gimbalControl();
+                    gimbalControl.pitchGimbalAbsolute(-45);
+
                     // 圆形绕飞
                     Log.d(TAG, "exechotpointmission: 创建热点任务对象");
                     HotpointMission hotpointMission = new HotpointMission();
@@ -1198,6 +1202,9 @@ public class llm_agent_cycle {
         }).start();
     }
 
+    /**
+     * 设置热点圆形绕飞任务Listener
+     */
     private void setUpHotpointListener() {
         Log.d(TAG, "setUpHotpointListener: [开始] 设置热点任务监听器");
         
@@ -1296,7 +1303,4 @@ public class llm_agent_cycle {
         Log.d(TAG, "stopHotpointMission: [完成] 停止任务命令已发送");
     }
     //endregion
-
-
-
 }

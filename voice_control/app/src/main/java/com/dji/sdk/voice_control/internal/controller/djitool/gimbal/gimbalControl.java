@@ -68,6 +68,21 @@ public class gimbalControl {
     /**
      * 以绝对坐标系旋转相机云台
      * @param pitchValue
+     */
+    public void pitchGimbalAbsolute(float pitchValue) {
+        Log.d(TAG, "rotateGimbalAbsolute: pitch=" + pitchValue);
+
+        Rotation.Builder builder = new Rotation.Builder().pitch(pitchValue)
+                .mode(RotationMode.ABSOLUTE_ANGLE)
+                .time(0.5);
+
+        sendRotateGimbalCommand(builder.build());
+    }
+
+
+    /**
+     * 以绝对坐标系旋转相机云台
+     * @param pitchValue
      * @param yawValue
      * @param rollValue
      */

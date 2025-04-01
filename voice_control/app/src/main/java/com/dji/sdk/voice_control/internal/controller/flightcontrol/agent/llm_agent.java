@@ -219,6 +219,7 @@ public class llm_agent {
                         count_false_front = 0;
                         count_false_back = 0;
                         count_center = 0;
+                        current_gimbal_angle = 0;
                         Close_to();
                     }
                 }).start();
@@ -276,6 +277,7 @@ public class llm_agent {
     int count_false_back = 0;
     int count_false_front = 0;
     int count_center = 0;
+    int current_gimbal_angle = 0;
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
@@ -320,9 +322,12 @@ public class llm_agent {
                     } else {
                         count_false_front ++;
                         if(count_false_front == 2){
-                            use_front = false;
+                            current_gimbal_angle -= 30;
                             gimbalControl gimbalControl = new gimbalControl();
-                            gimbalControl.rotateGimbalDownwardView();
+                            gimbalControl.pitchGimbalAbsolute(current_gimbal_angle);
+                            if(current_gimbal_angle == -90){
+                                use_front = false;
+                            }
                             callback.addChatMessage(Constant.OWNER_BOT,"正在切换俯视图");
                         }
                     }
