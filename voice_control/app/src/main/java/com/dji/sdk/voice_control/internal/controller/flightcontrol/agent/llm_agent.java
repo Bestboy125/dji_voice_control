@@ -161,7 +161,12 @@ public class llm_agent {
 
             //设置一个合理的飞行高度
             //向上飞8米
-            mSingletonVirtualStickExecutor.mUp(8);
+            if(callback.gerAltitude()<18){
+                mSingletonVirtualStickExecutor.mUp((int) (18f - callback.gerAltitude()));
+            }
+            if(callback.gerAltitude()>18){
+                mSingletonVirtualStickExecutor.mUp((int) (callback.gerAltitude() - 18f));
+            }
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
 
             try {
@@ -322,6 +327,7 @@ public class llm_agent {
                     } else {
                         count_false_front ++;
                         if(count_false_front == 2){
+                            count_false_front = 0;
                             current_gimbal_angle -= 30;
                             gimbalControl gimbalControl = new gimbalControl();
                             gimbalControl.pitchGimbalAbsolute(current_gimbal_angle);
