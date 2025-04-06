@@ -14,7 +14,6 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.TextureView;
 
-import com.dji.sdk.voice_control.internal.VoiceControlLogcat;
 import com.dji.sdk.voice_control.internal.controller.DJISampleApplication;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandInterpreter;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.MyVirtualStickExecutor;
@@ -74,7 +73,6 @@ import dji.common.mission.waypoint.WaypointMissionFinishedAction;
 import dji.common.mission.waypoint.WaypointMissionFlightPathMode;
 import dji.common.mission.waypoint.WaypointMissionGotoWaypointMode;
 import dji.common.mission.waypoint.WaypointMissionHeadingMode;
-import dji.common.mission.waypoint.WaypointMissionProgressEvent;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
 import dji.sdk.mission.MissionControl;
 import dji.sdk.mission.hotpoint.HotpointMissionOperator;
@@ -593,9 +591,12 @@ public class TargetCollectionAgent {
         if (imageFile != null) {
             // 发送给VLM分析目标信息
             String infoPrompt = "请分析图像中的目标，提供详细描述，包括目标类型、外观特征、状态等信息。";
-            String infoResponse = mCallback.sendQuestionToGPTSync(infoPrompt, imageFile, true);
-            
-            logAndShowMessage("目标信息分析结果: " + infoResponse);
+            try {
+                String infoResponse = mCallback.sendQuestionToGPTSync(infoPrompt, imageFile, true);
+                logAndShowMessage("目标信息分析结果: " + infoResponse);
+            } catch (Exception e) {
+                logAndShowMessage("目标信息分析失败: " + e.getMessage());
+            }
         }
     }
 
@@ -915,7 +916,7 @@ public class TargetCollectionAgent {
             waypointMissionBuilder.addWaypoint(startWaypoint);
             
             // 添加目标位置作为第二个航点
-            Waypoint targetWaypoint = new Waypoint(waypoint[0], waypoint[1], waypoint[2]);
+            Waypoint targetWaypoint = new Waypoint(waypoint[0], waypoint[1], (float) waypoint[2]);
             targetWaypoint.addAction(new WaypointAction(WaypointActionType.STAY, 5000)); // 到达目标点后停留5秒
             targetWaypoint.addAction(new WaypointAction(WaypointActionType.START_TAKE_PHOTO, 0)); // 拍照
             waypointMissionBuilder.addWaypoint(targetWaypoint);
@@ -952,31 +953,6 @@ public class TargetCollectionAgent {
                     
                     @Override
                     public void onUploadUpdate(@NonNull WaypointMissionUploadEvent event) {}
-                    
-                    @Override
-                    public void onProgressUpdate(@NonNull WaypointMissionProgressEvent event) {}
-                    
-                    @Override
-                    public void onUploadStart() {}
-                    
-                    @Override
-                    public void onUploadFinish(@Nullable DJIError error) {
-                        if (error == null) {
-                            logAndShowMessage("航点任务上传成功，开始执行...");
-                            getWaypointMissionOperator().startMission(new CommonCallbacks.CompletionCallback() {
-                                @Override
-                                public void onResult(DJIError djiError) {
-                                    if (djiError != null) {
-                                        logAndShowMessage("航点任务启动失败: " + djiError.getDescription());
-                                        latch.countDown(); // 解除阻塞
-                                    }
-                                }
-                            });
-                        } else {
-                            logAndShowMessage("航点任务上传失败: " + error.getDescription());
-                            latch.countDown(); // 解除阻塞
-                        }
-                    }
                 });
                 
                 // 开始上传任务
@@ -1162,7 +1138,7 @@ public class TargetCollectionAgent {
                 double latitude = droneLat + (offsetY / 111111.0); // 纬度偏移，近似为1度=111111米
                 double longitude = droneLon + (offsetX / (111111.0 * Math.cos(Math.toRadians(droneLat)))); // 经度偏移
                 
-                Waypoint waypoint = new Waypoint(latitude, longitude, droneAlt);
+                Waypoint waypoint = new Waypoint(latitude, longitude, (float) droneAlt);
                 waypoint.shootPhotoTimeInterval = 2;  // 每2秒拍摄一张照片
                 
                 // 配置航点动作（可根据需要添加悬停、拍照等动作）
@@ -1205,31 +1181,7 @@ public class TargetCollectionAgent {
                     
                     @Override
                     public void onUploadUpdate(@NonNull WaypointMissionUploadEvent event) {}
-                    
-                    @Override
-                    public void onProgressUpdate(@NonNull WaypointMissionProgressEvent event) {}
-                    
-                    @Override
-                    public void onUploadStart() {}
-                    
-                    @Override
-                    public void onUploadFinish(@Nullable DJIError error) {
-                        if (error == null) {
-                            logAndShowMessage("航点任务上传成功，开始执行...");
-                            getWaypointMissionOperator().startMission(new CommonCallbacks.CompletionCallback() {
-                                @Override
-                                public void onResult(DJIError djiError) {
-                                    if (djiError != null) {
-                                        logAndShowMessage("航点任务启动失败: " + djiError.getDescription());
-                                        latch.countDown(); // 解除阻塞
-                                    }
-                                }
-                            });
-                        } else {
-                            logAndShowMessage("航点任务上传失败: " + error.getDescription());
-                            latch.countDown(); // 解除阻塞
-                        }
-                    }
+
                 });
                 
                 // 开始上传任务
@@ -1284,14 +1236,15 @@ public class TargetCollectionAgent {
             // 添加监听器
             hotpointMissionOperator.addListener(new HotpointMissionOperatorListener() {
                 @Override
+                public void onExecutionUpdate(@NonNull HotpointMissionEvent hotpointMissionEvent) {
+
+                }
+
+                @Override
                 public void onExecutionStart() {
                     logAndShowMessage("热点任务开始执行");
                 }
-                
-                @Override
-                public void onExecutionUpdate(HotpointMissionEvent event) {
-                    logAndShowMessage("热点任务更新: " + event.getCurrentState().name());
-                }
+
                 
                 @Override
                 public void onExecutionFinish(@Nullable final DJIError error) {
@@ -1302,14 +1255,7 @@ public class TargetCollectionAgent {
                     }
                     latch.countDown(); // 解除阻塞
                 }
-                
-                @Override
-                public void onExecutionStart(@Nullable DJIError error) {
-                    if (error != null) {
-                        logAndShowMessage("热点任务启动失败: " + error.getDescription());
-                        latch.countDown(); // 解除阻塞
-                    }
-                }
+
             });
             
             // 启动热点任务
@@ -1327,7 +1273,7 @@ public class TargetCollectionAgent {
                             @Override
                             public void run() {
                                 logAndShowMessage("热点任务执行时间到，准备停止...");
-                                hotpointMissionOperator.stopMission(new CommonCallbacks.CompletionCallback() {
+                                hotpointMissionOperator.stop(new CommonCallbacks.CompletionCallback() {
                                     @Override
                                     public void onResult(DJIError djiError) {
                                         if (djiError != null) {
@@ -1393,9 +1339,12 @@ public class TargetCollectionAgent {
             if (imageFile != null) {
                 // 发送给VLM分析目标信息
                 String infoPrompt = "请分析图像中的目标，提供详细描述，包括目标类型、外观特征、状态等信息。";
-                String infoResponse = mCallback.sendQuestionToGPTSync(infoPrompt, imageFile, true);
-                
-                logAndShowMessage("目标信息分析结果: " + infoResponse);
+                try {
+                    String infoResponse = mCallback.sendQuestionToGPTSync(infoPrompt, imageFile, true);
+                    logAndShowMessage("目标信息分析结果: " + infoResponse);
+                } catch (Exception e) {
+                    logAndShowMessage("目标信息分析失败: " + e.getMessage());
+                }
             }
         } else {
             logAndShowMessage("未找到有效的航点信息，任务取消");
