@@ -119,6 +119,9 @@ public class MainContent extends RelativeLayout {
     private static final int MSG_UPDATE_BLUETOOTH_CONNECTOR = 0;
     private static final int MSG_INFORM_ACTIVATION = 1;
     private static final int ACTIVATION_DALAY_TIME = 3000;
+    private static final int MSG_RETRY_REGISTRATION = 2;
+    private static final int REGISTRATION_RETRY_DELAY = 1000; // 1 second retry delay
+    private boolean isRegistrationSuccess = false;
     private AppActivationState.AppActivationStateListener appActivationStateListener;
     private boolean isregisterForLDM = false;
     private Context mContext;
@@ -127,6 +130,7 @@ public class MainContent extends RelativeLayout {
     public MainContent(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContext = context;
+        mHandlerUI = new Handler(Looper.getMainLooper());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BASE) {
             permissionArrays = new String[]{
@@ -171,6 +175,11 @@ public class MainContent extends RelativeLayout {
         //进行SDK注册
         DJISampleApplication.getEventBus().register(this);
         initUI();
+        
+        // Auto-start registration when page opens
+        isregisterForLDM = false; // Use standard registration
+        mBtnControl.setEnabled(false); // Disable control button until registration succeeds
+        checkAndRequestPermissions();
     }
 
     //初始化UI
@@ -191,6 +200,7 @@ public class MainContent extends RelativeLayout {
         compassCalibrationView = findViewById(R.id.compassCalibrationView);
 
         //mBtnBluetooth.setEnabled(false);
+        mBtnControl.setEnabled(false); // Initially disable the control button until registration succeeds
 
         mBtnRegisterApp.setOnClickListener(new OnClickListener() {
             @Override
@@ -327,10 +337,20 @@ public class MainContent extends RelativeLayout {
                         case MSG_INFORM_ACTIVATION:
                             loginToActivationIfNeeded();
                             break;
+                        case MSG_RETRY_REGISTRATION:
+                            if (!isRegistrationSuccess) {
+                                Log.d(TAG, "Retrying registration");
+                                checkAndRequestPermissions();
+                            }
+                            break;
                     }
                 }
             };
-            mHandlerUI = new Handler(Looper.getMainLooper());
+            
+            // We've already initialized mHandlerUI in the constructor
+            if (mHandlerUI == null) {
+                mHandlerUI = new Handler(Looper.getMainLooper());
+            }
         }
         super.onAttachedToWindow();
     }
@@ -547,8 +567,11 @@ public class MainContent extends RelativeLayout {
                                     DJILog.e("App registration for LDM", DJISDKError.REGISTRATION_SUCCESS.getDescription());
                                     DJISDKManager.getInstance().startConnectionToProduct();
                                     ToastUtils.setResultToToast(mContext.getString(R.string.sdk_registration_success_message));
+                                    updateRegistrationStatus(true);
                                 } else {
                                     ToastUtils.setResultToToast(mContext.getString(R.string.sdk_registration_message) + djiError.getDescription());
+                                    updateRegistrationStatus(false);
+                                    retryRegistrationIfNeeded();
                                 }
                                 Log.v(TAG, djiError.getDescription());
                                 hideProcess();
@@ -620,8 +643,11 @@ public class MainContent extends RelativeLayout {
                                     DJILog.e("App registration", DJISDKError.REGISTRATION_SUCCESS.getDescription());
                                     DJISDKManager.getInstance().startConnectionToProduct();
                                     ToastUtils.setResultToToast(mContext.getString(R.string.sdk_registration_success_message));
+                                    updateRegistrationStatus(true);
                                 } else {
                                     ToastUtils.setResultToToast(mContext.getString(R.string.sdk_registration_message) + djiError.getDescription());
+                                    updateRegistrationStatus(false);
+                                    retryRegistrationIfNeeded();
                                 }
                                 Log.v(TAG, djiError.getDescription());
                                 hideProcess();
@@ -684,7 +710,6 @@ public class MainContent extends RelativeLayout {
                                 }
                             }
                         });
-
                     }
                 }
             });
@@ -732,6 +757,40 @@ public class MainContent extends RelativeLayout {
 
     private void notifyStatusChange() {
         DJISampleApplication.getEventBus().post(new MainActivity.ConnectivityChangeEvent());
+    }
+
+    // Update registration status and enable/disable control button accordingly
+    private void updateRegistrationStatus(final boolean success) {
+        isRegistrationSuccess = success;
+        if (mHandlerUI != null) {
+            mHandlerUI.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (mBtnControl != null) {
+                        mBtnControl.setEnabled(success);
+                        if (success) {
+                            ToastUtils.setResultToToast("Registration successful, control enabled");
+                        } else {
+                            ToastUtils.setResultToToast("Registration failed, control disabled");
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // Retry registration if it failed
+    private void retryRegistrationIfNeeded() {
+        if (!isRegistrationSuccess) {
+            Log.d(TAG, "Registration failed, retrying in " + REGISTRATION_RETRY_DELAY + "ms");
+            // Reset registration in progress flag
+            isRegistrationInProgress.set(false);
+            // Schedule retry
+            if (mHandler != null) {
+                mHandler.removeMessages(MSG_RETRY_REGISTRATION);
+                mHandler.sendEmptyMessageDelayed(MSG_RETRY_REGISTRATION, REGISTRATION_RETRY_DELAY);
+            }
+        }
     }
     //endregion
 }

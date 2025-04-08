@@ -747,8 +747,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         updateConnection();
         //初始化飞控
         initFlightController();
-        //登录DJI账户
-        loginAccount();
         //开始定位
         startLocation();
     }
@@ -1043,25 +1041,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 }
             });
         }
-    }
-
-    /**
-     * 登录账户
-     */
-    private void loginAccount(){
-
-        UserAccountManager.getInstance().logIntoDJIUserAccount(this,
-                new CommonCallbacks.CompletionCallbackWith<UserAccountState>() {
-                    @Override
-                    public void onSuccess(final UserAccountState userAccountState) {
-                        Log.e(TAG, "Login Success");
-                    }
-                    @Override
-                    public void onFailure(DJIError error) {
-                        showToast("Login Error:"
-                                + error.getDescription());
-                    }
-                });
     }
 
     /**
