@@ -1107,6 +1107,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button stop_cycle = findViewById(R.id.stop_cycle);
         Button waypoint_cycle = findViewById(R.id.waypoint_cycle);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
+        Button stop_button = findViewById(R.id.stop_button);
+        Button land_buttion = findViewById(R.id.land_button);
+        Button takeoff_buttion = findViewById(R.id.takeoff_buttion);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
 
 
@@ -1156,7 +1159,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             drawerLayout.closeDrawer(GravityCompat.START);
         });
         mllmAgent.setOnClickListener(v -> {
-            llmAgent.agentFindCar();
+            llmAgentCycle.agentFindCar();
         });
         yolo_track.setOnClickListener(v -> {
             isDialogVisible = false;
@@ -1174,6 +1177,15 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         });
         waypoint_cycle.setOnClickListener(v -> {
             llmAgentCycle.getObjInformation();
+        });
+        takeoff_buttion.setOnClickListener(v -> {
+            mCI.mTakeoff();
+        });
+        land_buttion.setOnClickListener(v -> {
+            mCI.mLand();
+        });
+        stop_button.setOnClickListener(v -> {
+            mCI.mStop();
         });
         set_home_current.setOnClickListener(v ->{
            if(mCI.mFlightController!=null){

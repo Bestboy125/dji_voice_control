@@ -170,12 +170,12 @@ public class llm_agent_cycle {
      * 入口函数
      */
     public void agentFindCar() {
-        executorService.execute(() -> {
-            // Initialize virtual stick if needed
-            Context context = callback.getContext();
+        // 开启新线程 锁定目标线程
+        new Thread(() -> {
+            // 初始化虚拟摇杆执行器
             mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
 
-            // Take off if drone is not flying
+            //起飞
             if(!callback.getisFlying()){
                 mCI.mTakeoff();
             }
@@ -183,7 +183,12 @@ public class llm_agent_cycle {
 
             //设置一个合理的飞行高度
             //向上飞8米
-            mSingletonVirtualStickExecutor.mUp(8);
+            if(callback.gerAltitude()<18){
+                mSingletonVirtualStickExecutor.mUp((int) (18f - callback.gerAltitude()));
+            }
+            if(callback.gerAltitude()>18){
+                mSingletonVirtualStickExecutor.mUp((int) (callback.gerAltitude() - 18f));
+            }
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
 
             try {
@@ -193,7 +198,7 @@ public class llm_agent_cycle {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        });
+        }).start();
     }
 
     //搜索
@@ -241,6 +246,7 @@ public class llm_agent_cycle {
                         count_false_front = 0;
                         count_false_back = 0;
                         count_center = 0;
+                        current_gimbal_angle = 0;
                         Close_to();
                     }
                 }).start();
@@ -249,9 +255,9 @@ public class llm_agent_cycle {
                 String finalResponse1 = response;
                 runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, finalResponse1);});
                 // 转动视角
-                Context context = callback.getContext();
                 MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
                 executor.mTurn(303, 10);
+                Log.d(TAG,"未能识别车辆，旋转10度");
                 SleepThread(3000);
             }
         }
@@ -275,16 +281,12 @@ public class llm_agent_cycle {
 
         if (currentAttempt < maxAttempts) {
             runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "第 " + currentAttempt + " 次搜索未找到，开始上升 "));
-            Context context = callback.getContext();
-            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
             mSingletonVirtualStickExecutor.mUp(3);
             // 睡 6 秒再搜下一次
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
             performSearch(currentAttempt+1,maxAttempts);
         } else {
             runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
-            Context context = callback.getContext();
-            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
             mSingletonVirtualStickExecutor.mStop();
         }
     }
@@ -302,6 +304,7 @@ public class llm_agent_cycle {
     int count_false_back = 0;
     int count_false_front = 0;
     int count_center = 0;
+    int current_gimbal_angle = 0;
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
@@ -324,7 +327,6 @@ public class llm_agent_cycle {
             callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
 
             try {
-                Context context = callback.getContext();
                 String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile, true);
                 JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
                 String response = parseResult.getInferenceProcess();
@@ -347,15 +349,20 @@ public class llm_agent_cycle {
                     } else {
                         count_false_front ++;
                         if(count_false_front == 2){
-                            use_front = false;
+                            count_false_front = 0;
+                            current_gimbal_angle -= 30;
                             gimbalControl gimbalControl = new gimbalControl();
-                            gimbalControl.rotateGimbalDownwardView();
+                            gimbalControl.pitchGimbalAbsolute(current_gimbal_angle);
+                            if(current_gimbal_angle == -90){
+                                use_front = false;
+                            }
                             callback.addChatMessage(Constant.OWNER_BOT,"正在切换俯视图");
                         }
                     }
                 }
             } catch (Exception e) {
                 callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+                Log.d(TAG,"前视出错: " + e.getMessage());
             }
         } else{
             File imageFile = CaptureImage();
@@ -366,7 +373,6 @@ public class llm_agent_cycle {
             callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
 
             try {
-                Context context = callback.getContext();
                 String gptResult = callback.sendQuestionToGPTSync(center_prompt, imageFile, true);
                 JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
                 String response = parseResult.getInferenceProcess();
@@ -377,7 +383,7 @@ public class llm_agent_cycle {
                     String locationDesc = parseResult.getJsonData().optString("location_description", "center");
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                     int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                    boolean has_car = parseResult.getJsonData().optBoolean("has_white_car", false);
+                    boolean has_car = parseResult.getJsonData().optBoolean("has_car", false);
 
                     if(has_car && confidence>=80){
                         callback.addChatMessage(Constant.OWNER_BOT,
@@ -390,7 +396,9 @@ public class llm_agent_cycle {
                         } else{
                             count_center ++;
                             if(count_center == 2){
+                                Log.d(TAG,"已经位于车辆中央");
                                 isfindCar = true;
+                                hotFlyCircle(5);
                             }
                         }
                     } else {
@@ -403,6 +411,7 @@ public class llm_agent_cycle {
                 }
             } catch (Exception e) {
                 callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
+                Log.e(TAG,"俯视搜索出错: " + e.getMessage());
             }
         }
 
@@ -419,30 +428,25 @@ public class llm_agent_cycle {
      * @param proportion   车辆在画面中的占比
      */
     private void adjustDronePosition(String locationDesc, int proportion) {
-        try {
-            // 获取虚拟摇杆控制实例
-            Context context = callback.getContext();
-            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+        mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
 
-            // 计算水平和垂直偏移量（0.0到1.0之间的值，表示偏离中心的程度）
-            double horizontalOffset = calculateHorizontalOffset(locationDesc);
-            double verticalOffset = calculateVerticalOffset(locationDesc);
-            
-            // 计算基于占比的接近程度（0-1之间，1表示非常近）
-            double proximityFactor = calculateProximityFactor(proportion);
-            
-            // 根据偏移量和接近程度计算移动距离和方向
-            double horizontalMoveDistance = calculateHorizontalMoveDistance(horizontalOffset, proximityFactor);
-            double verticalMoveDistance = calculateHorizontalMoveDistance(verticalOffset, proximityFactor);
-            double forwardMoveDistance = calculateForwardMoveDistance(proximityFactor);
+        // 计算位置偏移量（-1.0到1.0之间的值，0表示中心）
+        double horizontalOffset = calculateHorizontalOffset(locationDesc);
 
-            // 执行调整动作
-            executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, verticalOffset, verticalMoveDistance, forwardMoveDistance, proximityFactor);
-        } catch (Exception e) {
-            callback.addChatMessage(Constant.OWNER_BOT, "调整无人机位置时出错: " + e.getMessage());
-        }
+        double verticalOffset = calculateVerticalOffset(locationDesc);
+
+        // 计算基于占比的接近程度（0-1之间，1表示非常近）
+        double proximityFactor = calculateProximityFactor(proportion);
+
+        // 根据偏移量和接近程度计算移动距离和方向
+        double horizontalMoveDistance = calculateHorizontalMoveDistance(horizontalOffset, proximityFactor);
+        double verticalMoveDistance = calculateHorizontalMoveDistance(verticalOffset, proximityFactor);
+        double forwardMoveDistance = calculateForwardMoveDistance(proximityFactor);
+
+        // 执行调整动作
+        executeAdjustmentMovement(horizontalOffset, horizontalMoveDistance, verticalOffset, verticalMoveDistance, forwardMoveDistance, proximityFactor);
     }
-    
+
     /**
      * 根据位置描述计算水平偏移量
      * @param locationDesc 位置描述（left, center, right）
@@ -478,7 +482,7 @@ public class llm_agent_cycle {
                 return 0.0;  // 默认居中
         }
     }
-    
+
     /**
      * 根据占比计算接近因子
      * @param proportion 目标占比
@@ -487,13 +491,13 @@ public class llm_agent_cycle {
     private double calculateProximityFactor(int proportion) {
         // 将占比转换为0-1之间的值
         double factor = proportion / 100.0;
-        
+
         // 应用非线性变换，使接近因子在低占比时变化更快
         factor = Math.pow(factor, 0.7);
-        
+
         return Math.min(1.0, factor);
     }
-    
+
     /**
      * 计算水平移动距离
      * @param horizontalOffset 水平偏移量（-1.0到1.0）
@@ -505,11 +509,11 @@ public class llm_agent_cycle {
         // 当目标越接近时，移动越小心
         double baseDistance = Math.abs(horizontalOffset) * 2.0; // 基础距离
         double adjustedDistance = baseDistance * (1.0 - 0.7 * proximityFactor); // 根据接近程度调整
-        
+
         // 确保移动距离在合理范围内
         return Math.max(MIN_MOVE_DISTANCE, Math.min(adjustedDistance, MAX_MOVE_DISTANCE));
     }
-    
+
     /**
      * 计算前进移动距离
      * @param proximityFactor 接近因子（0-1）
@@ -520,11 +524,11 @@ public class llm_agent_cycle {
         // 当目标接近（占比大）时，前进距离减小
         double distanceRange = MAX_MOVE_DISTANCE - MIN_MOVE_DISTANCE;
         double moveDistance = MIN_MOVE_DISTANCE + distanceRange * (1.0 - proximityFactor);
-        
+
         // 确保前进距离在合理范围内
         return Math.max(MIN_MOVE_DISTANCE, Math.min(moveDistance, MAX_MOVE_DISTANCE));
     }
-    
+
     /**
      * 执行调整动作
      * @param horizontalOffset 水平偏移（-1.0到1.0）
@@ -534,26 +538,22 @@ public class llm_agent_cycle {
      */
     private void executeAdjustmentMovement(double horizontalOffset, double horizontalMoveDistance,
                                            double verticalOffset, double verticalMoveDistance,
-                                          double forwardMoveDistance, double proximityFactor) {
+                                           double forwardMoveDistance, double proximityFactor) {
         // 根据目标情况优化运动序列
         if (Math.abs(horizontalOffset) > 0.3) {
             // 目标不在中心，优先调整水平位置
             if (horizontalOffset < 0) {
                 // 目标在左侧，向左移动
-                callback.addChatMessage(Constant.OWNER_BOT, 
-                    String.format("车辆在图像左侧，向左移动%.2f米", horizontalMoveDistance));
-                Context context = callback.getContext();
-                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("车辆在图像左侧，向左移动%.2f米", horizontalMoveDistance));
                 mSingletonVirtualStickExecutor.mGo(303, horizontalMoveDistance);
             } else {
                 // 目标在右侧，向右移动
-                callback.addChatMessage(Constant.OWNER_BOT, 
-                    String.format("车辆在图像右侧，向右移动%.2f米", horizontalMoveDistance));
-                Context context = callback.getContext();
-                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("车辆在图像右侧，向右移动%.2f米", horizontalMoveDistance));
                 mSingletonVirtualStickExecutor.mGo(304, horizontalMoveDistance);
             }
-            
+
             // 水平移动后短暂暂停，让无人机稳定
             SleepThread(500);
         } else if (Math.abs(verticalOffset) > 0.3){
@@ -562,35 +562,27 @@ public class llm_agent_cycle {
                 // 目标在后，向后移动
                 callback.addChatMessage(Constant.OWNER_BOT,
                         String.format("车辆在图像后，向后移动%.2f米", verticalMoveDistance));
-                Context context = callback.getContext();
-                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mGo(302, verticalMoveDistance);
             } else {
                 // 目标在前，向前移动
                 callback.addChatMessage(Constant.OWNER_BOT,
                         String.format("车辆在图像前，向前移动%.2f米", verticalMoveDistance));
-                Context context = callback.getContext();
-                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                 mSingletonVirtualStickExecutor.mGo(301, verticalMoveDistance);
             }
             // 水平移动后短暂暂停，让无人机稳定
             SleepThread(500);
         } else if (proximityFactor < 0.6) {
             // 目标接近中心但距离较远，向前移动
-            callback.addChatMessage(Constant.OWNER_BOT, 
-                String.format("车辆已大致位于中心，占比为%.0f%%，向前移动%.2f米靠近...", 
-                proximityFactor * 100, forwardMoveDistance));
-            Context context = callback.getContext();
-            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+            callback.addChatMessage(Constant.OWNER_BOT,
+                    String.format("车辆已大致位于中心，占比为%.0f%%，向前移动%.2f米靠近...",
+                            proximityFactor * 100, forwardMoveDistance));
             mSingletonVirtualStickExecutor.mGo(301, forwardMoveDistance);
             SleepThread(500);
         } else {
             // 目标基本居中且接近，微调位置
             if (proximityFactor < 0.8) {
-                callback.addChatMessage(Constant.OWNER_BOT, 
-                    String.format("车辆居中且接近，进行微调(占比%.0f%%)...", proximityFactor * 100));
-                Context context = callback.getContext();
-                mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+                callback.addChatMessage(Constant.OWNER_BOT,
+                        String.format("车辆居中且接近，进行微调(占比%.0f%%)...", proximityFactor * 100));
                 mSingletonVirtualStickExecutor.mGo(301, MIN_MOVE_DISTANCE);
             } else {
                 callback.addChatMessage(Constant.OWNER_BOT, "车辆已居中且足够接近，不需要移动。");
@@ -624,7 +616,6 @@ public class llm_agent_cycle {
 
         try{
             // 3. 调用 GPT 或 API
-            Context context = callback.getContext();
             String gptResult = callback.sendQuestionToGPTSync(brandPrompt, brandImgFile, true);
 
             // 4. 解析响应结果

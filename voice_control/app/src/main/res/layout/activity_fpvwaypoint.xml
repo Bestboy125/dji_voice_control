@@ -180,20 +180,23 @@
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_chatlist"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_below="@+id/fpv_container"
+            android:layout_height="241dp"
             android:layout_above="@+id/rl_send"
-            android:padding="8dp"
-            android:background="@color/view_bg" />
+            android:layout_below="@+id/fpv_container"
+            android:layout_marginBottom="38dp"
+            android:background="@color/view_bg"
+            android:padding="8dp" />
 
+        <!-- 控制按钮容器 -->
         <RelativeLayout
             android:id="@+id/rl_send"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_above="@+id/control_buttons_container"
-            android:padding="8dp"
+            android:layout_marginBottom="39dp"
             android:background="@color/colorPrimary"
-            android:elevation="4dp">
+            android:elevation="4dp"
+            android:padding="8dp">
 
             <Button
                 android:id="@+id/btn_control_recognize"
@@ -208,8 +211,8 @@
                 android:id="@+id/btn_control_lan"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_toEndOf="@+id/btn_control_recognize"
                 android:layout_centerVertical="true"
+                android:layout_toEndOf="@+id/btn_control_recognize"
                 android:background="@drawable/zh_cn"
                 android:contentDescription="切换语言" />
 
@@ -217,11 +220,11 @@
                 android:id="@+id/dialog_Text"
                 android:layout_width="match_parent"
                 android:layout_height="40dp"
-                android:layout_toEndOf="@+id/btn_control_lan"
-                android:layout_toStartOf="@+id/data_Btn"
                 android:layout_centerVertical="true"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
+                android:layout_toStartOf="@+id/data_Btn"
+                android:layout_toEndOf="@+id/btn_control_lan"
                 android:background="@drawable/bg_rounded_corner"
                 android:hint="在这里跟我聊任何内容"
                 android:padding="8dp"
@@ -233,8 +236,8 @@
                 android:id="@+id/data_Btn"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_toStartOf="@+id/help_Btn"
                 android:layout_centerVertical="true"
+                android:layout_toStartOf="@+id/help_Btn"
                 android:background="@drawable/data"
                 android:contentDescription="数据" />
 
@@ -242,8 +245,8 @@
                 android:id="@+id/help_Btn"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_toStartOf="@+id/send_btn"
                 android:layout_centerVertical="true"
+                android:layout_toStartOf="@+id/send_btn"
                 android:background="@drawable/help"
                 android:contentDescription="帮助" />
 
@@ -257,7 +260,6 @@
                 android:contentDescription="发送" />
         </RelativeLayout>
 
-        <!-- 控制按钮容器 -->
         <LinearLayout
             android:id="@+id/control_buttons_container"
             android:layout_width="match_parent"
@@ -299,7 +301,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
-                android:text="llm搜索"
+                android:text="llm靠近绕飞"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 
@@ -363,6 +365,55 @@
                 android:text="测试飞控"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/control_buttons_container2"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="46dp"
+            android:background="@color/colorPrimary"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/takeoff_buttion"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:background="@drawable/round_btn"
+                android:text="起飞"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/stop_button"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:background="@drawable/round_btn"
+                android:text="停止"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/land_button"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:background="@drawable/round_btn"
+                android:text="降落"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+
         </LinearLayout>
 
     </RelativeLayout>
