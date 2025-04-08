@@ -153,7 +153,12 @@ public class llm_yolo_sam_agent {
      */
     public void performSearch(int currentAttempt, int maxAttempts, int ascendHeight) {
         executorService.execute(() -> {
-            boolean isFind = doSearch();
+            boolean isFind = false;
+            try {
+                isFind = doSearch();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             if (isFind) {
                 runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "车辆已锁定！"));
                 mSingletonVirtualStickExecutor.mStop();
@@ -182,7 +187,7 @@ public class llm_yolo_sam_agent {
      * 在场景中自动搜索车辆
      * @return
      */
-    public boolean doSearch() {
+    public boolean doSearch() throws Exception {
         final boolean[] isFind = {false};
         int angle = INITIAL_ANGLE;
 
@@ -197,7 +202,7 @@ public class llm_yolo_sam_agent {
             callback.addChatMessage(Constant.OWNER_BOT, "思考中...");
 
             int finalAngle = angle;
-            String Result = callback.sendQuestionToGPTS(direction_prompt, imageFile,true);
+            String Result = callback.sendQuestionToGPTSync(direction_prompt, imageFile,true);
 
             JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(Result);
             String response = parseResult.getInferenceProcess();
@@ -247,7 +252,7 @@ public class llm_yolo_sam_agent {
     /**
      * 场景描述，并推理出要跟踪车辆的标号是什么
      */
-    public void detectID(){
+    public void detectID() throws Exception {
         String id = "0";
 
         yoloSamTrack yoloSamTrack = new yoloSamTrack(networkClient,mCI.mFlightController,mCI,callback);
@@ -256,7 +261,7 @@ public class llm_yolo_sam_agent {
         File yoloimage = yoloSamTrack.handleObjectDetect();
 
         //利用大模型进行场景描述推理
-        String Result = callback.sendQuestionToGPTS(detection_prompt, yoloimage,true);
+        String Result = callback.sendQuestionToGPTSync(detection_prompt, yoloimage,true);
         JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(Result);
 
         String ID = parseResult.getJsonData().optString("ID",null);

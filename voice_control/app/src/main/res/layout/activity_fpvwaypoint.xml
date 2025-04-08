@@ -350,7 +350,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
-                android:text="llm搜索绕圈"
+                android:text="热点绕飞"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 
@@ -362,7 +362,7 @@
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
-                android:text="测试飞控"
+                android:text="飞控"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -397,7 +397,7 @@
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
                 android:background="@drawable/round_btn"
-                android:text="停止"
+                android:text="悬停"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 
@@ -410,6 +410,18 @@
                 android:layout_weight="1"
                 android:background="@drawable/round_btn"
                 android:text="降落"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/stop_agent_button"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:background="@drawable/round_btn"
+                android:text="停止Agent"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 

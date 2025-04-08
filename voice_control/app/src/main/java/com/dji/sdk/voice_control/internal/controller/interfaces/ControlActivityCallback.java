@@ -32,10 +32,6 @@ public interface ControlActivityCallback {
 
     void showSelectObjectDialog();
 
-    String sendQuestionToGPTS(String question, File file, boolean isHistory);
-
-    void sendQuestion(boolean isGPT, String prompt, File imageFile, ControlActivity.OnGptResultListener listener);
-
     String sendQuestionToGPTSync(String question, File file, boolean isHistory) throws Exception;
 
     Resources mgetResources();

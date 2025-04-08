@@ -82,21 +82,24 @@ public class llm_agent_cycle {
     private static final double MAX_MOVE_DISTANCE = 3.0; // 最大移动距离（米）
     private static final int PROPORTION_THRESHOLD = 60; // 占比阈值
 
-    //提示词
-    private String direction_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
+    // 添加新的实例变量
+    private String targetObjectType = "黑色轿车"; // 默认值是黑色轿车
+
+    //提示词模板
+    private static final String DIRECTION_PROMPT_TEMPLATE = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
             "\n" +
             "推理过程：\n" +
-            "- 描述您如何判断图中是否有黑色轿车,置信度水平如何。\n" +
-            "- 解释您对黑色轿车位置（左、中、右）的判断依据。\n" +
-            "- 描述您如何估算黑色轿车占据图像的比例。\n" +
+            "- 描述您如何判断图中是否有%s,置信度水平如何。\n" +
+            "- 解释您对%s位置（左、中、右）的判断依据。\n" +
+            "- 描述您如何估算%s占据图像的比例。\n" +
             "\n" +
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
             "  \"has_car\": 布尔值（true或false），\n" +
-            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
-            "  \"location_description\": \"字符串，'left'、'center' 或 'right'，描述黑色轿车在图像中的位置\",\n" +
-            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
+            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有%s的把握，\n" +
+            "  \"location_description\": \"字符串，'left'、'center' 或 'right'，描述%s在图像中的位置\",\n" +
+            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计%s占据图像的比例，\n" +
             "}\n" +
             "\n" +
             "**注意：**\n" +
@@ -104,23 +107,23 @@ public class llm_agent_cycle {
             "- 不要在JSON对象之外添加额外的文本或注释。\n" +
             "- 请避免使用诸如抱歉，我无法查看或分析图片内容的句子，尽可能基于图像提供回答。\n" +
             "- 只需要判断目标在图像的左、右或者中间，不要回复类似左中(center-left)的回答。\n" +
-            "- 请注意轿车通常具有完整黑色轿车轮廓。";
+            "- 请注意%s通常具有完整%s轮廓。";
 
-    //提示词
-    private String center_prompt = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
+    //提示词模板
+    private static final String CENTER_PROMPT_TEMPLATE = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
             "\n" +
             "推理过程：\n" +
-            "- 描述您如何判断图中是否有黑色轿车,置信度水平如何。\n" +
-            "- 解释您对黑色轿车位置（中、上，下）的判断依据。\n" +
-            "- 描述您如何估算黑色轿车占据图像的比例。\n" +
+            "- 描述您如何判断图中是否有%s,置信度水平如何。\n" +
+            "- 解释您对%s位置（中、上，下）的判断依据。\n" +
+            "- 描述您如何估算%s占据图像的比例。\n" +
             "\n" +
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
             "  \"has_car\": 布尔值（true或false），\n" +
-            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有黑色轿车的把握，\n" +
-            "  \"location_description\": \"字符串，'forward'、'center' 或 'backward'，描述黑色轿车在图像中的位置\",\n" +
-            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计黑色轿车占据图像的比例，\n" +
+            "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有%s的把握，\n" +
+            "  \"location_description\": \"字符串，'forward'、'center' 或 'backward'，描述%s在图像中的位置\",\n" +
+            "  \"estimated_proportion_percentage\": 整数，范围0-100，估计%s占据图像的比例，\n" +
             "}\n" +
             "\n" +
             "**注意：**\n" +
@@ -128,7 +131,11 @@ public class llm_agent_cycle {
             "- 不要在JSON对象之外添加额外的文本或注释。\n" +
             "- 请避免使用诸如抱歉，我无法查看或分析图片内容的句子，尽可能基于图像提供回答。\n" +
             "- 只需要判断目标在图像的前、后或者中间，不要回复类似左中(center-left)的回答。\n" +
-            "- 请注意轿车通常具有完整黑色轿车轮廓。";
+            "- 请注意%s通常具有完整%s轮廓。";
+
+    // 格式化后的提示词
+    private String direction_prompt;
+    private String center_prompt;
     private String Gpt_result;
 
     //无人机信息
@@ -161,15 +168,41 @@ public class llm_agent_cycle {
         this.mFlightController = flightController;
         this.mfpvTexture = textureView;
         this.callback = callback;
+        
+        // 使用默认值格式化提示词
+        this.formatPrompts();
     }
 
+    public void setTargetObjectType(String targetObjectType) {
+        this.targetObjectType = targetObjectType;
+        this.formatPrompts();
+    }
+
+    /**
+     * 格式化提示词，将模板中的占位符替换为目标物体类型
+     */
+    private void formatPrompts() {
+        // 格式化方向提示词
+        this.direction_prompt = String.format(DIRECTION_PROMPT_TEMPLATE, 
+            this.targetObjectType, this.targetObjectType, this.targetObjectType,
+            this.targetObjectType, this.targetObjectType, this.targetObjectType,
+            this.targetObjectType, this.targetObjectType);
+        
+        // 格式化居中提示词
+        this.center_prompt = String.format(CENTER_PROMPT_TEMPLATE,
+            this.targetObjectType, this.targetObjectType, this.targetObjectType,
+            this.targetObjectType, this.targetObjectType, this.targetObjectType,
+            this.targetObjectType, this.targetObjectType);
+        
+        Log.d(TAG, "formatPrompts: 提示词已格式化为目标类型: " + this.targetObjectType);
+    }
 
     //region Agent控制
 
     /**
-     * 入口函数
+     * 入口函数 - 寻找目标物体
      */
-    public void agentFindCar() {
+    public void agentFindTarget() {
         // 开启新线程 锁定目标线程
         new Thread(() -> {
             // 初始化虚拟摇杆执行器
@@ -204,18 +237,18 @@ public class llm_agent_cycle {
     //搜索
 
     /**
-     * 在场景中自动搜索车辆
+     * 在场景中自动搜索目标物体
      * @return
      */
     private boolean doSearch(int attemptIndex) throws Exception {
         // 如果超出最大次数，就结束
         if (attemptIndex >= MAX_SEARCH_ATTEMPTS) {
             runOnUiThread(() -> {
-                callback.addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。");
+                callback.addChatMessage(Constant.OWNER_BOT, String.format("多次搜索仍未找到%s。", targetObjectType));
             });
             return false;
         }
-        final boolean[] result = { false }; // 存放是否找到车
+        final boolean[] result = { false }; // 存放是否找到目标
         File imageFile = CaptureImage();
         Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
         runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");});
@@ -231,12 +264,12 @@ public class llm_agent_cycle {
         if (parseResult.getJsonData() == null) {
             runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");});
         } else {
-            boolean hasWhiteCar = parseResult.getJsonData().optBoolean("has_car", false);
+            boolean hasTarget = parseResult.getJsonData().optBoolean("has_car", false);
             int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
 
-            if (hasWhiteCar && confidence >= 80) {
+            if (hasTarget && confidence >= 80) {
                 result[0] = true;
-                response += "\n车辆已锁定!";
+                response += String.format("\n%s已锁定!", targetObjectType);
                 String finalResponse = response;
                 runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, finalResponse);});
                 //目标靠近线程
@@ -251,13 +284,13 @@ public class llm_agent_cycle {
                     }
                 }).start();
             } else {
-                response += "\n未能识别到目标车辆，继续搜索...";
+                response += String.format("\n未能识别到目标%s，继续搜索...", targetObjectType);
                 String finalResponse1 = response;
                 runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, finalResponse1);});
                 // 转动视角
                 MyVirtualStickExecutor executor = MyVirtualStickExecutor.getUniqueInstance();
                 executor.mTurn(303, 10);
-                Log.d(TAG,"未能识别车辆，旋转10度");
+                Log.d(TAG, String.format("未能识别%s，旋转10度", targetObjectType));
                 SleepThread(3000);
             }
         }
@@ -286,7 +319,7 @@ public class llm_agent_cycle {
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
             performSearch(currentAttempt+1,maxAttempts);
         } else {
-            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, "多次搜索仍未找到车辆。请检查坐标或场景是否正确。"));
+            runOnUiThread(() -> callback.addChatMessage(Constant.OWNER_BOT, String.format("多次搜索仍未找到%s。请检查坐标或场景是否正确。", targetObjectType)));
             mSingletonVirtualStickExecutor.mStop();
         }
     }
@@ -294,7 +327,7 @@ public class llm_agent_cycle {
     //靠近
 
     /**
-     * 根据识别到的车辆信息，进行"靠近"操作。
+     * 根据识别到的目标物体信息，进行"靠近"操作。
      */
     public void Close_to() {
         performCloseToSearch(1, MAX_SEARCH_ATTEMPTS);
@@ -337,12 +370,12 @@ public class llm_agent_cycle {
                     String locationDesc = parseResult.getJsonData().optString("location_description", "center");
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                     int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                    boolean has_car = parseResult.getJsonData().optBoolean("has_car", false);
+                    boolean hasTarget = parseResult.getJsonData().optBoolean("has_car", false);
 
-                    if(has_car && confidence>=80){
+                    if(hasTarget && confidence>=80){
                         callback.addChatMessage(Constant.OWNER_BOT,
-                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
-                                        locationDesc, confidence, proportion)
+                                String.format("开始靠近%s —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                                        targetObjectType, locationDesc, confidence, proportion)
                         );
                         // 调整无人机位置
                         adjustDronePosition(locationDesc, proportion);
@@ -383,12 +416,12 @@ public class llm_agent_cycle {
                     String locationDesc = parseResult.getJsonData().optString("location_description", "center");
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                     int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                    boolean has_car = parseResult.getJsonData().optBoolean("has_car", false);
+                    boolean hasTarget = parseResult.getJsonData().optBoolean("has_car", false);
 
-                    if(has_car && confidence>=80){
+                    if(hasTarget && confidence>=80){
                         callback.addChatMessage(Constant.OWNER_BOT,
-                                String.format("开始靠近车辆 —— 位置: %s, 置信度: %d%%, 占比: %d%%",
-                                        locationDesc, confidence, proportion)
+                                String.format("开始靠近%s —— 位置: %s, 置信度: %d%%, 占比: %d%%",
+                                        targetObjectType, locationDesc, confidence, proportion)
                         );
                         if(!locationDesc.equals("center")){
                             // 调整无人机位置
@@ -396,7 +429,7 @@ public class llm_agent_cycle {
                         } else{
                             count_center ++;
                             if(count_center == 2){
-                                Log.d(TAG,"已经位于车辆中央");
+                                Log.d(TAG, String.format("已经位于%s中央", targetObjectType));
                                 isfindCar = true;
                                 hotFlyCircle(5);
                             }
@@ -422,10 +455,10 @@ public class llm_agent_cycle {
     }
 
     /**
-     * 调整无人机的位置或视角，使车辆更居中。
-     * 当车辆已在中心 (center) 时，若占比 < 阈值，则向前移动一定距离。
-     * @param locationDesc 车辆在画面中的位置描述 (left/right/center)
-     * @param proportion   车辆在画面中的占比
+     * 调整无人机的位置或视角，使目标物体更居中。
+     * 当目标物体已在中心 (center) 时，若占比 < 阈值，则向前移动一定距离。
+     * @param locationDesc 目标物体在画面中的位置描述 (left/right/center)
+     * @param proportion   目标物体在画面中的占比
      */
     private void adjustDronePosition(String locationDesc, int proportion) {
         mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
@@ -545,12 +578,12 @@ public class llm_agent_cycle {
             if (horizontalOffset < 0) {
                 // 目标在左侧，向左移动
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("车辆在图像左侧，向左移动%.2f米", horizontalMoveDistance));
+                        String.format("%s在图像左侧，向左移动%.2f米", targetObjectType, horizontalMoveDistance));
                 mSingletonVirtualStickExecutor.mGo(303, horizontalMoveDistance);
             } else {
                 // 目标在右侧，向右移动
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("车辆在图像右侧，向右移动%.2f米", horizontalMoveDistance));
+                        String.format("%s在图像右侧，向右移动%.2f米", targetObjectType, horizontalMoveDistance));
                 mSingletonVirtualStickExecutor.mGo(304, horizontalMoveDistance);
             }
 
@@ -561,12 +594,12 @@ public class llm_agent_cycle {
             if (verticalOffset < 0) {
                 // 目标在后，向后移动
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("车辆在图像后，向后移动%.2f米", verticalMoveDistance));
+                        String.format("%s在图像后，向后移动%.2f米", targetObjectType, verticalMoveDistance));
                 mSingletonVirtualStickExecutor.mGo(302, verticalMoveDistance);
             } else {
                 // 目标在前，向前移动
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("车辆在图像前，向前移动%.2f米", verticalMoveDistance));
+                        String.format("%s在图像前，向前移动%.2f米", targetObjectType, verticalMoveDistance));
                 mSingletonVirtualStickExecutor.mGo(301, verticalMoveDistance);
             }
             // 水平移动后短暂暂停，让无人机稳定
@@ -574,18 +607,18 @@ public class llm_agent_cycle {
         } else if (proximityFactor < 0.6) {
             // 目标接近中心但距离较远，向前移动
             callback.addChatMessage(Constant.OWNER_BOT,
-                    String.format("车辆已大致位于中心，占比为%.0f%%，向前移动%.2f米靠近...",
-                            proximityFactor * 100, forwardMoveDistance));
+                    String.format("%s已大致位于中心，占比为%.0f%%，向前移动%.2f米靠近...",
+                            targetObjectType, proximityFactor * 100, forwardMoveDistance));
             mSingletonVirtualStickExecutor.mGo(301, forwardMoveDistance);
             SleepThread(500);
         } else {
             // 目标基本居中且接近，微调位置
             if (proximityFactor < 0.8) {
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("车辆居中且接近，进行微调(占比%.0f%%)...", proximityFactor * 100));
+                        String.format("%s居中且接近，进行微调(占比%.0f%%)...", targetObjectType, proximityFactor * 100));
                 mSingletonVirtualStickExecutor.mGo(301, MIN_MOVE_DISTANCE);
             } else {
-                callback.addChatMessage(Constant.OWNER_BOT, "车辆已居中且足够接近，不需要移动。");
+                callback.addChatMessage(Constant.OWNER_BOT, String.format("%s已居中且足够接近，不需要移动。", targetObjectType));
             }
         }
     }
@@ -593,7 +626,7 @@ public class llm_agent_cycle {
     //目标特征分析
 
     /**
-     * 拍照并识别车标品牌。
+     * 识别目标物体品牌或特征。
      * 如果使用 GPT，会调用 sendQuestionToGPT()；否则调用 sendQuestionToAPI()。
      */
     private void recognizeCarBrand(){
@@ -606,13 +639,13 @@ public class llm_agent_cycle {
 
         File brandImgFile = saveBitmapAsFile(bitmap, "frame.jpg");
         if (brandImgFile == null) {
-            callback.addChatMessage(Constant.OWNER_BOT, "拍照失败，无法识别车标...");
+            callback.addChatMessage(Constant.OWNER_BOT, String.format("拍照失败，无法识别%s...", targetObjectType));
             return;
         }
 
         // 2. 构造识别请求
-        String brandPrompt = "请识别图片中黑色轿车的车标品牌。请给出 JSON 输出，如 {\"brand_name\":\"Toyota\"}";
-        callback.addChatMessage(Constant.OWNER_BOT, "正在识别车标，请稍候...");
+        String brandPrompt = String.format("请识别图片中%s的品牌特征。请给出 JSON 输出，如 {\"brand_name\":\"品牌名称\", \"features\":\"特征描述\"}", targetObjectType);
+        callback.addChatMessage(Constant.OWNER_BOT, String.format("正在识别%s特征，请稍候...", targetObjectType));
 
         try{
             // 3. 调用 GPT 或 API
@@ -621,15 +654,20 @@ public class llm_agent_cycle {
             // 4. 解析响应结果
             JsonUtils.ParseResult brandParse = JsonUtils.robustJsonParser(gptResult);
             if (brandParse.getJsonData() == null) {
-                callback.addChatMessage(Constant.OWNER_BOT, "未能识别车标，JSON 数据为空。");
+                callback.addChatMessage(Constant.OWNER_BOT, String.format("未能识别%s特征，JSON 数据为空。", targetObjectType));
                 return;
             }
 
             String brandProcess = brandParse.getInferenceProcess();
             String brandName = brandParse.getJsonData().optString("brand_name", "未知品牌");
+            String features = brandParse.getJsonData().optString("features", "");
 
-            callback.addChatMessage(Constant.OWNER_BOT, "车标识别推理过程: " + brandProcess);
-            callback.addChatMessage(Constant.OWNER_BOT, "识别到的品牌: " + brandName);
+            callback.addChatMessage(Constant.OWNER_BOT, String.format("%s识别推理过程: %s", targetObjectType, brandProcess));
+            callback.addChatMessage(Constant.OWNER_BOT, String.format("识别到的品牌: %s", brandName));
+            
+            if (!features.isEmpty()) {
+                callback.addChatMessage(Constant.OWNER_BOT, String.format("特征描述: %s", features));
+            }
 
         } catch (Exception e) {
             callback.addChatMessage(Constant.OWNER_BOT, "解析结果时出错: " + e.getMessage());
@@ -1104,7 +1142,7 @@ public class llm_agent_cycle {
                 try {
                     // 设置云台的俯仰角
                     gimbalControl = new gimbalControl();
-                    gimbalControl.pitchGimbalAbsolute(-45);
+                    gimbalControl.pitchGimbalAbsolute(-55);
 
                     // 圆形绕飞
                     Log.d(TAG, "exechotpointmission: 创建热点任务对象");
@@ -1294,4 +1332,90 @@ public class llm_agent_cycle {
         Log.d(TAG, "stopHotpointMission: [完成] 停止任务命令已发送");
     }
     //endregion
+
+    /**
+     * 停止所有操作和线程
+     * 该方法会停止所有正在进行的操作，包括虚拟摇杆控制、热点任务和搜索线程
+     */
+    public void stopAllOperations() {
+        Log.d(TAG, "stopAllOperations: [开始] 停止所有操作和线程");
+        
+        // 标记搜索结束，以便递归操作可以退出
+        isfindCar = true;
+        
+        // 关闭线程池
+        if (executorService != null && !executorService.isShutdown()) {
+            try {
+                Log.d(TAG, "stopAllOperations: 关闭线程池");
+                executorService.shutdownNow();
+            } catch (Exception e) {
+                Log.e(TAG, "stopAllOperations: 关闭线程池时出错: " + e.getMessage(), e);
+            }
+        }
+        
+        // 停止虚拟摇杆控制
+        try {
+            Log.d(TAG, "stopAllOperations: 停止虚拟摇杆控制");
+            if (mSingletonVirtualStickExecutor != null) {
+                mSingletonVirtualStickExecutor.mStop();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "stopAllOperations: 停止虚拟摇杆控制时出错: " + e.getMessage(), e);
+        }
+        
+        // 停止热点任务
+        try {
+            Log.d(TAG, "stopAllOperations: 停止热点任务");
+            if (hotpointMissionOperator != null) {
+                stopHotpointMission();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "stopAllOperations: 停止热点任务时出错: " + e.getMessage(), e);
+        }
+        
+        // 停止航点任务
+        try {
+            Log.d(TAG, "stopAllOperations: 停止航点任务");
+            if (mMissionOperator != null && mMissionOperator.getCurrentState() == WaypointMissionState.EXECUTING) {
+                mMissionOperator.stopMission(error -> {
+                    if (error == null) {
+                        Log.d(TAG, "stopAllOperations: 航点任务已成功停止");
+                        runOnUiThread(() -> {
+                            callback.addChatMessage(Constant.OWNER_BOT, "航点任务已成功停止");
+                        });
+                    } else {
+                        Log.e(TAG, "stopAllOperations: 停止航点任务失败: " + error.getDescription());
+                        runOnUiThread(() -> {
+                            callback.addChatMessage(Constant.OWNER_BOT, "停止航点任务失败: " + error.getDescription());
+                        });
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "stopAllOperations: 停止航点任务时出错: " + e.getMessage(), e);
+        }
+        
+        // 移除所有监听器
+        try {
+            Log.d(TAG, "stopAllOperations: 移除热点任务监听器");
+            if (hotpointMissionOperator != null && hotpointlistener != null) {
+                hotpointMissionOperator.removeListener(hotpointlistener);
+            }
+            
+            Log.d(TAG, "stopAllOperations: 移除航点任务监听器");
+            if (mMissionOperator != null) {
+                mMissionOperator.removeListener(eventNotificationListener);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "stopAllOperations: 移除监听器时出错: " + e.getMessage(), e);
+        }
+        
+        // 通知用户所有操作已停止
+        runOnUiThread(() -> {
+            callback.addChatMessage(Constant.OWNER_BOT, String.format("已停止所有与%s相关的操作", targetObjectType));
+            showToast("所有操作已停止");
+        });
+        
+        Log.d(TAG, "stopAllOperations: [完成] 所有操作和线程已停止");
+    }
 }

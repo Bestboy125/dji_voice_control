@@ -5,8 +5,6 @@ import android.graphics.BitmapFactory;
 import android.util.Base64;
 import androidx.annotation.Nullable;
 
-import com.dji.sdk.voice_control.internal.controller.interfaces.GPTSCallback;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -146,113 +144,6 @@ public class GPTS {
 
         payload.put("messages", messages);
         return payload;
-    }
-
-    /**
-     * 异步方法：发起聊天请求
-     *
-     * @param question   用户提问
-     * @param imageFiles 图片路径（String 或 String[]）
-     * @param prompt     可选的 system prompt
-     * @param history    历史上下文（上一轮的 payload）
-     * @param callback   结果回调
-     */
-    public void chatAsync(String question,
-                          @Nullable Object imageFiles,
-                          @Nullable String prompt,
-                          @Nullable JSONObject history,
-                          GPTSCallback callback) {
-
-        // 拼装 payload
-        JSONObject payload;
-        try {
-            payload = (history != null) ? history : getPayload(prompt);
-            JSONArray messages = payload.getJSONArray("messages");
-
-            // 追加用户消息
-            JSONObject userMsg = new JSONObject();
-            userMsg.put("role", "user");
-            JSONArray userContent = new JSONArray();
-
-            // 添加用户文本
-            JSONObject userText = new JSONObject();
-            userText.put("type", "text");
-            userText.put("text", question);
-            userContent.put(userText);
-
-            // 如果有图像文件
-            if (imageFiles != null) {
-                processImageFiles(imageFiles, userContent);
-            }
-
-            userMsg.put("content", userContent);
-            messages.put(userMsg);
-
-            // 配置 OkHttpClient
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .connectTimeout(15, TimeUnit.SECONDS)  // 连接超时
-                    .readTimeout(60, TimeUnit.SECONDS)    // 读取超时
-                    .writeTimeout(60, TimeUnit.SECONDS)   // 写入超时
-                    .build();
-
-            // 构造请求体
-            MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-            RequestBody body = RequestBody.create(JSON, payload.toString());
-
-            // 构造 HTTP 请求
-            Request request = new Request.Builder()
-                    .url(url)
-                    .headers(Headers.of(getHeaders()))
-                    .post(body)
-                    .build();
-
-            final int[] retries = {0};
-            final boolean[] success = {false};
-
-            while (retries[0] < maxRetries && !success[0]) {
-                client.newCall(request).enqueue(new Callback() {
-                    @Override
-                    public void onFailure(Call call, IOException e) {
-                        handleFailure(e, callback);
-                        retries[0]++;
-                        if (retries[0] < maxRetries) {
-                            try {
-                                Thread.sleep(defaultSleepTime); // 等待一段时间后重试
-                            } catch (InterruptedException ex) {
-                                ex.printStackTrace();
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onResponse(Call call, Response response) {
-                        if (response.isSuccessful()) {
-                            handleResponse(response, payload, callback);
-                            success[0] = true;
-                        } else {
-                            retries[0]++;
-                            if (retries[0] < maxRetries) {
-                                try {
-                                    Thread.sleep(defaultSleepTime); // 等待一段时间后重试
-                                } catch (InterruptedException ex) {
-                                    ex.printStackTrace();
-                                }
-                            } else {
-                                handleFailure(new IOException("Unexpected response code: " + response.code()), callback);
-                            }
-                        }
-                    }
-                });
-            }
-
-            // 如果重试超过最大次数依然失败，回调错误
-            if (!success[0]) {
-                callback.onError(new IOException("Max retries reached."));
-            }
-
-        } catch (Exception e) {
-            callback.onError(e);
-        }
     }
 
     public String chatSync(String question,
@@ -415,58 +306,6 @@ public class GPTS {
         return Base64.encodeToString(bytes, Base64.DEFAULT);
     }
 
-    /**
-     * 处理失败回调
-     */
-    private void handleFailure(IOException e, GPTSCallback callback) {
-        if (e instanceof SocketTimeoutException) {
-            callback.onError(new IOException("Network timeout: " + e.getMessage()));
-        } else if (e instanceof UnknownHostException) {
-            callback.onError(new IOException("Unable to connect to server: " + e.getMessage()));
-        } else {
-            callback.onError(new IOException("Request failed: " + e.getMessage()));
-        }
-        e.printStackTrace();
-    }
-
-    /**
-     * 处理成功回调
-     */
-    private void handleResponse(Response response, JSONObject payload, GPTSCallback callback) {
-        try {
-            if (!response.isSuccessful()) {
-                callback.onError(new IOException("Unexpected response code: " + response.code()));
-                return;
-            }
-
-            String respString = (response.body() != null) ? response.body().string() : "";
-            JSONObject responseJson = new JSONObject(respString);
-
-            // 解析结果
-            String output = parseResponse(responseJson);
-
-            // 将 assistant 的回复添加到历史上下文
-            JSONObject assistantMsg = new JSONObject();
-            assistantMsg.put("role", "assistant");
-            JSONArray assistantContent = new JSONArray();
-            JSONObject assistantText = new JSONObject();
-            assistantText.put("type", "text");
-            assistantText.put("text", output);
-            assistantContent.put(assistantText);
-            assistantMsg.put("content", assistantContent);
-
-            payload.getJSONArray("messages").put(assistantMsg);
-
-            // 调用成功回调
-            GPTSResult gptsResult = new GPTSResult(output, payload);
-            callback.onSuccess(gptsResult);
-
-        } catch (Exception e) {
-            callback.onError(e);
-        } finally {
-            response.close();
-        }
-    }
 
     /**
      * 解析返回的 JSON，提取最后一条 assistant 文本

@@ -10,7 +10,6 @@ import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import android.Manifest;
 import android.app.AlertDialog;
@@ -107,7 +106,6 @@ import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.GPTS;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent_cycle;
-import com.dji.sdk.voice_control.internal.controller.interfaces.GPTSCallback;
 import com.dji.sdk.voice_control.internal.controller.interfaces.IChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.interfaces.IJSONMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.JSONMessage;
@@ -214,7 +212,7 @@ import okhttp3.Response;
 import com.pedro.rtsp.utils.ConnectCheckerRtsp;
 
 // Import the new llm_active_track class
-import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.llm_active_track;
+
 
 public class ControlActivity extends AppCompatActivity implements OnMapClickListener, View.OnClickListener ,CommandConfirmationDialogFragment.Communicator, ControlActivityCallback {
 
@@ -1105,6 +1103,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button llm_agent_fixed = findViewById(R.id.llm_agent_fixed);
         Button test_control = findViewById(R.id.test_control);
         Button stop_cycle = findViewById(R.id.stop_cycle);
+        Button stop_agent_button = findViewById(R.id.stop_agent_button);
         Button waypoint_cycle = findViewById(R.id.waypoint_cycle);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         Button stop_button = findViewById(R.id.stop_button);
@@ -1159,7 +1158,30 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             drawerLayout.closeDrawer(GravityCompat.START);
         });
         mllmAgent.setOnClickListener(v -> {
-            llmAgentCycle.agentFindCar();
+            //出现一个对话框，输入目标物体类型
+            AlertDialog.Builder builder = new AlertDialog.Builder(ControlActivity.this);
+            builder.setTitle("请输入目标物体类型");
+            
+            // 创建输入框
+            final EditText input = new EditText(ControlActivity.this);
+            input.setHint("例如：人、汽车、树木等");
+            builder.setView(input);
+            
+            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    String targetObjectType = input.getText().toString().trim();
+                    if (!targetObjectType.isEmpty()) {
+                        llmAgentCycle.setTargetObjectType(targetObjectType);
+                        llmAgentCycle.agentFindTarget();
+                    } else {
+                        showToast("目标物体类型不能为空");
+                    }
+                }
+            });
+            
+            builder.setNegativeButton("取消", (dialog, which) -> dialog.cancel());
+            builder.show(); 
         });
         yolo_track.setOnClickListener(v -> {
             isDialogVisible = false;
@@ -1186,6 +1208,9 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         });
         stop_button.setOnClickListener(v -> {
             mCI.mStop();
+        });
+        stop_agent_button.setOnClickListener(v -> {
+            llmAgentCycle.stopAllOperations();
         });
         set_home_current.setOnClickListener(v ->{
            if(mCI.mFlightController!=null){
@@ -2128,6 +2153,36 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     //endregion
 
+    //region active追踪
+    /**
+     * 使用GPT-4o视觉识别开始追踪目标
+     * @param targetDescription 目标描述，例如"红色汽车"或"穿蓝色衣服的人"
+     */
+    private void handleActiveTrackWithGPT(String targetDescription) {
+        if (llmActiveTrack != null) {
+            if (TextUtils.isEmpty(targetDescription)) {
+                addChatMessage(Constant.OWNER_BOT, "请提供目标描述，例如'红色汽车'或'穿蓝色衣服的人'");
+                return;
+            }
+            addChatMessage(Constant.OWNER_BOT, "开始使用GPT-4o视觉识别进行目标追踪: " + targetDescription);
+            llmActiveTrack.startActiveTrackSearch(targetDescription);
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "目标追踪组件未初始化");
+        }
+    }
+
+    /**
+     * 停止当前的目标追踪任务
+     */
+    private void handleStopActiveTrack() {
+        if (llmActiveTrack != null) {
+            llmActiveTrack.stopTracking();
+        } else {
+            addChatMessage(Constant.OWNER_BOT, "目标追踪组件未初始化");
+        }
+    }
+    //endregion
+
     //region 高德地图定位，位置查询，用户位置，无人机位置交互相关
 
     /**
@@ -2401,47 +2456,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         ClassificationTask cft = new ClassificationTask(ControlActivity.this);
         cft.execute(tokenedCommand);
     }
-    
-    /**
-     * 使用GPT-4o视觉识别开始追踪目标
-     * @param targetDescription 目标描述，例如"红色汽车"或"穿蓝色衣服的人"
-     */
-    private void handleActiveTrackWithGPT(String targetDescription) {
-        if (llmActiveTrack != null) {
-            if (TextUtils.isEmpty(targetDescription)) {
-                addChatMessage(Constant.OWNER_BOT, "请提供目标描述，例如'红色汽车'或'穿蓝色衣服的人'");
-                return;
-            }
-            addChatMessage(Constant.OWNER_BOT, "开始使用GPT-4o视觉识别进行目标追踪: " + targetDescription);
-            llmActiveTrack.startActiveTrackSearch(targetDescription);
-        } else {
-            addChatMessage(Constant.OWNER_BOT, "目标追踪组件未初始化");
-        }
-    }
-
-    /**
-     * 停止当前的目标追踪任务
-     */
-    private void handleStopActiveTrack() {
-        if (llmActiveTrack != null) {
-            llmActiveTrack.stopTracking();
-        } else {
-            addChatMessage(Constant.OWNER_BOT, "目标追踪组件未初始化");
-        }
-    }
-
-    /**
-     * 发送分类后的确认任务消息给用户
-     * @param encodedString
-     * @param command
-     */
-    public void sendCommandConfirmationToChatBot(String encodedString, String command) {
-        this.pendingEncodedString = encodedString;
-        this.pendingCommand = command;
-
-        // 发送确认消息
-        addChatMessage(Constant.OWNER_BOT, "是否执行以下任务？\n任务内容：" + command + "\n如果确认，请回复确认执行；如果取消，请回复取消执行。");
-    }
 
     /**
      * 处理用户的回复
@@ -2499,23 +2513,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             // 如果不是反馈，则按常规指令处理
             addChatMessage(Constant.OWNER_BOT_THINK, "正在分析问题并自动执行任务中...");
             handleRobotCommand(question);
-        }
-    }
-
-    /**
-     * 发送问题到GPT或其他API，并处理回调
-     *
-     * @param isGPT 是否使用GPT模型
-     * @param prompt 提示语
-     * @param imageFile 图片文件
-     * @param listener 回调监听器
-     */
-    @Override
-    public void sendQuestion(boolean isGPT, String prompt, File imageFile, OnGptResultListener listener) {
-        if (isGPT) {
-            sendQuestionToGPT(prompt, imageFile, true, listener);
-        } else {
-            sendQuestionToAPI(prompt, imageFile, listener);
         }
     }
 
@@ -2581,12 +2578,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         } else {
             return null; // 如果没有扩展名，返回 null
         }
-    }
-
-    // 用于在异步获取 GPT 结果后通知主流程
-    public interface OnGptResultListener {
-        void onSuccess(String gptResult);
-        void onFailure(Exception e);
     }
 
     /**
@@ -2661,177 +2652,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
     }
 
-    private void sendQuestionToAPI(String question, File file,OnGptResultListener listener) {
-
-        MultipartBody.Builder builder = new MultipartBody.Builder();
-        if(getFileFormat(file).equals("jpg")){
-            // 创建请求体
-            builder = new MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
-                    .addFormDataPart("format", "jpg") // 文件格式
-                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("image/jpg"), file)); // 上传文件
-        }
-        else{
-            // 创建请求体
-            builder = new MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addFormDataPart("question", TEMPLATE.replace("{question}", question)) // 替换模板中的占位符
-                    .addFormDataPart("format", "mp4") // 文件格式
-                    .addFormDataPart("file", file.getName(), RequestBody.create(MediaType.parse("video/mp4"), file)); // 上传文件
-        }
-
-        // 创建请求
-        RequestBody requestBody = builder.build();
-        Request request = new Request.Builder()
-                .url(AGENT_URL)
-                .post(requestBody)
-                .build();
-
-        // 设置 OkHttp 客户端
-        OkHttpClient client = new OkHttpClient.Builder()
-                .connectTimeout(120, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
-                .build();
-        client.newCall(request).enqueue(new Callback() {
-            @Override
-            public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
-                addChatMessage(Constant.OWNER_BOT, "出错了，错误信息是：" + e.getMessage());
-                listener.onFailure(e);
-            }
-
-            @Override
-            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                mChatMessageData.removeLastChatMessage(); // 删除"思考中"消息
-
-                if (response.isSuccessful() && response.body() != null) {
-                    try {
-                        // 将响应体解析为 JSON 对象
-                        String responseBody = response.body().string();
-                        JSONObject jsonResponse = new JSONObject(responseBody);
-
-                        // 提取 'response' 字段内容
-                        String responseMessage = jsonResponse.optString("response", "未找到响应内容");
-
-//                        // 将提取的内容显示在对话框中
-//                        addChatMessage(Constant.OWNER_BOT, responseMessage.trim());
-                        Gpt_result = responseMessage.trim();
-                        listener.onSuccess(Gpt_result);
-                    } catch (JSONException e) {
-                        // JSON 解析失败
-                        addChatMessage(Constant.OWNER_BOT, "响应解析错误：" + e.getMessage());
-                        listener.onFailure(e);
-                    }
-                } else {
-                    // 请求失败或无响应体
-                    String errorMsg = response.body() != null ? response.body().string() : "无响应体";
-                    runOnUiThread(() -> {
-                        addChatMessage(Constant.OWNER_BOT, "请求失败，错误信息是：" + errorMsg);
-                        listener.onFailure(new Exception("请求失败，错误信息是：" + errorMsg));
-                    });
-                }
-            }
-        });
-
-    }
-
-
-    /**
-     * 向gpt语言大模型发送问题
-     * @param question
-     */
-    @Override
-    public String sendQuestionToGPTS(String question, File file, boolean isHistory) {
-        // 初始化 GPTS 实例
-        GPTS gpts = new GPTS(
-                "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650",
-                "gpt-4o",
-                0.8f,
-                0.9f,
-                300
-        );
-
-        final String[] resultHolder = {null};  // 用于存储返回结果
-        final CountDownLatch latch = new CountDownLatch(1);  // 控制异步转同步的工具
-
-        // 异步请求
-        gpts.chatAsync(
-                question,
-                file != null ? file.getPath() : null,
-                null,
-                isHistory ? GPThistory : null,
-                new GPTSCallback() {
-                    @Override
-                    public void onSuccess(GPTS.GPTSResult result) {
-                        resultHolder[0] = result.output;
-                        GPThistory = result.history;
-                        latch.countDown();  // 释放锁
-                    }
-
-                    @Override
-                    public void onError(Exception e) {
-                        resultHolder[0] = "Error: " + e.getMessage();
-                        latch.countDown();  // 出错也释放锁，防止永远阻塞
-                    }
-                }
-        );
-
-        try {
-            latch.await();  // 等待 GPT 处理完成
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        return resultHolder[0];
-    }
-
-    /**
-     * 向gpt语言大模型发送问题
-     * @param question
-     */
-    private void sendQuestionToGPT(String question, File file, boolean isHistory,OnGptResultListener listener) {
-        // 构造 GPTS 实例
-        GPTS gpts = new GPTS(
-                "sk-AQoUM4UNCS4B9ozs3c7764DbC7Ec4a8487F8719a03DaB650", // 请填入实际的 API Key
-                "gpt-4o",
-                0.8f,
-                0.9f,
-                300
-        );
-
-        // 异步调用
-        gpts.chatAsync(
-                question,
-                file.getPath(),        // 如果需要传图片，可以传文件路径
-                null,        // 自定义 system prompt
-                isHistory ? GPThistory : null,  // 若多轮对话，需要把上一次的 history 传进来
-                new GPTSCallback() {
-                    @Override
-                    public void onSuccess(GPTS.GPTSResult result) {
-                        // 这里是子线程回调，如果需要更新UI，请切回主线程
-                        runOnUiThread(() -> {
-//                            // 例如添加对话内容到列表
-//                            addChatMessage("OWNER_BOT", result.output);
-                            Gpt_result = result.output;
-                            // 保存新的上下文，以便下一次多轮对话
-                            GPThistory = result.history;
-                            listener.onSuccess(Gpt_result);
-                        });
-                    }
-
-                    @Override
-                    public void onError(Exception e) {
-                        runOnUiThread(() -> {
-                            addChatMessage(Constant.OWNER_BOT, "调用GPT出错: " + e.getMessage());
-                            listener.onFailure(e);
-                            e.printStackTrace();
-                        });
-                    }
-                }
-        );
-    }
-
     @Override
     /**
      * 向gpt语言大模型发送问题
@@ -2864,10 +2684,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         } else if (command.contains("执行任务")) {
             handleExecuteMission();
         } else if (command.contains("识别")) {
-            // 获取 "识别" 后面的部分
-            int index = command.indexOf("识别");
-            String question = command.substring(index + 2);
-            handleObjectIdentify(question);
         } else if (command.contains("删除")){
             handleDeleteMission(command.replaceAll("删除",""));
         } else if (command.contains("配置航点")){
@@ -2996,79 +2812,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             }
         } else {
             addChatMessage(Constant.OWNER_BOT, "无法启动航点任务，任务操作对象未初始化。");
-        }
-    }
-
-    /**
-     * 自动执行目标识别任务
-     * @param question
-     */
-    private void handleObjectIdentify(String question) {
-        // 初始化图片文件对象
-        File imageFile = new File("test.jpg");
-        mTabLayout.getTabAt(1).select();
-        try {
-            // 从 mLiveStream 捕获视频流的一帧
-            // 尝试捕获视频帧，最多重试3次，每次间隔500毫秒
-            Bitmap bitmap = null;
-            int retries = 3;
-            int retryDelay = 500; // 毫秒
-
-            for (int attempt = 0; attempt < retries; attempt++) {
-                bitmap = fpvTexture.getBitmap();
-                if (bitmap != null) {
-                    break;
-                }
-                Thread.sleep(retryDelay);
-            }
-
-            if (bitmap == null) {
-                throw new NullPointerException("未能捕获视频帧，TextureView 可能未准备好");
-            }
-
-            // 保存帧为图片文件
-            imageFile = saveBitmapAsFile(bitmap, "frame.jpg");
-            if (imageFile == null) {
-                throw new IOException("图片保存失败");
-            }
-
-            // 反馈捕获成功
-            addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
-            addChatMessage(Constant.OWNER_HUMAN,question.toString());
-            addChatMessage(Constant.OWNER_HUMAN,bitmap);
-            // 3. 思考中...
-            addChatMessage(Constant.OWNER_BOT, "思考中...");
-            //TODO
-            //显示捕获的这一帧图像在对话框
-            // 如果图片文件成功生成，则发送至大模型
-            if(isGPT){
-                sendQuestionToGPT(question, imageFile,true, new OnGptResultListener() {
-                    @Override
-                    public void onSuccess(String gptResult) {
-                        showToast("成功");
-                        addChatMessage(Constant.OWNER_BOT, gptResult);
-                    }
-                    @Override
-                    public void onFailure(Exception e) {
-                        addChatMessage(Constant.OWNER_BOT, "调用模型出错: " + e.getMessage());
-                    }
-                });
-            }
-            else {
-                sendQuestionToAPI(question,imageFile);
-            }
-        } catch (NullPointerException e) {
-            addChatMessage(Constant.OWNER_BOT, "摄像头未连接或未准备好，请检查设备连接状态");
-            Log.e("ObjectIdentifyError", "摄像头错误：" + e.getMessage());
-            return;
-        } catch (IOException e) {
-            addChatMessage(Constant.OWNER_BOT, "无法保存图片，请检查存储权限或存储空间");
-            Log.e("ObjectIdentifyError", "保存图片失败：" + e.getMessage());
-            return;
-        } catch (Exception e) {
-            addChatMessage(Constant.OWNER_BOT, "未知错误：" + e.getMessage());
-            Log.e("ObjectIdentifyError", "未知错误：" + e.getMessage());
-            return;
         }
     }
 

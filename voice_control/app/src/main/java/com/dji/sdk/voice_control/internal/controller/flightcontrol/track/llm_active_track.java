@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.TextureView;
 
