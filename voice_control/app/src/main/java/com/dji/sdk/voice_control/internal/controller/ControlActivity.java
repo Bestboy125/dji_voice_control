@@ -1238,103 +1238,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         findViewById(R.id.btn_control_recognize).setOnClickListener(this);
         findViewById(R.id.btn_control_lan).setOnClickListener(this);
         mSendBtn.setOnClickListener(this);
-//        mBtnSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-//            @Override
-//            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-//                if (isChecked) {
-//
-//                    if (mCI.mFlightController != null) {
-//
-//                        mCI.mFlightController.getSimulator()
-//                                .start(InitializationData.createInstance(new LocationCoordinate2D(23, 113), 10, 10),
-//                                        new CommonCallbacks.CompletionCallback() {
-//                                            @Override
-//                                            public void onResult(DJIError djiError) {
-//                                                if (djiError != null) {
-//                                                    showToast(djiError.getDescription());
-//                                                }else
-//                                                {
-//                                                    showToast("Start Simulator Success");
-//                                                }
-//                                            }
-//                                        });
-//                    }
-//
-//                } else {
-//
-//
-//                    if (mCI.mFlightController != null) {
-//                        mCI.mFlightController.getSimulator()
-//                                .stop(new CommonCallbacks.CompletionCallback() {
-//                                          @Override
-//                                          public void onResult(DJIError djiError) {
-//                                              if (djiError != null) {
-//                                                  showToast(djiError.getDescription());
-//                                              }else
-//                                              {
-//                                                  showToast("Stop Simulator Success");
-//                                              }
-//                                          }
-//                                      }
-//                                );
-//                    }
-//                }
-//            }
-//        });
-//        // 虚拟摇杆设置事件
-//        mScreenJoystickRight.setJoystickListener(new OnScreenJoystickListener(){
-//
-//            @Override
-//            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-//                if(Math.abs(pX) < 0.02 ){
-//                    pX = 0;
-//                }
-//
-//                if(Math.abs(pY) < 0.02 ){
-//                    pY = 0;
-//                }
-//
-//                float pitchJoyControlMaxSpeed = 10;
-//                float rollJoyControlMaxSpeed = 10;
-//
-//                mPitch = (float)(pitchJoyControlMaxSpeed * pX);
-//
-//                mRoll = (float)(rollJoyControlMaxSpeed * pY);
-//
-//                if (null == mSendVirtualStickDataTimer) {
-//                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-//                    mSendVirtualStickDataTimer = new Timer();
-//                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 100, 200);
-//                }
-//
-//            }
-//
-//        });
-//        mScreenJoystickLeft.setJoystickListener(new OnScreenJoystickListener() {
-//
-//            @Override
-//            public void onTouch(OnScreenJoystick joystick, float pX, float pY) {
-//                if(Math.abs(pX) < 0.02 ){
-//                    pX = 0;
-//                }
-//
-//                if(Math.abs(pY) < 0.02 ){
-//                    pY = 0;
-//                }
-//                float verticalJoyControlMaxSpeed = 2;
-//                float yawJoyControlMaxSpeed = 30;
-//
-//                mYaw = (float)(yawJoyControlMaxSpeed * pX);
-//                mThrottle = (float)(verticalJoyControlMaxSpeed * pY);
-//
-//                if (null == mSendVirtualStickDataTimer) {
-//                    mSendVirtualStickDataTask = new SendVirtualStickDataTask();
-//                    mSendVirtualStickDataTimer = new Timer();
-//                    mSendVirtualStickDataTimer.schedule(mSendVirtualStickDataTask, 0, 200);
-//                }
-//
-//            }
-//        });
         lanBtnListener2();
         //高德地图初始化
         if (aMap == null) {
@@ -1384,6 +1287,16 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         if (drawerLayout != null) {
             drawerLayout.openDrawer(GravityCompat.START);
         }
+    }
+
+    @Override
+    public int getTextsureViewWidth() {
+        return fpvTexture.getWidth();
+    }
+
+    @Override
+    public int getTextsureViewHeight() {
+        return fpvTexture.getHeight();
     }
 
     //endregion
@@ -2150,22 +2063,69 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
-//    /**
-//     * 云台控制
-//     */
-//    private void ControlGimbal(double Angle){
-//        BaseProduct product = DJISampleApplication.getProductInstance();
-//        if (product != null) {
-//            if (product instanceof Aircraft) {
-//                Aircraft aircraft = (Aircraft) product;
-//                gimbals = aircraft.getGimbals();
-//            }
-//        }
-//        for(int i =0;i<gimbals.size();i++){
-//            Gimbal gb = gimbals.get(i);
-//            gb.
-//        }
-//    }
+    /**
+     * 显示简单移动对话框，让用户设置移动方向和距离
+     */
+    private void showSimpleMoveDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("设置移动参数");
+
+        // 创建布局
+        View view = getLayoutInflater().inflate(R.layout.dialog_simple_move, null);
+        builder.setView(view);
+
+        // 获取控件引用
+        RadioGroup rgDirection = view.findViewById(R.id.rg_direction);
+        EditText etDistance = view.findViewById(R.id.et_distance);
+
+        // 设置确定按钮
+        builder.setPositiveButton("确定", (dialog, which) -> {
+            // 获取选中的方向
+            int direction = 1; // 默认向前
+            int checkedId = rgDirection.getCheckedRadioButtonId();
+            if (checkedId == R.id.rb_forward) {
+                direction = 301; // 前
+            } else if (checkedId == R.id.rb_backward) {
+                direction = 302; // 后
+            } else if (checkedId == R.id.rb_left) {
+                direction = 303; // 左
+            } else if (checkedId == R.id.rb_right) {
+                direction = 304; // 右
+            }
+
+            // 获取距离
+            float distance = 1.0f; // 默认1米
+            try {
+                String distanceStr = etDistance.getText().toString();
+                if (!TextUtils.isEmpty(distanceStr)) {
+                    distance = Float.parseFloat(distanceStr);
+                }
+            } catch (NumberFormatException e) {
+                showToast("距离格式错误，使用默认值1米");
+            }
+
+            // 执行移动命令
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+            mSingletonVirtualStickExecutor.simpleMove(direction, distance);
+
+            // 显示执行的命令信息
+            String dirStr = "";
+            switch (direction) {
+                case 301: dirStr = "前"; break;
+                case 302: dirStr = "后"; break;
+                case 303: dirStr = "左"; break;
+                case 304: dirStr = "右"; break;
+            }
+            showToast("执行移动命令：" + dirStr + " " + distance + "米");
+        });
+
+        // 设置取消按钮
+        builder.setNegativeButton("取消", null);
+
+        // 显示对话框
+        builder.create().show();
+    }
+
     //endregion
 
     //region 高德地图定位，位置查询，用户位置，无人机位置交互相关
@@ -2940,20 +2900,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             yoloSamTrack.stopTracking();
         }else {
             processCommand(command);
-        }
-    }
-    //endregion
-
-    //region 自旋锁
-    private String auavLock = null;
-    synchronized void auavLock(String value) {
-        auavLock = value;
-    }
-
-    public void auavSpin() {
-        while (auavLock.equals("continue") == false) {
-            try { Thread.sleep(1000); }
-            catch (Exception e) {}
         }
     }
     //endregion
@@ -3956,7 +3902,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
     //endregion
 
-    //region chat_save
+    //region 推理过程保存
 
     /**
      * 将聊天记录保存为文本文件和图片
@@ -4028,8 +3974,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             return null;
         }
     }
-
-    // ... existing code ...
 
     /**
      * 将聊天记录保存为HTML文件
@@ -4132,8 +4076,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     }
 
-    // ... existing code ...
-
     /**
      * 将RecyclerView内容保存为单个图片
      * @return 保存的图片文件
@@ -4208,7 +4150,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             return null;
         }
     }
-
 
     /**
      * 将聊天记录保存为PDF文件
@@ -4321,7 +4262,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             return null;
         }
     }
-
 
     private void showSaveOptionsDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -4481,71 +4421,4 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     //endregion
-
-    //region yolosam后端服务器初始化
-
-    //endregion
-
-    /**
-     * 显示简单移动对话框，让用户设置移动方向和距离
-     */
-    private void showSimpleMoveDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("设置移动参数");
-        
-        // 创建布局
-        View view = getLayoutInflater().inflate(R.layout.dialog_simple_move, null);
-        builder.setView(view);
-        
-        // 获取控件引用
-        RadioGroup rgDirection = view.findViewById(R.id.rg_direction);
-        EditText etDistance = view.findViewById(R.id.et_distance);
-        
-        // 设置确定按钮
-        builder.setPositiveButton("确定", (dialog, which) -> {
-            // 获取选中的方向
-            int direction = 1; // 默认向前
-            int checkedId = rgDirection.getCheckedRadioButtonId();
-            if (checkedId == R.id.rb_forward) {
-                direction = 301; // 前
-            } else if (checkedId == R.id.rb_backward) {
-                direction = 302; // 后
-            } else if (checkedId == R.id.rb_left) {
-                direction = 303; // 左
-            } else if (checkedId == R.id.rb_right) {
-                direction = 304; // 右
-            }
-            
-            // 获取距离
-            float distance = 1.0f; // 默认1米
-            try {
-                String distanceStr = etDistance.getText().toString();
-                if (!TextUtils.isEmpty(distanceStr)) {
-                    distance = Float.parseFloat(distanceStr);
-                }
-            } catch (NumberFormatException e) {
-                showToast("距离格式错误，使用默认值1米");
-            }
-            
-            // 执行移动命令
-            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
-            mSingletonVirtualStickExecutor.simpleMove(direction, distance);
-            
-            // 显示执行的命令信息
-            String dirStr = "";
-            switch (direction) {
-                case 301: dirStr = "前"; break;
-                case 302: dirStr = "后"; break;
-                case 303: dirStr = "左"; break;
-                case 304: dirStr = "右"; break;
-            }
-            showToast("执行移动命令：" + dirStr + " " + distance + "米");
-        });
-        
-        // 设置取消按钮
-        builder.setNegativeButton("取消", null);
-        
-        // 显示对话框
-        builder.create().show();
-    }
 }

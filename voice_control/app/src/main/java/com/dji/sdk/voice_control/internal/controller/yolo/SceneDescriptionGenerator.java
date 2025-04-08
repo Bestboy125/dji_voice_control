@@ -2,6 +2,9 @@ package com.dji.sdk.voice_control.internal.controller.yolo;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+
+import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.util.List;
@@ -11,9 +14,11 @@ public class SceneDescriptionGenerator implements Detector.DetectorListener {
     private int frameNumber = 0;
     private JSONObject sceneDescription = null;
     private boolean detectionComplete = false;
+    private ControlActivityCallback mCallback;
     
-    public SceneDescriptionGenerator(Context context, String modelPath, String labelPath) {
+    public SceneDescriptionGenerator(Context context, String modelPath, String labelPath, ControlActivityCallback callback) {
         detector = new Detector(context, modelPath, labelPath, this);
+        mCallback = callback;
     }
     
     /**
@@ -89,8 +94,8 @@ public class SceneDescriptionGenerator implements Detector.DetectorListener {
                 // 创建bounding_box信息
                 JSONObject bbox = new JSONObject();
                 // 将相对坐标转换为像素坐标 (这里假设输入图像尺寸为1000x1000，可根据实际情况调整)
-                int imageWidth = 1000;
-                int imageHeight = 1000;
+                int imageWidth = mCallback.getTextsureViewWidth();
+                int imageHeight = mCallback.getTextsureViewHeight();
                 int x = (int) (bestBox.getCx() * imageWidth);
                 int y = (int) (bestBox.getCy() * imageHeight);
                 int width = (int) (bestBox.getW() * imageWidth);
@@ -142,30 +147,5 @@ public class SceneDescriptionGenerator implements Detector.DetectorListener {
         }
         
         return "图像" + horizontalPos + verticalPos;
-    }
-    
-    /**
-     * 示例用法：如何使用这个类生成场景描述并加入到prompt中
-     */
-    public static void useExample(Context context, Bitmap image) {
-        SceneDescriptionGenerator generator = new SceneDescriptionGenerator(
-                context, 
-                "models/yolov5s.tflite", 
-                "models/coco.txt");
-        
-        try {
-            // 生成当前帧的场景描述
-            JSONObject currentDescription = generator.generateDescription(image, 6);
-            
-            // 构建完整的prompt
-            JSONObject fullPrompt = new JSONObject();
-            String jsonString = fullPrompt.toString(); // 将完整的prompt转换为字符串
-            
-            // 使用完毕后释放资源
-            generator.close();
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 } 

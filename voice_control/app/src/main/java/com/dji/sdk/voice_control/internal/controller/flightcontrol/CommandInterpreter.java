@@ -153,6 +153,7 @@ public class CommandInterpreter {
      */
     public void mStop(){
         if(mFlightController.isVirtualStickControlModeAvailable()){
+            mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
             mSingletonVirtualStickExecutor.mStop();
         }else{
             MyChangeSettingsExecutor.mEnableVS(); //delete

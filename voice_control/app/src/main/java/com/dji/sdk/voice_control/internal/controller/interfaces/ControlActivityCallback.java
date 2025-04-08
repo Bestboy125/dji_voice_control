@@ -52,5 +52,9 @@ public interface ControlActivityCallback {
 
     float gerAltitude();
 
+    int getTextsureViewWidth();
+
+    int getTextsureViewHeight();
+
 }
 

@@ -2,6 +2,8 @@ package com.dji.sdk.voice_control.internal.prompt;
 
 import android.graphics.Bitmap;
 import android.content.Context;
+
+import com.dji.sdk.voice_control.internal.controller.interfaces.ControlActivityCallback;
 import com.dji.sdk.voice_control.internal.controller.yolo.SceneDescriptionGenerator;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -32,10 +34,10 @@ public class vlmPromptBuilder {
      * @param labelPath 标签文件路径
      * @param taskObjective 当前子任务目标
      */
-    public vlmPromptBuilder(Context context, String modelPath, String labelPath, String taskObjective) {
+    public vlmPromptBuilder(Context context, String modelPath, String labelPath, String taskObjective, ControlActivityCallback callback) {
         try {
             // 初始化场景描述生成器
-            sceneGenerator = new SceneDescriptionGenerator(context, modelPath, labelPath);
+            sceneGenerator = new SceneDescriptionGenerator(context, modelPath, labelPath, callback);
             
             // 初始化基本prompt结构
             initBasePrompt(taskObjective);
@@ -436,62 +438,6 @@ public class vlmPromptBuilder {
     public void close() {
         if (sceneGenerator != null) {
             sceneGenerator.close();
-        }
-    }
-    
-    /**
-     * 使用示例 - 更新版本包含思维链自动切换
-     */
-    public static void usageExample(Context context) {
-        // 创建PromptBuilder实例
-        vlmPromptBuilder builder = new vlmPromptBuilder(
-                context,
-                "models/yolov5s.tflite", 
-                "models/coco.txt",
-                "目标搜索");  // 初始任务为目标搜索
-        
-        try {
-            // 初始化子任务列表
-            String[] subtasks = {"目标搜索", "靠近目标正上方", "目标信息收集"};
-            builder.initializeSubtaskList(subtasks);
-            
-            // 初始化所有思维链
-            builder.initializeAllThinkingChains();
-            
-            // 模拟获取图像帧
-            Bitmap frame = null; // 假设这里获取到了图像
-            
-            // 添加场景描述
-            builder.addCurrentSceneDescription(frame);
-            
-            // 添加无人机位置
-            builder.addDronePosition(121.4737, 31.2304);
-            
-            // 添加已执行的动作
-            builder.addExecutedAction("无人机向前移动2米");
-            
-            // 更新无人机状态
-            double[] speed = {0.0, 0.0, 0.0};
-            double[] attitude = {0.0, 1.0, 2.0};
-            builder.updateDroneState(speed, attitude, true, 5, 2);
-            
-            // 假设检测到目标，切换任务目标并自动应用相应思维链
-            builder.changeCurrentTaskObjectiveWithThinking("靠近目标正上方");
-            
-            // 或通过任务序号切换
-            builder.changeTaskObjectiveByNumberWithThinking(2); // 切换到"靠近目标正上方"
-            
-            // 模拟靠近目标后切换到信息收集
-            builder.changeCurrentTaskObjectiveWithThinking("目标信息收集");
-            
-            // 获取完整的prompt
-            String fullPrompt = builder.getFullPromptString();
-            
-            // 使用完毕后释放资源
-            builder.close();
-            
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 } 

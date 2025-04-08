@@ -297,7 +297,7 @@ public class TargetCollectionAgent {
             JSONObject firstStep = mTaskDecomposition.getJSONArray("任务流程").getJSONObject(0);
             String firstSubTask = firstStep.getString("子任务");
 
-            mPromptBuilder = new vlmPromptBuilder(mContext, MODEL_PATH, LABELS_PATH, firstSubTask);
+            mPromptBuilder = new vlmPromptBuilder(mContext, MODEL_PATH, LABELS_PATH, firstSubTask,mCallback);
 
             // 初始化子任务列表
             String[] subtasks = {"目标搜索", "靠近目标正上方", "目标定点绕飞", "返航"};
