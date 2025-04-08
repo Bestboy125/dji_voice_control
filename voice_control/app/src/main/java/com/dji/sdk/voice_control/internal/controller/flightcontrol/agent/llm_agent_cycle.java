@@ -96,7 +96,7 @@ public class llm_agent_cycle {
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
-            "  \"has_car\": 布尔值（true或false），\n" +
+            "  \"has_object\": 布尔值（true或false），表示您认为是否有%s, \n" +
             "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有%s的把握，\n" +
             "  \"location_description\": \"字符串，'left'、'center' 或 'right'，描述%s在图像中的位置\",\n" +
             "  \"estimated_proportion_percentage\": 整数，范围0-100，估计%s占据图像的比例，\n" +
@@ -120,7 +120,7 @@ public class llm_agent_cycle {
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
-            "  \"has_car\": 布尔值（true或false），\n" +
+            "  \"has_object\": 布尔值（true或false），表示您认为是否有%s,\n" +
             "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有%s的把握，\n" +
             "  \"location_description\": \"字符串，'forward'、'center' 或 'backward'，描述%s在图像中的位置\",\n" +
             "  \"estimated_proportion_percentage\": 整数，范围0-100，估计%s占据图像的比例，\n" +
@@ -186,13 +186,13 @@ public class llm_agent_cycle {
         this.direction_prompt = String.format(DIRECTION_PROMPT_TEMPLATE, 
             this.targetObjectType, this.targetObjectType, this.targetObjectType,
             this.targetObjectType, this.targetObjectType, this.targetObjectType,
-            this.targetObjectType, this.targetObjectType);
+            this.targetObjectType, this.targetObjectType, this.targetObjectType);
         
         // 格式化居中提示词
         this.center_prompt = String.format(CENTER_PROMPT_TEMPLATE,
             this.targetObjectType, this.targetObjectType, this.targetObjectType,
             this.targetObjectType, this.targetObjectType, this.targetObjectType,
-            this.targetObjectType, this.targetObjectType);
+            this.targetObjectType, this.targetObjectType, this.targetObjectType);
         
         Log.d(TAG, "formatPrompts: 提示词已格式化为目标类型: " + this.targetObjectType);
     }
@@ -264,7 +264,7 @@ public class llm_agent_cycle {
         if (parseResult.getJsonData() == null) {
             runOnUiThread(() -> {callback.addChatMessage(Constant.OWNER_BOT, "模型返回为空，尝试下一帧...");});
         } else {
-            boolean hasTarget = parseResult.getJsonData().optBoolean("has_car", false);
+            boolean hasTarget = parseResult.getJsonData().optBoolean("has_object", false);
             int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
 
             if (hasTarget && confidence >= 80) {
@@ -370,7 +370,7 @@ public class llm_agent_cycle {
                     String locationDesc = parseResult.getJsonData().optString("location_description", "center");
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                     int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                    boolean hasTarget = parseResult.getJsonData().optBoolean("has_car", false);
+                    boolean hasTarget = parseResult.getJsonData().optBoolean("has_object", false);
 
                     if(hasTarget && confidence>=80){
                         callback.addChatMessage(Constant.OWNER_BOT,
