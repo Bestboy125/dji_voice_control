@@ -1,6 +1,5 @@
 rootProject.name = "dji_voice_control"
 include ':app'
-include ':rtspserver'
 dependencyResolutionManagement {
     repositories {
         // JitPack 远程仓库：https://jitpack.io

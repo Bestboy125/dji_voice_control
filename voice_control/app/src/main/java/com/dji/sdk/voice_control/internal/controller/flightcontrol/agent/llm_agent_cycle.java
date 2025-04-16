@@ -89,14 +89,14 @@ public class llm_agent_cycle {
     private static final String DIRECTION_PROMPT_TEMPLATE = "请分析图像，回答以下问题。首先，详细描述您的推理过程。然后，将您的答案以JSON格式输出。\n" +
             "\n" +
             "推理过程：\n" +
-            "- 描述您如何判断图中是否有%s,置信度水平如何。\n" +
+            "- 描述您如何判断图中红框中是否有%s,置信度水平如何。\n" +
             "- 解释您对%s位置（左、中、右）的判断依据。\n" +
             "- 描述您如何估算%s占据图像的比例。\n" +
             "\n" +
             "请在推理过程之后，输出JSON格式的答案：\n" +
             "\n" +
             "{\n" +
-            "  \"has_object\": 布尔值（true或false），表示您认为是否有%s, \n" +
+            "  \"has_object\": 布尔值（true或false），表示您在红框中认为是否有%s, \n" +
             "  \"confidence_percentage\": 整数，范围0-100，表示您认为图中有%s的把握，\n" +
             "  \"location_description\": \"字符串，'left'、'center' 或 'right'，描述%s在图像中的位置\",\n" +
             "  \"estimated_proportion_percentage\": 整数，范围0-100，估计%s占据图像的比例，\n" +
@@ -155,6 +155,12 @@ public class llm_agent_cycle {
 
     private boolean isend = false;
     private float reduis = 0f;
+
+    boolean use_front = true;
+    int count_false_back = 0;
+    int count_false_front = 0;
+    int count_center = 0;
+    int current_gimbal_angle = 0;
     //endregion
 
     //构造函数
@@ -212,7 +218,7 @@ public class llm_agent_cycle {
             if(!callback.getisFlying()){
                 mCI.mTakeoff();
             }
-            SleepThread(SLEEP_BETWEEN_SEARCH_MS);
+            SleepThread(11000);
 
             //设置一个合理的飞行高度
             //向上飞8米
@@ -257,7 +263,7 @@ public class llm_agent_cycle {
 
 
         runOnUiThread(() -> {showToast("成功");});
-        String gptResult = callback.sendQuestionToGPTSync(direction_prompt, imageFile,true);
+        String gptResult = callback.sendQuestionToGPTSync(center_prompt, imageFile,true);
         JsonUtils.ParseResult parseResult = JsonUtils.robustJsonParser(gptResult);
         String response = parseResult.getInferenceProcess();
 
@@ -333,11 +339,7 @@ public class llm_agent_cycle {
         performCloseToSearch(1, MAX_SEARCH_ATTEMPTS);
     }
 
-    boolean use_front = true;
-    int count_false_back = 0;
-    int count_false_front = 0;
-    int count_center = 0;
-    int current_gimbal_angle = 0;
+
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
      */
@@ -352,7 +354,7 @@ public class llm_agent_cycle {
         }
 
         if(use_front){
-            File imageFile = CaptureImage();
+            File imageFile = CaptureImageRed();
             Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
 
             callback.addChatMessage(Constant.OWNER_BOT, "图像捕获成功，正在分析...");
@@ -383,7 +385,7 @@ public class llm_agent_cycle {
                         count_false_front ++;
                         if(count_false_front == 2){
                             count_false_front = 0;
-                            current_gimbal_angle -= 30;
+                            current_gimbal_angle -= 45;
                             gimbalControl gimbalControl = new gimbalControl();
                             gimbalControl.pitchGimbalAbsolute(current_gimbal_angle);
                             if(current_gimbal_angle == -90){
@@ -416,7 +418,7 @@ public class llm_agent_cycle {
                     String locationDesc = parseResult.getJsonData().optString("location_description", "center");
                     int confidence = parseResult.getJsonData().optInt("confidence_percentage", 0);
                     int proportion = parseResult.getJsonData().optInt("estimated_proportion_percentage", 0);
-                    boolean hasTarget = parseResult.getJsonData().optBoolean("has_car", false);
+                    boolean hasTarget = parseResult.getJsonData().optBoolean("has_object", false);
 
                     if(hasTarget && confidence>=80){
                         callback.addChatMessage(Constant.OWNER_BOT,
@@ -425,6 +427,7 @@ public class llm_agent_cycle {
                         );
                         if(!locationDesc.equals("center")){
                             // 调整无人机位置
+                            //这里的loactiondesc是backward或者forward中的一个
                             adjustDronePosition(locationDesc, proportion);
                         } else{
                             count_center ++;
@@ -717,6 +720,72 @@ public class llm_agent_cycle {
     }
 
     /**
+     * 获取当前帧图像，并添加红色边框
+     */
+    public File CaptureImageRed(){
+
+//        Resources res = callback.mgetResources();
+//        Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.search_frame1);
+//        File imageFile = saveBitmapAsFile(bitmap,"frame1.jpg");
+
+        Bitmap bitmap = mfpvTexture.getBitmap();
+        if (bitmap == null) {
+            callback.addChatMessage(Constant.OWNER_BOT, "未能捕获视频帧，TextureView 未准备好");
+            return null;
+        }
+
+        // 添加红色边框
+        Bitmap bitmapWithBorder = addRedBorder(bitmap, 0.85f);
+        
+        File imageFile = saveBitmapAsFile(bitmapWithBorder, IMAGE_FILE_NAME);
+        if (imageFile == null) {
+            callback.addChatMessage(Constant.OWNER_BOT, "图片保存失败");
+            return null;
+        }
+        return imageFile;
+    }
+    
+    /**
+     * 给位图添加红色边框
+     * @param original 原始位图
+     * @param borderRatio 边框与图像大小的比例（0-1之间），例如0.95表示边框为原图的95%
+     * @return 添加边框后的位图
+     */
+    private Bitmap addRedBorder(Bitmap original, float borderRatio) {
+        if (original == null) return null;
+        
+        int width = original.getWidth();
+        int height = original.getHeight();
+        
+        // 创建可变的位图副本
+        Bitmap mutableBitmap = original.copy(Bitmap.Config.ARGB_8888, true);
+        
+        // 创建画布
+        android.graphics.Canvas canvas = new android.graphics.Canvas(mutableBitmap);
+        
+        // 创建画笔
+        android.graphics.Paint paint = new android.graphics.Paint();
+        paint.setColor(android.graphics.Color.RED);
+        paint.setStyle(android.graphics.Paint.Style.STROKE);
+        paint.setStrokeWidth(Math.max(width, height) / 100f); // 设置线宽为图片较大边的1%
+        
+        // 计算边框的尺寸（略小于原图）
+        float borderMargin = (1f - borderRatio) / 2f; // 边框与图像边缘的距离
+        float left = width * borderMargin;
+        float top = height * borderMargin;
+        float right = width * (1f - borderMargin);
+        float bottom = height * (1f - borderMargin);
+        
+        // 绘制矩形边框
+        canvas.drawRect(left, top, right, bottom, paint);
+        
+        Log.d(TAG, "addRedBorder: 已添加红色边框，宽度=" + width + "，高度=" + height + 
+              "，边框位置=[" + left + "," + top + "," + right + "," + bottom + "]");
+        
+        return mutableBitmap;
+    }
+
+    /**
      * 阻塞主线程
      */
     private void SleepThread(int time){
@@ -730,7 +799,7 @@ public class llm_agent_cycle {
 
     //endregion
 
-    //收集车辆信息
+    //region 收集车辆信息
 
     /**
      * 收集目标的详细信息
@@ -1105,7 +1174,7 @@ public class llm_agent_cycle {
 
             //获取车辆的位置（此处直接使用无人机当前位置作为目标位置）
             Log.d(TAG, "hotFlyCircle: 设置目标物位置（使用无人机当前位置）");
-            objAlt = 10;
+            objAlt = droneAlt;
             objLat = droneLat;
             objLon = droneLon;
             
@@ -1418,4 +1487,6 @@ public class llm_agent_cycle {
         
         Log.d(TAG, "stopAllOperations: [完成] 所有操作和线程已停止");
     }
+
+    //endregion
 }

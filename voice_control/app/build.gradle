@@ -1,6 +1,5 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
 
 repositories {
@@ -13,6 +12,7 @@ repositories {
 android {
     compileSdk 34
     useLibrary 'org.apache.http.legacy'
+    buildToolsVersion '35.0.0'
 
     defaultConfig {
         applicationId "com.dji.sdk.voice_control"
@@ -21,10 +21,10 @@ android {
         multiDexEnabled true
         versionCode 1
         ndk {
-                    // On x86 devices that run Android API 23 or above, if the application is targeted with API 23 or
-                    // above, FFmpeg lib might lead to runtime crashes or warnings.
-                    abiFilters 'armeabi-v7a','arm64-v8a'
-                }
+            // On x86 devices that run Android API 23 or above, if the application is targeted with API 23 or
+            // above, FFmpeg lib might lead to runtime crashes or warnings.
+            abiFilters 'armeabi-v7a','arm64-v8a'
+        }
     }
 
     //需要直接使用appbundle的话，需要强制配置shrinkResources为false
@@ -88,6 +88,12 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    configurations {
+        all*.exclude module: 'httpclient'
+        all*.exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
+
+    }
+}
 
 dependencies {
     debugImplementation 'com.github.getActivity:Logcat:11.86'
@@ -103,6 +109,7 @@ dependencies {
          */
         exclude module: 'library-anti-distortion'
         exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
         //exclude module: 'fly-safe-database'
     })
     compileOnly 'com.dji:dji-sdk-provided:4.18'
@@ -114,6 +121,7 @@ dependencies {
         // exclude group: 'com.amap.api'
         exclude module: 'dji-sdk'
         exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
     })
 
     implementation 'androidx.appcompat:appcompat:1.0.0'
@@ -145,9 +153,14 @@ dependencies {
     implementation 'io.reactivex.rxjava2:rxandroid:2.1.0'
     implementation 'com.android.support:multidex:1.0.0'
 //    implementation 'com.android.volley:volley:1.1.1'
-    implementation 'com.ibm.watson.developer_cloud:java-sdk:3.5.3'
+    implementation ('com.ibm.watson.developer_cloud:java-sdk:3.5.3') {
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+    }
     implementation (name:'com.ibm.watson.developer_cloud',ext:'aar'){
         transitive = true
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
     }
     implementation 'com.amap.api:3dmap:5.0.0'
     implementation 'com.amap.api:location:3.3.0'
@@ -187,24 +200,38 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.16.1")
 
+    implementation ("com.alibaba:dashscope-sdk-java:2.19.0"){
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
+    }
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    testImplementation "org.powermock:powermock-api-mockito2:1.7.1" // 这个mockito2必须引入，否则的话会找不到PowerMockito类
+    testImplementation "org.powermock:powermock-module-junit4:1.7.1"
+    testImplementation 'org.powermock:powermock-core:1.7.1'
+    testImplementation "org.mockito:mockito-core:5.+"
+    // testImplementation "org.powermock:powermock-module-junit4-rule:1.7.1"
+    // testImplementation "org.powermock:powermock-classloading-xstream:1.7.1"
+
+    // androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+    //androidTestImplementation "org.mockito:mockito-android:4.4.0"
+
 //    implementation group: 'com.unfbx', name: 'chatgpt-java', version: '1.1.5'{
 //        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
 //    }
 
-    configurations {
-        all*.exclude module: 'httpclient'
-    }
-    }
-    buildToolsVersion '35.0.0'
-}
-
-dependencies {
-    implementation files('libs\\Msc.jar')
     implementation 'com.jakewharton.timber:timber:5.0.1'
     implementation 'androidx.databinding:databinding-runtime:8.7.3'
-    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtsp:2.2.4'
-    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:encoder:2.2.4'
-    implementation project(':rtspserver')
-    implementation 'com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtplibrary:2.2.4'
+    implementation ('com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtsp:2.2.4') {
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
+    }
+    implementation ('com.github.pedroSG94.rtmp-rtsp-stream-client-java:encoder:2.2.4') {
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
+    }
+    implementation ('com.github.pedroSG94.rtmp-rtsp-stream-client-java:rtplibrary:2.2.4') {
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-ws'
+    }
 }
+
 apply plugin: 'com.google.gms.google-services'

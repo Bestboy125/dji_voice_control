@@ -27,50 +27,29 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import dji.midware.usb.P3.UsbAccessoryService;
 import dji.sdk.camera.VideoFeeder;
 import dji.sdk.codec.DJICodecManager;
-import kr.co.makeitall.rtspserver.RtspServer;
-
-import com.pedro.encoder.Frame;
-import com.pedro.encoder.video.FormatVideoEncoder;
-import com.pedro.encoder.video.GetVideoData;
-import com.pedro.encoder.video.VideoEncoder;
 
 /**
  * This class is designed for showing the fpv video feed from the camera or Lightbridge 2.
  * @maintainer Eddie Wang
  */
-public class BaseRtspFpvView extends RelativeLayout implements TextureView.SurfaceTextureListener, GetVideoData {
+public class BaseRtspFpvView extends RelativeLayout implements TextureView.SurfaceTextureListener{
 
     private TextureView mVideoSurface = null;
     private DJICodecManager mCodecManager = null;
     private VideoFeeder.VideoDataListener videoDataListener = null;
-    private RtspServer rtspServer;
-    private VideoEncoder videoEncoder;
     private boolean isStreaming = false; // 添加isStreaming标志位
 
     //视频录制
     private boolean isRecording = false;
     private File recordingFile = null;
     private FileOutputStream recordingOutputStream = null;
-    private ConcurrentLinkedQueue<Frame> recordingFrames = new ConcurrentLinkedQueue<>();
     private Thread recordingThread = null;
     private long recordingStartTime = 0;
 
-    public BaseRtspFpvView(Context context, RtspServer rtspServer) {
+    public BaseRtspFpvView(Context context) {
         super(context);
-        this.rtspServer = rtspServer;
         initUI();
 
-        // 初始化视频编码器
-        videoEncoder = new VideoEncoder(this);
-        videoEncoder.prepareVideoEncoder(
-                1280,            // width: 1280 pixels
-                720,             // height: 720 pixels
-                30,              // fps: 30 frames per second
-                2500 * 1024,     // bitRate: 2500 kbps
-                0,               // rotation: 0 degrees
-                1,               // iFrameInterval: 1 second
-                FormatVideoEncoder.YUV420Dynamical // formatVideoEncoder: YUV420
-        );
     }
 
     private void initUI() {
@@ -97,17 +76,6 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
                                 UsbAccessoryService.VideoStreamSource.Fpv.getIndex());
                     }
 
-                    if (isStreaming && rtspServer.isRunning() && rtspServer.getNumClients() > 0) {
-                        // 将一帧数据封装并编码，实时发送到 RTSP 服务器
-                        try {
-                            int pts = (int) (System.nanoTime() / 1000);
-                            Frame frame = new Frame(bytes, pts, size);
-                            videoEncoder.inputYUVData(frame);
-
-                        } catch (Exception e) {
-                            Log.e("BaseRtspFpvView", "Error encoding video frame: " + e.getMessage());
-                        }
-                    }
 
                     // 添加录制功能 - 确保在这里添加数据到录制队列
                     if (isRecording && recordingOutputStream != null) {
@@ -117,14 +85,7 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
                             System.arraycopy(bytes, 0, dataCopy, 0, size);
                             
                             int pts = (int) (System.nanoTime() / 1000);
-                            Frame frame = new Frame(dataCopy, pts, size);
-                            boolean added = recordingFrames.offer(frame);
-                            
-                            if (added) {
-                                Log.d("BaseRtspFpvView", "Added frame to recording queue, size: " + size);
-                            } else {
-                                Log.w("BaseRtspFpvView", "Failed to add frame to recording queue");
-                            }
+
                         } catch (Exception e) {
                             Log.e("BaseRtspFpvView", "Error adding frame to recording: " + e.getMessage());
                         }
@@ -169,37 +130,10 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
             
             // 创建文件输出流
             recordingOutputStream = new FileOutputStream(recordingFile);
-            recordingFrames.clear();
             isRecording = true;
             recordingStartTime = System.currentTimeMillis();
             
-            // 创建录制线程
-            recordingThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        int frameCount = 0;
-                        while (isRecording) {
-                            Frame frame = recordingFrames.poll();
-                            if (frame != null && recordingOutputStream != null) {
-                                recordingOutputStream.write(frame.getBuffer(), 0, frame.getSize());
-                                frameCount++;
-                                
-                                // 每100帧记录一次日志
-                                if (frameCount % 100 == 0) {
-                                    Log.d("BaseRtspFpvView", "Recorded " + frameCount + " frames");
-                                }
-                            } else {
-                                Thread.sleep(5); // 短暂休眠避免CPU占用过高
-                            }
-                        }
-                        Log.i("BaseRtspFpvView", "Recording thread finished, total frames: " + frameCount);
-                    } catch (Exception e) {
-                        Log.e("BaseRtspFpvView", "Error in recording thread: " + e.getMessage());
-                    }
-                }
-            });
-            recordingThread.start();
+
             
             Log.i("BaseRtspFpvView", "Started recording to: " + recordingFile.getAbsolutePath());
         } catch (Exception e) {
@@ -267,7 +201,6 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
         ByteBuffer newPps = pps != null ? pps.duplicate() : null;
         ByteBuffer newVps = vps != null ? vps.duplicate() : null;
 
-        rtspServer.setVideoInfo(newSps, newPps, newVps);
     }
 
     // 启动推流（启动编码器）
@@ -275,7 +208,6 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
         if (!isStreaming) {
             isStreaming = true; // 设置标志位为true
             Log.i("BaseRtspFpvView", "Streaming started. Starting encoder...");
-            videoEncoder.start(); // 启动编码器
         } else {
             Log.w("BaseRtspFpvView", "Streaming is already running.");
         }
@@ -286,55 +218,11 @@ public class BaseRtspFpvView extends RelativeLayout implements TextureView.Surfa
         if (isStreaming) {
             isStreaming = false; // 设置标志位为false
             Log.i("BaseRtspFpvView", "Streaming stopped. Stopping encoder...");
-            videoEncoder.stop(); // 停止编码器
         } else {
             Log.w("BaseRtspFpvView", "Streaming is not running.");
         }
     }
 
-    @Override
-    public synchronized void onSpsPpsVps(ByteBuffer sps, ByteBuffer pps, ByteBuffer vps) {
-        if (sps == null || pps == null) {
-            Log.e("BaseRtspFpvView", "SPS or PPS is null. Retrying encoder initialization...");
-            videoEncoder.stop();
-            videoEncoder.prepareVideoEncoder(
-                    1280,            // width: 1280 pixels
-                    720,             // height: 720 pixels
-                    30,              // fps: 30 frames per second
-                    2500 * 1024,     // bitRate: 2500 kbps
-                    0,               // rotation: 0 degrees
-                    1,               // iFrameInterval: 1 second
-                    FormatVideoEncoder.YUV420Dynamical // formatVideoEncoder: YUV420
-            );
-            videoEncoder.start();
-        }
-        onSpsPpsVpsRtp(sps, pps, vps);
-    }
-
-    @Override
-    public void getVideoData(ByteBuffer h264Buffer, MediaCodec.BufferInfo info) {
-        try {
-            rtspServer.sendVideo(h264Buffer, info);
-
-            // 添加录制功能 - 保存编码后的H264数据
-            if (isRecording && recordingOutputStream != null) {
-                byte[] data = new byte[info.size];
-                h264Buffer.position(info.offset);
-                h264Buffer.get(data, 0, info.size);
-                
-                // 将编码后的数据添加到录制队列
-                Frame frame = new Frame(data, (int) info.presentationTimeUs, info.size);
-                recordingFrames.offer(frame);
-            }
-        } catch (Exception e) {
-            Log.e("BaseRtspFpvView", "Error sending video data: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public void onVideoFormat(MediaFormat mediaFormat) {
-        // 视频格式回调，必要时实现处理
-    }
 
     private void initSDKCallback() {
         try {

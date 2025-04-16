@@ -198,8 +198,6 @@ import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 import dji.sdk.base.DJIDiagnostics;
 
-//RTSP推流
-import kr.co.makeitall.rtspserver.RtspServer;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.MediaType;
@@ -400,7 +398,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //endregion
 
     //region 视频流RTSP数据结构
-    private RtspServer rtspServer;
     private static final int RTSP_PORT = 5000;
     private LiveStream mLiveStream;
     //endregion
@@ -573,13 +570,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mContext = this;
         mLiveStream = new LiveStream(mContext);
 
-        //初始化RTSP推流
-        rtspServer = new RtspServer(connectCheckerRtsp, RTSP_PORT);
 
         //初始化FPV推流
         fpvTexture = new TextureView(mContext);
 //        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
-        mBaseRtspFpvView = new BaseRtspFpvView(mContext,rtspServer);
+        mBaseRtspFpvView = new BaseRtspFpvView(mContext);
         fpvTexture.setSurfaceTextureListener(mBaseRtspFpvView);
 
         //语音识别初始化
@@ -1329,7 +1324,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                         "Connection failed. " + reason,
                         Toast.LENGTH_LONG
                 ).show();
-                rtspServer.stopServer();
 //                rtspServerDisplay.stopStream();
             });
         }
@@ -1356,7 +1350,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                         "Auth error",
                         Toast.LENGTH_LONG
                 ).show();
-                rtspServer.stopServer();
 //                rtspServerDisplay.stopStream();
             });
         }

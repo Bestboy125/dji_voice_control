@@ -101,6 +101,7 @@ public class MainContent extends RelativeLayout {
     private Button mBtnOpen;
     private Button mBtnBluetooth;
     private Button mBtnControl;
+    private Button mBtnChatGPTImageAnalysis;
     private ViewWrapper componentList =
             new ViewWrapper(new DemoListView(getContext()), R.string.activity_component_list);
     private ViewWrapper bluetoothView;
@@ -196,6 +197,7 @@ public class MainContent extends RelativeLayout {
         mBridgeModeEditText = (EditText) findViewById(R.id.edittext_bridge_ip);
 //        mBtnBluetooth = (Button) findViewById(R.id.btn_bluetooth);
         mBtnControl = (Button) findViewById(R.id.button3);
+        mBtnChatGPTImageAnalysis = (Button) findViewById(R.id.btn_chatgpt_image_analysis);
         mCheckboxFirmware = (CheckBox) findViewById(R.id.checkbox_firmware);
         compassCalibrationView = findViewById(R.id.compassCalibrationView);
 
@@ -249,6 +251,15 @@ public class MainContent extends RelativeLayout {
                 v.getContext().startActivity(intent);
             }
         });
+        
+        mBtnChatGPTImageAnalysis.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(v.getContext(), com.dji.sdk.voice_control.internal.controller.chatgpt.ChatGPTImageAnalysisActivity.class);
+                v.getContext().startActivity(intent);
+            }
+        });
+        
         mBridgeModeEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {

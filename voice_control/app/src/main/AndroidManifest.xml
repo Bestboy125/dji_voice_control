@@ -177,6 +177,12 @@
             android:screenOrientation="landscape"/>
 
         <activity android:name="com.dji.sdk.voice_control.demo.utmiss.UTMISSActivity" />
+
+        <activity
+            android:name="com.dji.sdk.voice_control.internal.controller.chatgpt.ChatGPTImageAnalysisActivity"
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="portrait" />
+
     </application>
 
 </manifest>

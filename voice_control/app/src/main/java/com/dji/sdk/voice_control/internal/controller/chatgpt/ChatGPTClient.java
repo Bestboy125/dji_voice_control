@@ -1,9 +1,6 @@
 package com.dji.sdk.voice_control.internal.controller.chatgpt;// dashscope SDK的版本 >= 2.19.0
 import java.util.*;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
@@ -19,7 +16,6 @@ import java.lang.System;
 import com.alibaba.dashscope.utils.Constants;
 
 public class ChatGPTClient {
-    private static final Logger logger = LoggerFactory.getLogger(ChatGPTClient.class);
     private static StringBuilder reasoningContent = new StringBuilder();
     private static StringBuilder finalContent = new StringBuilder();
     private static boolean isFirstPrint = true;
@@ -92,7 +88,7 @@ public class ChatGPTClient {
                 // 若没有配置环境变量，请用百炼API Key将下行替换为：.apiKey("sk-xxx")
                 .apiKey("sk-f0014e0ab0804090a5b46434b3e1c9df")
                 // 此处以 qvq-max 为例，可按需更换模型名称
-                .model("qvq-max")
+                .model("qwen-vl-plus")
                 .messages(Arrays.asList(Msg))
                 .incrementalOutput(true)
                 .build();
@@ -122,7 +118,6 @@ public class ChatGPTClient {
 //                System.out.println(finalContent.toString());
 //            }
         } catch (ApiException | NoApiKeyException | UploadFileException | InputRequiredException e) {
-            logger.error("An exception occurred: {}", e.getMessage());
         }
         System.exit(0);
     }
