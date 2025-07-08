@@ -226,7 +226,7 @@ public class llm_agent_cycle {
                 mSingletonVirtualStickExecutor.mUp((int) (18f - callback.gerAltitude()));
             }
             if(callback.gerAltitude()>18){
-                mSingletonVirtualStickExecutor.mUp((int) (callback.gerAltitude() - 18f));
+                mSingletonVirtualStickExecutor.mDown((int) (callback.gerAltitude() - 18f));
             }
             SleepThread(SLEEP_BETWEEN_SEARCH_MS);
 
@@ -241,7 +241,6 @@ public class llm_agent_cycle {
     }
 
     //搜索
-
     /**
      * 在场景中自动搜索目标物体
      * @return
@@ -338,7 +337,6 @@ public class llm_agent_cycle {
     public void Close_to() {
         performCloseToSearch(1, MAX_SEARCH_ATTEMPTS);
     }
-
 
     /**
      * 递归执行靠近搜索，直到满足条件或达到最大尝试次数
@@ -597,13 +595,13 @@ public class llm_agent_cycle {
             if (verticalOffset < 0) {
                 // 目标在后，向后移动
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("%s在图像后，向后移动%.2f米", targetObjectType, verticalMoveDistance));
-                mSingletonVirtualStickExecutor.mGo(302, verticalMoveDistance);
+                        String.format("%s在图像前，向前移动%.2f米", targetObjectType, verticalMoveDistance));
+                mSingletonVirtualStickExecutor.mGo(301, verticalMoveDistance);
             } else {
                 // 目标在前，向前移动
                 callback.addChatMessage(Constant.OWNER_BOT,
-                        String.format("%s在图像前，向前移动%.2f米", targetObjectType, verticalMoveDistance));
-                mSingletonVirtualStickExecutor.mGo(301, verticalMoveDistance);
+                        String.format("%s在图像后，向后移动%.2f米", targetObjectType, verticalMoveDistance));
+                mSingletonVirtualStickExecutor.mGo(302, verticalMoveDistance);
             }
             // 水平移动后短暂暂停，让无人机稳定
             SleepThread(500);

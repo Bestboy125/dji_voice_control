@@ -32,6 +32,11 @@ public interface ControlActivityCallback {
 
     void showSelectObjectDialog();
 
+    /**
+     * 显示用于深度估计的对象选择对话框
+     */
+    void showSelectObjectDialogForDepthEstimation();
+
     String sendQuestionToGPTSync(String question, File file, boolean isHistory) throws Exception;
 
     Resources mgetResources();
@@ -51,6 +56,8 @@ public interface ControlActivityCallback {
     int getTextsureViewWidth();
 
     int getTextsureViewHeight();
+
+    void CaptureDjiImage(ControlActivity.CaptureImageCallback callback);
 
 }
 

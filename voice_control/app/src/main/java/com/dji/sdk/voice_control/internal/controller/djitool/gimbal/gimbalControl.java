@@ -9,6 +9,7 @@ import java.util.Map;
 
 import dji.common.error.DJIError;
 import dji.common.gimbal.CapabilityKey;
+import dji.common.gimbal.GimbalState;
 import dji.common.gimbal.Rotation;
 import dji.common.gimbal.RotationMode;
 import dji.common.util.CommonCallbacks;
@@ -27,6 +28,12 @@ public class gimbalControl {
     //region 云台相关
     private Gimbal gimbal = null;
     private int currentGimbalId = 0;
+    
+    // Store current gimbal attitude values
+    private float currentYaw = 0f;
+    private float currentPitch = 0f;
+    private float currentRoll = 0f;
+    private boolean isCallbackInitialized = false;
 
     //region 云台控制
 
@@ -46,6 +53,72 @@ public class gimbalControl {
         Log.d(TAG, "rotateGimbalForwardView: Rotating gimbal to forward position (0°)");
         // 0° 表示水平前视
         rotateGimbalAbsolute(0f, 0f, 0f);
+    }
+
+    /**
+     * 获取当前云台的yaw角度
+     * @return 当前yaw角度（度）
+     */
+    public float getyaw(){
+        // 确保回调已初始化
+        if (!isCallbackInitialized) {
+            initGimbalStateCallback();
+        }
+        return currentYaw;
+    }
+
+    /**
+     * 获取当前云台的pitch角度
+     * @return 当前pitch角度（度）
+     */
+    public float getPitch(){
+        if (!isCallbackInitialized) {
+            initGimbalStateCallback();
+        }
+        return currentPitch;
+    }
+
+    /**
+     * 获取当前云台的roll角度
+     * @return 当前roll角度（度）
+     */
+    public float getRoll(){
+        if (!isCallbackInitialized) {
+            initGimbalStateCallback();
+        }
+        return currentRoll;
+    }
+
+    /**
+     * 初始化云台状态回调
+     */
+    private void initGimbalStateCallback() {
+        Log.d(TAG, "initGimbalStateCallback: Setting up gimbal state callback");
+        
+        Gimbal gimbal = getGimbalInstance();
+        if (gimbal == null) {
+            Log.e(TAG, "initGimbalStateCallback: Failed - gimbal instance is null");
+            return;
+        }
+        
+        gimbal.setStateCallback(new GimbalState.Callback() {
+            @Override
+            public void onUpdate(GimbalState gimbalState) {
+                if (gimbalState != null && gimbalState.getAttitudeInDegrees() != null) {
+                    currentYaw = gimbalState.getAttitudeInDegrees().getYaw();
+                    currentPitch = gimbalState.getAttitudeInDegrees().getPitch();
+                    currentRoll = gimbalState.getAttitudeInDegrees().getRoll();
+                    
+                    Log.d(TAG, "Gimbal attitude updated - Yaw: " + currentYaw + 
+                          ", Pitch: " + currentPitch + ", Roll: " + currentRoll);
+                } else {
+                    Log.w(TAG, "Gimbal state or attitude is null");
+                }
+            }
+        });
+        
+        isCallbackInitialized = true;
+        Log.d(TAG, "initGimbalStateCallback: Gimbal state callback initialized successfully");
     }
 
     /**

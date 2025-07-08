@@ -165,10 +165,13 @@ public class TargetCollectionAgent {
 
                 // 2. 构建任务分解提示
                 String taskDecompositionPrompt = buildTaskDecompositionPrompt();
+                Log.d(TAG,taskDecompositionPrompt);
                 logAndShowMessage("任务分解提示构建完成，准备发送至LLM...");
 
                 // 3. 发送任务分解请求到LLM并解析结果
                 String taskDecompositionResult = mCallback.sendQuestionToGPTSync(taskDecompositionPrompt, null, false);
+                logAndShowMessage(taskDecompositionResult);
+                Log.d(TAG,taskDecompositionResult);
                 mTaskDecomposition = parseTaskDecomposition(taskDecompositionResult);
                 logAndDisplayTaskDecomposition();
 
@@ -211,7 +214,7 @@ public class TargetCollectionAgent {
 
         // 添加高层次能力
         List<String> highLevelCapabilities = new ArrayList<>();
-        highLevelCapabilities.add("目标靠近正上方");
+        highLevelCapabilities.add("目标靠近");
         highLevelCapabilities.add("目标搜索");
         highLevelCapabilities.add("目标定点绕飞");
         highLevelCapabilities.add("返航");
@@ -356,7 +359,7 @@ public class TargetCollectionAgent {
         if (!mCallback.getisFlying()) {
             logAndShowMessage("无人机准备起飞...");
             mCommandInterpreter.mTakeoff();
-            sleepThread(5000); // 等待起飞完成
+            sleepThread(10000); // 等待起飞完成
         } else {
             logAndShowMessage("无人机已在空中，继续执行任务");
         }
@@ -682,11 +685,10 @@ public class TargetCollectionAgent {
             try {
                 int radius = extractCircleRadius(action);
                 double[] centerPoint = extractCircleCenter(action);
-                // 这里应该是实际的绕飞实现，但由于代码简化，我们只模拟一下
                 logAndShowMessage("执行定点绕飞: 半径 " + radius + "米, 中心点: ["
                         + centerPoint[0] + ", " + centerPoint[1] + "]");
-                // 模拟绕飞动作，实际应调用相应的API
-                simulateCircleFlight(radius);
+                // 绕飞动作，实际应调用相应的API
+                hotFlyCircle(radius);
             } catch (Exception e) {
                 logAndShowMessage("绕飞命令解析失败: " + e.getMessage());
             }
@@ -701,8 +703,6 @@ public class TargetCollectionAgent {
                 double[] waypoint = extractWaypoint(action);
                 // 这里应该是实际的航点飞行实现
                 logAndShowMessage("执行航点飞行: [" + waypoint[0] + ", " + waypoint[1] + "]");
-                // 模拟航点飞行，实际应调用相应的API
-                simulateWaypointFlight(waypoint);
             } catch (Exception e) {
                 logAndShowMessage("航点命令解析失败: " + e.getMessage());
             }
@@ -842,31 +842,6 @@ public class TargetCollectionAgent {
         }
     }
 
-    //TODO 更改动作
-    /**
-     * 模拟绕飞动作
-     * 注：实际应用中应替换为DJI SDK的实际绕飞实现
-     */
-    private void simulateCircleFlight(int radius) {
-        logAndShowMessage("模拟执行绕飞，半径: " + radius + "米");
-
-        // 在实际应用中，应该使用DJI的Mission API创建绕飞任务
-        // 这里为了简化，我们只是模拟一个绕飞的效果
-
-        // 向右旋转一周，分四段执行
-        mVirtualStickExecutor.mTurn(304, 90);
-        sleepThread(2000);
-        mVirtualStickExecutor.mTurn(304, 90);
-        sleepThread(2000);
-        mVirtualStickExecutor.mTurn(304, 90);
-        sleepThread(2000);
-        mVirtualStickExecutor.mTurn(304, 90);
-        sleepThread(2000);
-
-        // 绕飞结束，悬停
-        mVirtualStickExecutor.mStop();
-    }
-
     /**
      * 获取热点任务操作器
      */
@@ -879,108 +854,6 @@ public class TargetCollectionAgent {
      */
     private WaypointMissionOperator getWaypointMissionOperator() {
         return DJISDKManager.getInstance().getMissionControl().getWaypointMissionOperator();
-    }
-
-    /**
-     * 执行航点任务飞行
-     * 使用DJI的WaypointMission API创建一个简单的航点任务
-     * @param waypoint 目标航点
-     */
-    private void simulateWaypointFlight(double[] waypoint) {
-        try {
-            final CountDownLatch latch = new CountDownLatch(1);
-            final WaypointMission.Builder waypointMissionBuilder = new WaypointMission.Builder();
-            
-            // 参数配置
-            waypointMissionBuilder.autoFlightSpeed(3.0f)  // 设置自动飞行速度
-                    .maxFlightSpeed(5.0f)                // 最大飞行速度
-                    .setExitMissionOnRCSignalLostEnabled(false)
-                    .finishedAction(WaypointMissionFinishedAction.GO_HOME)
-                    .flightPathMode(WaypointMissionFlightPathMode.NORMAL)
-                    .gotoFirstWaypointMode(WaypointMissionGotoWaypointMode.SAFELY)
-                    .headingMode(WaypointMissionHeadingMode.AUTO);
-            
-            // 获取当前位置作为起点
-            LocationCoordinate3D currentLocation = null;
-            if (mFlightController != null) {
-                currentLocation = mFlightController.getState().getAircraftLocation();
-                logAndShowMessage("当前位置: 经度=" + currentLocation.getLongitude() + ", 纬度=" + currentLocation.getLatitude() + ", 高度=" + currentLocation.getAltitude());
-            } else {
-                logAndShowMessage("无法获取当前位置，航点任务无法执行");
-                return;
-            }
-            
-            // 添加当前位置作为第一个航点
-            Waypoint startWaypoint = new Waypoint(currentLocation.getLatitude(), currentLocation.getLongitude(), currentLocation.getAltitude());
-            startWaypoint.addAction(new WaypointAction(WaypointActionType.STAY, 1000)); // 停留1秒
-            waypointMissionBuilder.addWaypoint(startWaypoint);
-            
-            // 添加目标位置作为第二个航点
-            Waypoint targetWaypoint = new Waypoint(waypoint[0], waypoint[1], (float) waypoint[2]);
-            targetWaypoint.addAction(new WaypointAction(WaypointActionType.STAY, 5000)); // 到达目标点后停留5秒
-            targetWaypoint.addAction(new WaypointAction(WaypointActionType.START_TAKE_PHOTO, 0)); // 拍照
-            waypointMissionBuilder.addWaypoint(targetWaypoint);
-            
-            // 加载任务
-            DJIError error = getWaypointMissionOperator().loadMission(waypointMissionBuilder.build());
-            if (error == null) {
-                logAndShowMessage("航点任务加载成功");
-                
-                // 添加航点任务监听器
-                getWaypointMissionOperator().addListener(new WaypointMissionOperatorListener() {
-                    @Override
-                    public void onExecutionStart() {
-                        logAndShowMessage("航点任务开始执行");
-                    }
-                    
-                    @Override
-                    public void onExecutionFinish(@Nullable final DJIError error) {
-                        if (error == null) {
-                            logAndShowMessage("航点任务执行完成");
-                        } else {
-                            logAndShowMessage("航点任务执行失败: " + error.getDescription());
-                        }
-                        latch.countDown(); // 解除阻塞
-                    }
-                    
-                    @Override
-                    public void onExecutionUpdate(@NonNull WaypointMissionExecutionEvent event) {
-                        logAndShowMessage("航点执行进度: " + event.getProgress().targetWaypointIndex + "/2");
-                    }
-                    
-                    @Override
-                    public void onDownloadUpdate(@NonNull WaypointMissionDownloadEvent event) {}
-                    
-                    @Override
-                    public void onUploadUpdate(@NonNull WaypointMissionUploadEvent event) {}
-                });
-                
-                // 开始上传任务
-                getWaypointMissionOperator().uploadMission(new CommonCallbacks.CompletionCallback() {
-                    @Override
-                    public void onResult(DJIError djiError) {
-                        if (djiError != null) {
-                            logAndShowMessage("航点任务上传失败: " + djiError.getDescription());
-                            latch.countDown(); // 解除阻塞
-                        }
-                    }
-                });
-                
-                // 等待任务完成
-                try {
-                    latch.await(180, TimeUnit.SECONDS); // 等待最多3分钟
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    logAndShowMessage("航点任务等待被中断");
-                }
-                
-            } else {
-                logAndShowMessage("航点任务加载失败: " + error.getDescription());
-            }
-            
-        } catch (Exception e) {
-            logAndShowMessage("执行航点任务异常: " + e.getMessage());
-        }
     }
 
     /**
@@ -1303,51 +1176,4 @@ public class TargetCollectionAgent {
         }
     }
 
-    /**
-     * 执行指定航点任务
-     */
-    private void executeWaypointTask(JSONArray actionSequence) throws JSONException {
-        logAndShowMessage("开始执行航点任务");
-        
-        // 执行预定义的动作序列
-        executeActionSequence(actionSequence);
-        
-        // 查找航点信息
-        double[] waypoint = null;
-        for (int i = 0; i < actionSequence.length(); i++) {
-            String action = actionSequence.getString(i);
-            if (action.contains("飞到") || action.contains("飞向") || action.contains("飞至")) {
-                waypoint = extractWaypoint(action);
-                break;
-            }
-        }
-        
-        if (waypoint != null) {
-            logAndShowMessage("目标航点: 纬度=" + waypoint[0] + ", 经度=" + waypoint[1] + ", 高度=" + waypoint[2]);
-            
-            // 执行航点飞行
-            simulateWaypointFlight(waypoint);
-            
-            // 悬停并捕获目标信息
-            sleepThread(2000);
-            logAndShowMessage("到达目标航点，准备捕获目标信息");
-            mVirtualStickExecutor.mStop();
-            sleepThread(2000);
-            
-            // 捕获并分析目标图像
-            File imageFile = captureImage();
-            if (imageFile != null) {
-                // 发送给VLM分析目标信息
-                String infoPrompt = "请分析图像中的目标，提供详细描述，包括目标类型、外观特征、状态等信息。";
-                try {
-                    String infoResponse = mCallback.sendQuestionToGPTSync(infoPrompt, imageFile, true);
-                    logAndShowMessage("目标信息分析结果: " + infoResponse);
-                } catch (Exception e) {
-                    logAndShowMessage("目标信息分析失败: " + e.getMessage());
-                }
-            }
-        } else {
-            logAndShowMessage("未找到有效的航点信息，任务取消");
-        }
-    }
 }

@@ -252,7 +252,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
     private void showHint() {
         if (stack.size() != 0 && stack.peek().getView() instanceof PresentableView) {
             ToastUtils.setResultToToast(((PresentableView) stack.peek().getView()).getHint());

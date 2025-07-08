@@ -12,7 +12,7 @@ import com.dji.sdk.voice_control.internal.controller.flightcontrol.track.Detecte
 
 import java.util.List;
 
-public class DetectedObjectsAdapter extends RecyclerView.Adapter<DetectedObjectsAdapter.ViewHolder> {
+public class  DetectedObjectsAdapter extends RecyclerView.Adapter<DetectedObjectsAdapter.ViewHolder> {
 
     public interface OnItemSelectedListener {
         void onItemSelected(int position);

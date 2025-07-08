@@ -318,6 +318,18 @@
                 android:textSize="12sp" />
 
             <Button
+                android:id="@+id/depth_estimation_button"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/round_btn"
+                android:text="深度估计"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+            <Button
                 android:id="@+id/stop_cycle"
                 android:layout_width="0dp"
                 android:layout_height="36dp"
@@ -330,14 +342,14 @@
                 android:textSize="12sp" />
 
             <Button
-                android:id="@+id/waypoint_cycle"
+                android:id="@+id/Action_Target"
                 android:layout_width="0dp"
                 android:layout_height="36dp"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
-                android:text="航点绕飞"
+                android:text="动作库Agent"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 

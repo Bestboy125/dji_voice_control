@@ -8,6 +8,8 @@ import android.content.res.Resources;
 
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -100,7 +102,9 @@ import com.dji.sdk.voice_control.internal.controller.djitool.LiveStream;
 import com.dji.sdk.voice_control.internal.controller.djitool.VideoActivity;
 import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypointv1;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.OnScreenJoystick;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.TargetCollectionAgent;
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.agent.llm_agent;
+import com.dji.sdk.voice_control.internal.controller.flightcontrol.depth_estimated.yoloDepthEstimation;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessage;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.ChatMessageData;
 import com.dji.sdk.voice_control.internal.controller.chatgpt.Constant;
@@ -125,12 +129,14 @@ import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandClassi
 import com.dji.sdk.voice_control.internal.controller.flightcontrol.CommandConfirmationDialogFragment;
 import com.dji.sdk.voice_control.internal.controller.djitool.waypoint.Waypoint2Activity;
 
+import dji.common.camera.SettingsDefinitions;
 import dji.common.flightcontroller.LocationCoordinate3D;
 import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
 import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
 import dji.common.mission.waypoint.WaypointMissionFinishedAction;
 import dji.common.mission.waypoint.WaypointMissionState;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
+import dji.sdk.camera.Camera;
 import dji.sdk.flightcontroller.FlightAssistant;
 
 import com.dji.sdk.voice_control.internal.djidemo.utils.AMapUtil;
@@ -172,6 +178,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CountDownLatch;
 
 import dji.common.battery.BatteryState;
 import dji.common.error.DJIError;
@@ -185,17 +192,21 @@ import dji.common.flightcontroller.virtualstick.VerticalControlMode;
 import dji.common.flightcontroller.virtualstick.YawControlMode;
 import dji.common.mission.waypoint.WaypointMissionHeadingMode;
 import dji.common.mission.waypointv2.WaypointV2;
-import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
 import dji.log.DJILog;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
+import dji.sdk.media.DownloadListener;
+import dji.sdk.media.FetchMediaTask;
+import dji.sdk.media.FetchMediaTaskContent;
+import dji.sdk.media.FetchMediaTaskScheduler;
+import dji.sdk.media.MediaFile;
+import dji.sdk.media.MediaManager;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKInitEvent;
 import dji.sdk.sdkmanager.DJISDKManager;
-import dji.sdk.useraccount.UserAccountManager;
 import dji.sdk.base.DJIDiagnostics;
 
 import okhttp3.Call;
@@ -445,6 +456,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private List<DetectedObject> trackingFrameList = new ArrayList<>();
     private String chosenId = null;
     private DetectedObjectsAdapter adapter;
+    private DetectedObjectsAdapter depthadapter;
     private Bitmap annotatedBitmap;
     //endregion
 
@@ -464,9 +476,11 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     ControlActivityCallback uiCallback = this;
     gimbalControl gimbalControl = new gimbalControl();
     yoloSamTrack yoloSamTrack;
+    yoloDepthEstimation depthEstimation;
     llm_agent llmAgent;
     llm_agent_cycle llmAgentCycle;
     llm_active_track llmActiveTrack;
+    TargetCollectionAgent targetCollectionAgent;
     private boolean isflying = false;
     //endregion
 
@@ -570,7 +584,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         mContext = this;
         mLiveStream = new LiveStream(mContext);
 
-
         //初始化FPV推流
         fpvTexture = new TextureView(mContext);
 //        fpvTexture.setSurfaceTextureListener(new BaseFpvView(mContext));
@@ -651,15 +664,18 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             throw new RuntimeException(e);
         }
 
-        //初始化航点操作类
-        mWaypoint = new Waypointv1();
-        Log.d(TAG, "Before mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
-        mMissionOperator = getWaypointMissionOperator(mMissionOperator);
-        Log.d(TAG, "After mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
-        if (mMissionOperator == null) {
-            Log.e(TAG, "Failed to initialize WaypointV2MissionOperator - check drone connection status");
-        }
-        mMissionOperator.addListener(eventNotificationListener);
+        //初始化照相功能
+        initMediaManager();
+
+//        //初始化航点操作类
+//        mWaypoint = new Waypointv1();
+//        Log.d(TAG, "Before mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
+//        mMissionOperator = getWaypointMissionOperator(mMissionOperator);
+//        Log.d(TAG, "After mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
+//        if (mMissionOperator == null) {
+//            Log.e(TAG, "Failed to initialize WaypointV2MissionOperator - check drone connection status");
+//        }
+//        mMissionOperator.addListener(eventNotificationListener);
 
         //实例化命令分类器
         cc1 = new CommandClassifier();
@@ -676,30 +692,46 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 mCI,
                 this
         );
-        
-        // Initialize llm_agent
-        llmAgent = new llm_agent(
-                mCI,
+
+        depthEstimation = new yoloDepthEstimation(
+                networkClient,
                 mCI.mFlightController,
-                fpvTexture,
+                mCI,
                 this
         );
         
-        // Initialize llm_agent_cycle
-        llmAgentCycle = new llm_agent_cycle(
-                mCI,
-                mCI.mFlightController,
-                fpvTexture,
-                this
-        );
-        
-        // Initialize llm_active_track
-        llmActiveTrack = new llm_active_track(
-                mCI,
-                mCI.mFlightController,
-                fpvTexture,
-                this
-        );
+//        // Initialize llm_agent
+//        llmAgent = new llm_agent(
+//                mCI,
+//                mCI.mFlightController,
+//                fpvTexture,
+//                this
+//        );
+//
+//        // Initialize llm_agent_cycle
+//        llmAgentCycle = new llm_agent_cycle(
+//                mCI,
+//                mCI.mFlightController,
+//                fpvTexture,
+//                this
+//        );
+//
+//        // Initialize llm_active_track
+//        llmActiveTrack = new llm_active_track(
+//                mCI,
+//                mCI.mFlightController,
+//                fpvTexture,
+//                this
+//        );
+//
+//        targetCollectionAgent = new TargetCollectionAgent(
+//                getContext(),
+//                mCI,
+//                mCI.mFlightController,
+//                fpvTexture,
+//                this
+//        );
+
 
         //初始化UI事件
         initUI();
@@ -709,8 +741,15 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
 
         droneDataUpdater = new DroneDataUpdater();
         //更新无人机数据
-        if(mCI.mFlightController!=null){
-            droneDataUpdater.startUpdatingData();
+        try {
+            if (mCI != null && mCI.mFlightController != null && mCI.mFlightController.getState() != null) {
+                droneDataUpdater.startUpdatingData();
+                Log.d(TAG, "Started drone data updater");
+            } else {
+                Log.w(TAG, "FlightController not available, skipping data updater initialization");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting drone data updater: " + e.getMessage());
         }
 
         //初始化用户定位
@@ -1078,13 +1117,13 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button test_control = findViewById(R.id.test_control);
         Button stop_cycle = findViewById(R.id.stop_cycle);
         Button stop_agent_button = findViewById(R.id.stop_agent_button);
-        Button waypoint_cycle = findViewById(R.id.waypoint_cycle);
+        Button ActionTarget = findViewById(R.id.Action_Target);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         Button stop_button = findViewById(R.id.stop_button);
         Button land_buttion = findViewById(R.id.land_button);
         Button takeoff_buttion = findViewById(R.id.takeoff_buttion);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
-
+        Button depth_estimation_button = findViewById(R.id.depth_estimation_button);
 
         // 添加保存聊天记录按钮
         Button btnSaveChat = findViewById(R.id.btn_save_chat);
@@ -1157,6 +1196,34 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             builder.setNegativeButton("取消", (dialog, which) -> dialog.cancel());
             builder.show(); 
         });
+        depth_estimation_button.setOnClickListener(v -> {
+            //出现一个对话框，输入目标物体类型
+            AlertDialog.Builder builder = new AlertDialog.Builder(ControlActivity.this);
+            builder.setTitle("请输入目标物体类型");
+            
+            // 创建输入框
+            final EditText input = new EditText(ControlActivity.this);
+            input.setHint("例如：人、汽车、树木等");
+            builder.setView(input);
+            
+            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    String targetObjectType = input.getText().toString().trim();
+                    if (!targetObjectType.isEmpty()) {
+                        // 先进行目标检测，然后弹出对话框让用户选择
+                        depthEstimation.checkServerStatus();
+                        depthEstimation.handleObjectDetectionWithNewAPI(targetObjectType);
+                    } else {
+                        showToast("目标物体类型不能为空");
+                    }
+                }
+            });
+            
+            builder.setNegativeButton("取消", (dialog, which) -> dialog.cancel());
+            builder.show(); 
+
+        });
         yolo_track.setOnClickListener(v -> {
             isDialogVisible = false;
             yoloSamTrack.handleObjectTracking();
@@ -1171,8 +1238,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         stop_cycle.setOnClickListener(v -> {
             llmAgentCycle.stopHotpointMission();
         });
-        waypoint_cycle.setOnClickListener(v -> {
-            llmAgentCycle.getObjInformation();
+        ActionTarget.setOnClickListener(v -> {
+            targetCollectionAgent.startMission();
         });
         takeoff_buttion.setOnClickListener(v -> {
             mCI.mTakeoff();
@@ -1750,22 +1817,48 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     //region 获取无人机基本信息
     @Override
     public boolean getisFlying(){
-        return isflying;
+        try {
+            if (mCI != null && mCI.mFlightController != null) {
+                return isflying;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting flying status: " + e.getMessage());
+        }
+        return false;
     }
 
     @Override
     public LocationCoordinate3D getDroneLocation(){
-        return mCI.mFlightController.getState().getAircraftLocation();
+        try {
+            if (mCI != null && mCI.mFlightController != null && mCI.mFlightController.getState() != null) {
+                return mCI.mFlightController.getState().getAircraftLocation();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting drone location: " + e.getMessage());
+        }
+        return null;
     }
 
     @Override
     public float getHeading(){
-        return mCI.mFlightController.getCompass().getHeading();
+        try {
+            if (mCI != null && mCI.mFlightController != null && mCI.mFlightController.getCompass() != null) {
+                return mCI.mFlightController.getCompass().getHeading();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting heading: " + e.getMessage());
+        }
+        return 0.0f;
     }
 
     @Override
     public float gerAltitude(){
-        return (float) mAltitudeData;
+        try {
+            return (float) mAltitudeData;
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting altitude: " + e.getMessage());
+        }
+        return 0.0f;
     }
     //endregion
 
@@ -1774,85 +1867,128 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * 初始飞行控制器
      */
     private void initFlightController() {
-        //实例化飞控
-        mCI.initFlightController();
-        if (mCI.mFlightController != null) {
-            mCI.setPhotoMode();
-//            showFpvToast("Set up call bacsk");
+        try {
+            //实例化飞控
+            mCI.initFlightController();
+            
+            if (mCI.mFlightController != null) {
+                mCI.setPhotoMode();
+                //showFpvToast("Set up call bacsk");
+            } else {
+                Log.w(TAG, "FlightController is null after initialization");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing flight controller: " + e.getMessage());
+            mCI.mFlightController = null;
         }
+        
         if (mCI.aircraft == null || !mCI.aircraft.isConnected()) {
+            Log.w(TAG, "Aircraft is null or disconnected");
             showToast("Disconnected");
             mCI.mFlightController = null;
             return;
-        } else {
+        }
+        
+        try {
             //初始化设置飞控模式
             mCI.mFlightController = mCI.aircraft.getFlightController();
+            if (mCI.mFlightController == null) {
+                Log.w(TAG, "Failed to get FlightController from aircraft");
+                return;
+            }
+            
             mCI.mFlightController.setRollPitchControlMode(RollPitchControlMode.VELOCITY);
             mCI.mFlightController.setYawControlMode(YawControlMode.ANGLE);
             mCI.mFlightController.setVerticalControlMode(VerticalControlMode.VELOCITY);
             //设置坐标系为地面坐标系
             mCI.mFlightController.setRollPitchCoordinateSystem(FlightCoordinateSystem.BODY);
-            mCI.mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
-                //显示状态数据
-                @Override
-                public void onUpdate(final SimulatorState stateData) {
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                        @Override
-                        public void run() {
+            
+            // 设置模拟器状态回调
+            if (mCI.mFlightController.getSimulator() != null) {
+                mCI.mFlightController.getSimulator().setStateCallback(new SimulatorState.Callback() {
+                    //显示状态数据
+                    @Override
+                    public void onUpdate(final SimulatorState stateData) {
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    String yaw = String.format("%.2f", stateData.getYaw());
+                                    String pitch = String.format("%.2f", stateData.getPitch());
+                                    String roll = String.format("%.2f", stateData.getRoll());
+                                    String positionX = String.format("%.2f", stateData.getPositionX());
+                                    String positionY = String.format("%.2f", stateData.getPositionY());
+                                    String positionZ = String.format("%.2f", stateData.getPositionZ());
 
-                            String yaw = String.format("%.2f", stateData.getYaw());
-                            String pitch = String.format("%.2f", stateData.getPitch());
-                            String roll = String.format("%.2f", stateData.getRoll());
-                            String positionX = String.format("%.2f", stateData.getPositionX());
-                            String positionY = String.format("%.2f", stateData.getPositionY());
-                            String positionZ = String.format("%.2f", stateData.getPositionZ());
-
-                            try {
-                                addChatMessage(Constant.OWNER_BOT, "Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", X坐标 : " + positionX +
-                                        ", Y坐标 : " + positionY +
-                                        ", Z坐标 : " + positionZ);
+                                    addChatMessage(Constant.OWNER_BOT, "Yaw : " + yaw + ", Pitch : " + pitch + ", Roll : " + roll + "\n" + ", X坐标 : " + positionX +
+                                            ", Y坐标 : " + positionY +
+                                            ", Z坐标 : " + positionZ);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in simulator state callback: " + e.getMessage());
+                                }
                             }
-                            catch (Exception e){
-                                addChatMessage(Constant.OWNER_BOT, "现在未连接无人机");
-                            }
-                        }
-                    });
-                }
-            });
+                        });
+                    }
+                });
+            }
+            
+            // 设置飞行状态回调
             mCI.mFlightController.setStateCallback(new FlightControllerState.Callback() {
                 @Override
                 public void onUpdate(@NonNull FlightControllerState flightControllerState) {
-                    double mDroneLocationLat = flightControllerState.getAircraftLocation().getLatitude();
-                    double mDroneLocationLng = flightControllerState.getAircraftLocation().getLongitude();
-                    mDroneLocation = new LatLng(mDroneLocationLat, mDroneLocationLng);
-                    mDroneHeading = mCI.mFlightController.getCompass().getHeading();
-                    // set flight data
-                    mAltitudeData = (double) flightControllerState.getAircraftLocation().getAltitude(); // - initAltitude;
-//                    if (mAltitudeData < 18) {
-//                        mAltitudeData = (double) flightControllerState.getUltrasonicHeightInMeters();
-//                    }
-                    mhs = Math.sqrt(flightControllerState.getVelocityX() * flightControllerState.getVelocityX()
-                            + flightControllerState.getVelocityY() * flightControllerState.getVelocityY());
-                    mvs = -1 * flightControllerState.getVelocityZ();
-                    mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
-                    isflying = flightControllerState.isFlying();
-                    if(flightControllerState.getGPSSignalLevel()._equals(4) || flightControllerState.getGPSSignalLevel()._equals(5)){
-                        mCI.mFlightController.setVirtualStickAdvancedModeEnabled(true);
-                    } else{
-                        mCI.mFlightController.setVirtualStickAdvancedModeEnabled(false);
+                    try {
+                        if (flightControllerState.getAircraftLocation() != null) {
+                            double mDroneLocationLat = flightControllerState.getAircraftLocation().getLatitude();
+                            double mDroneLocationLng = flightControllerState.getAircraftLocation().getLongitude();
+                            mDroneLocation = new LatLng(mDroneLocationLat, mDroneLocationLng);
+                            
+                            // 检查指南针是否可用
+                            if (mCI.mFlightController.getCompass() != null) {
+                                mDroneHeading = mCI.mFlightController.getCompass().getHeading();
+                            }
+                            
+                            // set flight data
+                            mAltitudeData = (double) flightControllerState.getAircraftLocation().getAltitude(); // - initAltitude;
+                            mhs = Math.sqrt(flightControllerState.getVelocityX() * flightControllerState.getVelocityX()
+                                    + flightControllerState.getVelocityY() * flightControllerState.getVelocityY());
+                            mvs = -1 * flightControllerState.getVelocityZ();
+                            mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
+                            isflying = flightControllerState.isFlying();
+                            
+                            if (flightControllerState.getGPSSignalLevel() != null && 
+                                (flightControllerState.getGPSSignalLevel()._equals(4) || flightControllerState.getGPSSignalLevel()._equals(5))) {
+                                mCI.mFlightController.setVirtualStickAdvancedModeEnabled(true);
+                            } else {
+                                mCI.mFlightController.setVirtualStickAdvancedModeEnabled(false);
+                            }
+                            
+                            updateFlightData();
+                            updateDroneLocation();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in flight controller state callback: " + e.getMessage());
                     }
-                    updateFlightData();
-                    updateDroneLocation();
                 }
             });
-            mCI.aircraft.getBattery().setStateCallback(new BatteryState.Callback() {
-                @Override
-                public void onUpdate(BatteryState batteryState) {
-                    mBatteryPercent = batteryState.getChargeRemainingInPercent();
-                    mBatteryView.setProgress(mBatteryPercent);
-                    updateBatteryStatus();
-                }
-            });
+            
+            // 设置电池状态回调
+            if (mCI.aircraft.getBattery() != null) {
+                mCI.aircraft.getBattery().setStateCallback(new BatteryState.Callback() {
+                    @Override
+                    public void onUpdate(BatteryState batteryState) {
+                        try {
+                            mBatteryPercent = batteryState.getChargeRemainingInPercent();
+                            mBatteryView.setProgress(mBatteryPercent);
+                            updateBatteryStatus();
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error in battery state callback: " + e.getMessage());
+                        }
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up flight controller callbacks: " + e.getMessage());
+            showToast("设置飞行控制器时出错: " + e.getMessage());
         }
     }
 
@@ -1902,27 +2038,51 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * 更新标题栏中无人机的距离，经纬度，竖直速度，水平速度
      */
     private void updateFlightData() {
-        this.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mDistance.setText("D: " + new DecimalFormat("####").format(mdistToHome) + "m");
-                mAltitude.setText("H: " + new DecimalFormat("###.#").format(mAltitudeData) + "m");
-                mVerSpeed.setText("V.S: " + new DecimalFormat("##.#").format(mvs) + "m/s");
-                mHorSpeed.setText("H.S: " + new DecimalFormat("##.#").format(mhs) + "m/s");
-            }
-        });
+        try {
+            this.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    // 添加空检查
+                    if (mDistance == null || mAltitude == null || mVerSpeed == null || mHorSpeed == null) {
+                        Log.w(TAG, "Flight data UI components not initialized");
+                        return;
+                    }
+                    
+                    try {
+                        mDistance.setText("D: " + new DecimalFormat("####").format(mdistToHome) + "m");
+                        mAltitude.setText("H: " + new DecimalFormat("###.#").format(mAltitudeData) + "m");
+                        mVerSpeed.setText("V.S: " + new DecimalFormat("##.#").format(mvs) + "m/s");
+                        mHorSpeed.setText("H.S: " + new DecimalFormat("##.#").format(mhs) + "m/s");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error updating flight data UI: " + e.getMessage());
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error in updateFlightData: " + e.getMessage());
+        }
     }
 
     /**
      * 更新电池状态
      */
     private void updateBatteryStatus() {
-        this.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mBatteryData.setText(Integer.toString(mBatteryPercent) + "%");
-            }
-        });
+        try {
+            this.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (mBatteryData != null) {
+                        try {
+                            mBatteryData.setText(Integer.toString(mBatteryPercent) + "%");
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error updating battery status UI: " + e.getMessage());
+                        }
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error in updateBatteryStatus: " + e.getMessage());
+        }
     }
 
     /**
@@ -2037,26 +2197,50 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
 
         private void updateDroneData() {
-            // 获取飞行控制器状态信息
-            double mDroneLocationLat = mCI.mFlightController.getState().getAircraftLocation().getLatitude();
-            double mDroneLocationLng = mCI.mFlightController.getState().getAircraftLocation().getLongitude();
-            mDroneLocation = new LatLng(mDroneLocationLat, mDroneLocationLng);
-            mDroneHeading = mCI.mFlightController.getCompass().getHeading();
+            // 添加空检查以防止崩溃
+            if (mCI == null || mCI.mFlightController == null) {
+                Log.w(TAG, "FlightController is null, skipping data update");
+                return;
+            }
 
-            // 获取高度数据
-            mAltitudeData = (double) mCI.mFlightController.getState().getAircraftLocation().getAltitude();
+            try {
+                // 检查飞行控制器状态是否可用
+                if (mCI.mFlightController.getState() == null) {
+                    Log.w(TAG, "FlightController state is null, skipping data update");
+                    return;
+                }
 
-            // 计算飞行速度
-            mhs = Math.sqrt(mCI.mFlightController.getState().getVelocityX() * mCI.mFlightController.getState().getVelocityX()
-                    + mCI.mFlightController.getState().getVelocityY() * mCI.mFlightController.getState().getVelocityY());
-            mvs = -1 * mCI.mFlightController.getState().getVelocityZ();
+                // 获取飞行控制器状态信息
+                double mDroneLocationLat = mCI.mFlightController.getState().getAircraftLocation().getLatitude();
+                double mDroneLocationLng = mCI.mFlightController.getState().getAircraftLocation().getLongitude();
+                mDroneLocation = new LatLng(mDroneLocationLat, mDroneLocationLng);
 
-            // 计算距离家
-            mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
+                // 检查指南针是否可用
+                if (mCI.mFlightController.getCompass() != null) {
+                    mDroneHeading = mCI.mFlightController.getCompass().getHeading();
+                } else {
+                    mDroneHeading = 0.0f;
+                }
 
-            // 更新数据
-            updateFlightData();
-            updateDroneLocation();
+                // 获取高度数据
+                mAltitudeData = (double) mCI.mFlightController.getState().getAircraftLocation().getAltitude();
+
+                // 计算飞行速度
+                mhs = Math.sqrt(mCI.mFlightController.getState().getVelocityX() * mCI.mFlightController.getState().getVelocityX()
+                        + mCI.mFlightController.getState().getVelocityY() * mCI.mFlightController.getState().getVelocityY());
+                mvs = -1 * mCI.mFlightController.getState().getVelocityZ();
+
+                // 计算距离家
+                mdistToHome = Utils.calcDistance(mUserLocation.latitude, mUserLocation.longitude, mDroneLocation.latitude, mDroneLocation.longitude);
+
+                // 更新数据
+                updateFlightData();
+                updateDroneLocation();
+            } catch (Exception e) {
+                Log.e(TAG, "Error updating drone data: " + e.getMessage());
+                // 可以选择性地显示错误信息
+                // showToast("数据更新失败: " + e.getMessage());
+            }
         }
     }
 
@@ -2242,27 +2426,47 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
      * 更新无人机在地图上的标记
      */
     private void updateDroneLocation() {
-
-        LatLng pos = new LatLng(mDroneLocation.latitude, mDroneLocation.longitude);
-        //Create MarkerOptions object
-        final MarkerOptions markerOptions = new MarkerOptions();
-        markerOptions.position(pos);
-        markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.aircraft));
-        markerOptions.anchor(0.5f, 0.618f);
-
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (droneMarker != null) {
-                    droneMarker.remove();
-                }
-
-                if (checkGpsCoordination(mDroneLocation.latitude, mDroneLocation.longitude)) {
-                    droneMarker = aMap.addMarker(markerOptions);
-                    droneMarker.setRotateAngle(droneHeading * -1.0f);
-                }
+        try {
+            // 检查位置数据是否有效
+            if (mDroneLocation == null || !checkGpsCoordination(mDroneLocation.latitude, mDroneLocation.longitude)) {
+                Log.w(TAG, "Invalid drone location data");
+                return;
             }
-        });
+
+            LatLng pos = new LatLng(mDroneLocation.latitude, mDroneLocation.longitude);
+            //Create MarkerOptions object
+            final MarkerOptions markerOptions = new MarkerOptions();
+            markerOptions.position(pos);
+            markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.aircraft));
+            markerOptions.anchor(0.5f, 0.618f);
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (aMap == null) {
+                            Log.w(TAG, "AMap is null, cannot update drone location");
+                            return;
+                        }
+
+                        if (droneMarker != null) {
+                            droneMarker.remove();
+                        }
+
+                        if (checkGpsCoordination(mDroneLocation.latitude, mDroneLocation.longitude)) {
+                            droneMarker = aMap.addMarker(markerOptions);
+                            if (droneMarker != null) {
+                                droneMarker.setRotateAngle(droneHeading * -1.0f);
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error updating drone location on map: " + e.getMessage());
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error in updateDroneLocation: " + e.getMessage());
+        }
     }
 
     /**
@@ -3161,49 +3365,136 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         if (annotatedBitmap != null) {
             imgAnnotated.setImageBitmap(annotatedBitmap);
         } else {
-            // 处理图像为空的情况（可选）
-            imgAnnotated.setImageResource(R.drawable.car); // 使用占位图
+            imgAnnotated.setImageResource(R.drawable.car);
         }
 
-        // 设置 RecyclerView
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new DetectedObjectsAdapter(detectedObjectsList, position -> {
-            // 确保只有一个选项被选中
-            for (int i = 0; i < detectedObjectsList.size(); i++) {
-                if (i == position) {
-                    detectedObjectsList.get(i).setSelected(true);
-                } else {
-                    detectedObjectsList.get(i).setSelected(false);
+        // 设置 RecyclerView 适配器
+        adapter = new DetectedObjectsAdapter(detectedObjectsList, new DetectedObjectsAdapter.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(int position) {
+                // 处理点击事件，实现单选
+                for (int i = 0; i < detectedObjectsList.size(); i++) {
+                    detectedObjectsList.get(i).setSelected(i == position);
                 }
+                adapter.notifyDataSetChanged();
             }
-            adapter.notifyDataSetChanged();
         });
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
-        btnConfirm.setOnClickListener(view -> {
-            chosenId = adapter.getSelectedId();
-            if (chosenId != null) {
-                Toast.makeText(this, "选择的 ID: " + chosenId, Toast.LENGTH_SHORT).show();
-//                // 继续后续流程，如初始化跟踪器
-                yoloSamTrack.initializeTrackerWithId(chosenId);
-                dialog.dismiss(); // 关闭对话框
-            } else {
-                Toast.makeText(this, "请至少选择一个对象", Toast.LENGTH_SHORT).show();
+        // 确认按钮点击事件
+        btnConfirm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String selectedId = adapter.getSelectedId();
+                if (selectedId != null) {
+                    chosenId = selectedId;
+                    yoloSamTrack.initializeTrackerWithId(chosenId);
+                    dialog.dismiss();
+                    isDialogVisible = false;
+                } else {
+                    Toast.makeText(ControlActivity.this, "请选择一个对象", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                isDialogVisible = false;
             }
         });
 
         dialog.show();
+    }
 
-        // 设置对话框窗口大小
-        Window window = dialog.getWindow();
-        if (window != null) {
-            Display display = getWindowManager().getDefaultDisplay();
-            Point size = new Point();
-            display.getSize(size);
-            int width = (int) (size.x * 0.9); // 90% 屏幕宽度
-            int height = (int) (size.y * 0.8); // 80% 屏幕高度
-            window.setLayout(width, height);
+    /**
+     * 显示用于深度估计的对象选择对话框
+     */
+    @Override
+    public void showSelectObjectDialogForDepthEstimation() {
+        // 如果对话框已经显示过，直接返回
+        if (isDialogVisible) {
+            return;
         }
+        isDialogVisible = true;
+
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_select_object);
+        dialog.setCancelable(false);
+
+        ImageView imgAnnotated = dialog.findViewById(R.id.imgAnnotated);
+        RecyclerView recyclerView = dialog.findViewById(R.id.recyclerViewDetectedObjects);
+        Button btnConfirm = dialog.findViewById(R.id.btnConfirmSelection);
+        TextView txtDialogTitle = dialog.findViewById(R.id.txtDialogTitle);
+
+        // 设置对话框标题
+        txtDialogTitle.setText("选择要进行深度估计的对象");
+
+        // 设置标注后的图像
+        Bitmap depthAnnotatedBitmap = depthEstimation.getAnnotatedBitmap();
+        if (depthAnnotatedBitmap != null) {
+            imgAnnotated.setImageBitmap(depthAnnotatedBitmap);
+        } else {
+            imgAnnotated.setImageResource(R.drawable.car);
+        }
+
+        // 设置 RecyclerView 适配器
+        List<DetectedObject> depthDetectedObjects = depthEstimation.getDetectedObjectsList();
+        depthadapter = new DetectedObjectsAdapter(depthDetectedObjects, new DetectedObjectsAdapter.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(int position) {
+                // 处理点击事件，实现单选
+                for (int i = 0; i < depthDetectedObjects.size(); i++) {
+                    depthDetectedObjects.get(i).setSelected(i == position);
+                }
+                depthadapter.notifyDataSetChanged();
+            }
+        });
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setAdapter(depthadapter);
+
+        // 确认按钮点击事件
+        btnConfirm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 找到选中的对象
+                DetectedObject selectedObject = null;
+                for (DetectedObject obj : depthDetectedObjects) {
+                    if (obj.isSelected()) {
+                        selectedObject = obj;
+                        break;
+                    }
+                }
+                
+                if (selectedObject != null) {
+                    // 获取选中对象的label属性
+                    String selectedLabel = selectedObject.getClassName();
+                    
+                    // 开始深度估计，使用选择的对象标签
+                    depthEstimation.setSelectedObjectAndStartDepthEstimation(selectedLabel);
+                    dialog.dismiss();
+                    isDialogVisible = false;
+                    
+                    // 显示开始深度估计的消息
+                    addChatMessage(Constant.OWNER_BOT, "已选择对象: " + selectedLabel + "，开始深度估计流程");
+                } else {
+                    Toast.makeText(ControlActivity.this, "请选择一个对象", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                isDialogVisible = false;
+            }
+        });
+
+        dialog.show();
     }
 
     /**
@@ -3671,8 +3962,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     try (FileOutputStream fos = new FileOutputStream(imageFile)) {
                         image.compress(Bitmap.CompressFormat.JPEG, 90, fos);
                     }
-
-                    // 写入图片引用
+ // 写入图片引用
                     writer.write("[图片: " + imageFile.getAbsolutePath() + "]\n\n");
                 }
             }
@@ -4136,4 +4426,337 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     }
 
     //endregion
+
+    //region 拍照功能
+
+    private List<MediaFile> mediaFileList = new ArrayList<MediaFile>();
+    private MediaManager mMediaManager;
+    private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
+    private FetchMediaTaskScheduler scheduler;
+    File destDir = new File(Environment.getExternalStorageDirectory().getPath() + "/MediaManagerDemo/");
+
+
+    private void captureAction(){
+
+        final Camera camera = DJISampleApplication.getCameraInstance();
+        if (camera != null) {
+
+            SettingsDefinitions.ShootPhotoMode photoMode = SettingsDefinitions.ShootPhotoMode.SINGLE; // Set the camera capture mode as Single mode
+            camera.setShootPhotoMode(photoMode, new CommonCallbacks.CompletionCallback(){
+                @Override
+                public void onResult(DJIError djiError) {
+                    if (null == djiError) {
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                camera.startShootPhoto(new CommonCallbacks.CompletionCallback() {
+                                    @Override
+                                    public void onResult(DJIError djiError) {
+                                        if (djiError == null) {
+                                            showToast("take photo: success");
+                                        } else {
+                                            showToast(djiError.getDescription());
+                                        }
+                                    }
+                                });
+                            }
+                        }, 2000);
+                    }
+                }
+            });
+        }
+    }
+
+    private void getFileList() {
+        mMediaManager = DJISampleApplication.getCameraInstance().getMediaManager();
+        if (mMediaManager != null) {
+
+            if ((currentFileListState == MediaManager.FileListState.SYNCING) || (currentFileListState == MediaManager.FileListState.DELETING)){
+                DJILog.e(TAG, "Media Manager is busy.");
+            }else{
+
+                mMediaManager.refreshFileListOfStorageLocation(SettingsDefinitions.StorageLocation.SDCARD, new CommonCallbacks.CompletionCallback() {
+
+                    @Override
+                    public void onResult(DJIError djiError) {
+                        if (null == djiError) {
+
+                            //Reset data
+                            if (currentFileListState != MediaManager.FileListState.INCOMPLETE) {
+                                mediaFileList.clear();
+                            }
+
+                            mediaFileList = mMediaManager.getSDCardFileListSnapshot();
+                            Collections.sort(mediaFileList, new Comparator<MediaFile>() {
+                                @Override
+                                public int compare(MediaFile lhs, MediaFile rhs) {
+                                    if (lhs.getTimeCreated() < rhs.getTimeCreated()) {
+                                        return 1;
+                                    } else if (lhs.getTimeCreated() > rhs.getTimeCreated()) {
+                                        return -1;
+                                    }
+                                    return 0;
+                                }
+                            });
+                            scheduler.resume(new CommonCallbacks.CompletionCallback() {
+                                @Override
+                                public void onResult(DJIError error) {
+                                    if (error == null) {
+                                        getThumbnails();
+                                    }
+                                }
+                            });
+                        } else {
+                            setResultToToast("Get Media File List Failed:" + djiError.getDescription());
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    private void getThumbnailByIndex(final int index) {
+        FetchMediaTask task = new FetchMediaTask(mediaFileList.get(index), FetchMediaTaskContent.THUMBNAIL, taskCallback);
+        scheduler.moveTaskToEnd(task);
+    }
+
+    private void getThumbnails() {
+        if (mediaFileList.size() <= 0) {
+            setResultToToast("No File info for downloading thumbnails");
+            return;
+        }
+        for (int i = 0; i < mediaFileList.size(); i++) {
+            getThumbnailByIndex(i);
+        }
+    }
+
+    private FetchMediaTask.Callback taskCallback = new FetchMediaTask.Callback() {
+        @Override
+        public void onUpdate(MediaFile file, FetchMediaTaskContent option, DJIError error) {
+            if (null == error) {
+                if (option == FetchMediaTaskContent.PREVIEW) {
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            mListAdapter.notifyDataSetChanged();
+                        }
+                    });
+                }
+                if (option == FetchMediaTaskContent.THUMBNAIL) {
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            mListAdapter.notifyDataSetChanged();
+                        }
+                    });
+                }
+            } else {
+                DJILog.e(TAG, "Fetch Media Task Failed" + error.getDescription());
+            }
+        }
+    };
+
+    private void downloadFileByIndex(final int index){
+        if ((mediaFileList.get(index).getMediaType() == MediaFile.MediaType.PANORAMA)
+                || (mediaFileList.get(index).getMediaType() == MediaFile.MediaType.SHALLOW_FOCUS)) {
+            return;
+        }
+
+        mediaFileList.get(index).fetchFileData(destDir, null, new DownloadListener<String>() {
+            @Override
+            public void onFailure(DJIError error) {
+                setResultToToast("Download File Failed" + error.getDescription());
+            }
+
+            @Override
+            public void onProgress(long total, long current) {
+            }
+
+            @Override
+            public void onRateUpdate(long total, long current, long persize) {
+            }
+
+            @Override
+            public void onRealtimeDataUpdate(byte[] bytes, long l, boolean b) {
+
+            }
+
+            @Override
+            public void onStart() {
+            }
+
+            @Override
+            public void onSuccess(String filePath) {
+                setResultToToast("Download File Success" + ":" + filePath);
+            }
+        });
+    }
+
+    private MediaManager.FileListStateListener updateFileListStateListener = new MediaManager.FileListStateListener() {
+        @Override
+        public void onFileListStateChange(MediaManager.FileListState state) {
+            currentFileListState = state;
+        }
+    };
+
+    private void initMediaManager() {
+        if (DJISampleApplication.getProductInstance() == null) {
+            mediaFileList.clear();
+            mListAdapter.notifyDataSetChanged();
+            DJILog.e(TAG, "Product disconnected");
+            return;
+        } else {
+            if (null != DJISampleApplication.getCameraInstance() && DJISampleApplication.getCameraInstance().isMediaDownloadModeSupported()) {
+                mMediaManager = DJISampleApplication.getCameraInstance().getMediaManager();
+                if (null != mMediaManager) {
+                    mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
+                    DJISampleApplication.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onResult(DJIError error) {
+                            if (error == null) {
+                                DJILog.e(TAG, "Set cameraMode success");
+                                getFileList();
+                            } else {
+                                setResultToToast("Set cameraMode failed");
+                            }
+                        }
+                    });
+                    if (mMediaManager.isVideoPlaybackSupported()) {
+                        DJILog.e(TAG, "Camera support video playback!");
+                    } else {
+                        setResultToToast("Camera does not support video playback!");
+                    }
+                    scheduler = mMediaManager.getScheduler();
+                }
+            } else if (null != DJISampleApplication.getCameraInstance()
+                    && !DJISampleApplication.getCameraInstance().isMediaDownloadModeSupported()) {
+                setResultToToast("Media Download Mode not Supported");
+            }
+        }
+        return;
+    }
+    //endregion
+
+    // 添加回调接口
+    public interface CaptureImageCallback {
+        void onSuccess(File imageFile);
+        void onFailure(String error);
+    }
+
+    @Override
+    public void CaptureDjiImage(CaptureImageCallback callback){
+        captureAction();
+
+        // 等待拍照完成后再下载
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                downloadLatestImageFile(callback);
+            }
+        }, 3000); // 等待3秒让拍照完成
+
+    }
+
+    private void downloadLatestImageFile(CaptureImageCallback callback) {
+        // 刷新文件列表
+        getFileList();
+        
+        // 等待文件列表刷新完成
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (mediaFileList.size() > 0) {
+                    // 下载最新的文件（索引0是最新的，因为已经按时间排序）
+                    downloadFileByIndexWithCallback(0, callback);
+                } else {
+                    callback.onFailure("No images found");
+                }
+            }
+        }, 2000);
+    }
+
+    private void downloadFileByIndexWithCallback(final int index, final CaptureImageCallback callback){
+        if (index >= mediaFileList.size()) {
+            callback.onFailure("Invalid file index");
+            return;
+        }
+
+        if ((mediaFileList.get(index).getMediaType() == MediaFile.MediaType.PANORAMA)
+                || (mediaFileList.get(index).getMediaType() == MediaFile.MediaType.SHALLOW_FOCUS)) {
+            callback.onFailure("Unsupported media type");
+            return;
+        }
+
+        mediaFileList.get(index).fetchFileData(destDir, null, new DownloadListener<String>() {
+            @Override
+            public void onFailure(DJIError error) {
+                callback.onFailure("Download File Failed: " + error.getDescription());
+            }
+
+            @Override
+            public void onProgress(long total, long current) {
+            }
+
+            @Override
+            public void onRateUpdate(long total, long current, long persize) {
+            }
+
+            @Override
+            public void onRealtimeDataUpdate(byte[] bytes, long l, boolean b) {
+
+            }
+
+            @Override
+            public void onStart() {
+            }
+
+            @Override
+            public void onSuccess(String filePath) {
+                setResultToToast("Download File Success: " + filePath);
+                File downloadedFile = new File(filePath);
+                addChatMessage(Constant.OWNER_BOT, String.valueOf(downloadedFile));
+                callback.onSuccess(downloadedFile);
+            }
+        });
+    }
+
+    // 同步版本（阻塞等待结果）
+    private volatile File capturedImageFile = null;
+    private volatile String captureError = null;
+    
+    public File CaptureDjiImageSync() {
+        final CountDownLatch latch = new CountDownLatch(1);
+        capturedImageFile = null;
+        captureError = null;
+        
+        CaptureDjiImage(new CaptureImageCallback() {
+            @Override
+            public void onSuccess(File imageFile) {
+                capturedImageFile = imageFile;
+                latch.countDown();
+            }
+
+            @Override
+            public void onFailure(String error) {
+                captureError = error;
+                latch.countDown();
+            }
+        });
+        
+        try {
+            // 最多等待30秒
+            if (latch.await(30, TimeUnit.SECONDS)) {
+                if (capturedImageFile != null) {
+                    return capturedImageFile;
+                } else {
+                    Log.e(TAG, "Capture failed: " + captureError);
+                    return null;
+                }
+            } else {
+                Log.e(TAG, "Capture timeout");
+                return null;
+            }
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Capture interrupted", e);
+            return null;
+        }
+    }
 }
