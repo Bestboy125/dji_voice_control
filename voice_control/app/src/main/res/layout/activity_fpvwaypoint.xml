@@ -414,6 +414,18 @@
                 android:textSize="12sp" />
 
             <Button
+                android:id="@+id/photo_button"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:background="@drawable/round_btn"
+                android:text="拍照"
+                android:textColor="@android:color/white"
+                android:textSize="12sp" />
+
+            <Button
                 android:id="@+id/land_button"
                 android:layout_width="0dp"
                 android:layout_height="36dp"

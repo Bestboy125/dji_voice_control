@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -160,6 +161,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -664,9 +666,6 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             throw new RuntimeException(e);
         }
 
-        //初始化照相功能
-        initMediaManager();
-
 //        //初始化航点操作类
 //        mWaypoint = new Waypointv1();
 //        Log.d(TAG, "Before mMissionOperator initialization: " + (mMissionOperator == null ? "null" : "not null"));
@@ -1121,6 +1120,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         Button stop_button = findViewById(R.id.stop_button);
         Button land_buttion = findViewById(R.id.land_button);
+        Button photo_button = findViewById(R.id.photo_button);
         Button takeoff_buttion = findViewById(R.id.takeoff_buttion);
         mBtnSimulator = (ToggleButton) findViewById(R.id.btn_start_simulator);
         Button depth_estimation_button = findViewById(R.id.depth_estimation_button);
@@ -1283,6 +1283,24 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     }
                 });
             }
+        });
+        photo_button.setOnClickListener(v -> {
+            CaptureDjiImage(new ControlActivity.CaptureImageCallback() {
+                    @Override
+                    public void onSuccess(File imageFile) throws IOException {
+                        // TODO Auto-generated method stub
+                        File FisrtImage = imageFile;
+                        Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage.getAbsolutePath());
+                        addChatMessage(Constant.OWNER_HUMAN, bitmap);
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        // 显示错误信息
+                        showToast(error);
+                        addChatMessage(Constant.OWNER_BOT, error);
+                    }
+            });
         });
         helpButton.setOnClickListener(v -> showHelpDialog());
         dataButtion.setOnClickListener(v -> showFlightDataDialog());
@@ -4433,7 +4451,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     private MediaManager mMediaManager;
     private MediaManager.FileListState currentFileListState = MediaManager.FileListState.UNKNOWN;
     private FetchMediaTaskScheduler scheduler;
-    File destDir = new File(Environment.getExternalStorageDirectory().getPath() + "/MediaManagerDemo/");
+    File destDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "djidrone");
 
 
     private void captureAction(){
@@ -4446,6 +4464,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 @Override
                 public void onResult(DJIError djiError) {
                     if (null == djiError) {
+                        //开始拍照
+                        addChatMessage(Constant.OWNER_BOT, "take photo: start");
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
@@ -4454,8 +4474,10 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                                     public void onResult(DJIError djiError) {
                                         if (djiError == null) {
                                             showToast("take photo: success");
+                                            addChatMessage(Constant.OWNER_BOT, "take photo: success");
                                         } else {
                                             showToast(djiError.getDescription());
+                                            addChatMessage(Constant.OWNER_BOT, djiError.getDescription());
                                         }
                                     }
                                 });
@@ -4465,6 +4487,35 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 }
             });
         }
+    }
+
+    private void switchCameraMode(SettingsDefinitions.CameraMode cameraMode, CaptureImageCallback callback){
+
+        Camera camera = DJISampleApplication.getCameraInstance();
+        if (camera != null) {
+            camera.setMode(cameraMode, new CommonCallbacks.CompletionCallback() {
+                @Override
+                public void onResult(DJIError error) {
+    
+                    if (error == null) {
+                        showToast("Switch Camera Mode Succeeded");
+                        addChatMessage(Constant.OWNER_BOT, "Switch Camera Mode Succeeded");
+                        captureAction();
+
+                        // 等待拍照完成后再下载
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                //初始化照相功能
+                                initMediaManager(callback);
+                            }
+                        }, 10000); // 等待3秒让拍照完成
+                    } else {
+                        showToast(error.getDescription());
+                    }
+                }
+            });
+            }
     }
 
     private void getFileList() {
@@ -4555,6 +4606,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
     };
 
     private void downloadFileByIndex(final int index){
+
         if ((mediaFileList.get(index).getMediaType() == MediaFile.MediaType.PANORAMA)
                 || (mediaFileList.get(index).getMediaType() == MediaFile.MediaType.SHALLOW_FOCUS)) {
             return;
@@ -4597,7 +4649,45 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
     };
 
-    private void initMediaManager() {
+//    private void initMediaManager(CaptureImageCallback callback) {
+//        if (DJISampleApplication.getProductInstance() == null) {
+//            mediaFileList.clear();
+//            mListAdapter.notifyDataSetChanged();
+//            DJILog.e(TAG, "Product disconnected");
+//            return;
+//        } else {
+//            if (null != DJISampleApplication.getCameraInstance() && DJISampleApplication.getCameraInstance().isMediaDownloadModeSupported()) {
+//                mMediaManager = DJISampleApplication.getCameraInstance().getMediaManager();
+//                if (null != mMediaManager) {
+//                    mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
+//                    DJISampleApplication.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, new CommonCallbacks.CompletionCallback() {
+//                        @Override
+//                        public void onResult(DJIError error) {
+//                            if (error == null) {
+//                                DJILog.e(TAG, "Set cameraMode success");
+//                                addChatMessage(Constant.OWNER_BOT, "Set cameraMode success");
+//                                downloadLatestImageFile(callback);
+//                            } else {
+//                                setResultToToast("Set cameraMode failed");
+//                            }
+//                        }
+//                    });
+//                    if (mMediaManager.isVideoPlaybackSupported()) {
+//                        DJILog.e(TAG, "Camera support video playback!");
+//                    } else {
+//                        setResultToToast("Camera does not support video playback!");
+//                    }
+//                    scheduler = mMediaManager.getScheduler();
+//                }
+//            } else if (null != DJISampleApplication.getCameraInstance()
+//                    && !DJISampleApplication.getCameraInstance().isMediaDownloadModeSupported()) {
+//                setResultToToast("Media Download Mode not Supported");
+//            }
+//        }
+//        return;
+//    }
+
+    private void initMediaManager(CaptureImageCallback callback) {
         if (DJISampleApplication.getProductInstance() == null) {
             mediaFileList.clear();
             mListAdapter.notifyDataSetChanged();
@@ -4608,15 +4698,15 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                 mMediaManager = DJISampleApplication.getCameraInstance().getMediaManager();
                 if (null != mMediaManager) {
                     mMediaManager.addUpdateFileListStateListener(this.updateFileListStateListener);
-                    DJISampleApplication.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError error) {
-                            if (error == null) {
-                                DJILog.e(TAG, "Set cameraMode success");
-                                getFileList();
-                            } else {
-                                setResultToToast("Set cameraMode failed");
-                            }
+                    DJISampleApplication.getCameraInstance().setMode(SettingsDefinitions.CameraMode.MEDIA_DOWNLOAD, error -> {
+                        if (error == null) {
+                            DJILog.e(TAG, "Set cameraMode success");
+                            getFileList();
+                            addChatMessage(Constant.OWNER_BOT, "Set cameraMode success");
+                            downloadLatestImageFile(callback);
+                        } else {
+                            addChatMessage(Constant.OWNER_BOT, error.getDescription());
+                            setResultToToast("Set cameraMode failed");
                         }
                     });
                     if (mMediaManager.isVideoPlaybackSupported()) {
@@ -4626,6 +4716,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
                     }
                     scheduler = mMediaManager.getScheduler();
                 }
+
             } else if (null != DJISampleApplication.getCameraInstance()
                     && !DJISampleApplication.getCameraInstance().isMediaDownloadModeSupported()) {
                 setResultToToast("Media Download Mode not Supported");
@@ -4633,32 +4724,23 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         }
         return;
     }
+
     //endregion
 
     // 添加回调接口
+    //Listeners
+
     public interface CaptureImageCallback {
-        void onSuccess(File imageFile);
+        void onSuccess(File imageFile) throws IOException;
         void onFailure(String error);
     }
 
     @Override
     public void CaptureDjiImage(CaptureImageCallback callback){
-        captureAction();
-
-        // 等待拍照完成后再下载
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                downloadLatestImageFile(callback);
-            }
-        }, 3000); // 等待3秒让拍照完成
-
+        switchCameraMode(SettingsDefinitions.CameraMode.SHOOT_PHOTO,callback);
     }
 
     private void downloadLatestImageFile(CaptureImageCallback callback) {
-        // 刷新文件列表
-        getFileList();
-        
         // 等待文件列表刷新完成
         handler.postDelayed(new Runnable() {
             @Override
@@ -4711,9 +4793,20 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             @Override
             public void onSuccess(String filePath) {
                 setResultToToast("Download File Success: " + filePath);
-                File downloadedFile = new File(filePath);
-                addChatMessage(Constant.OWNER_BOT, String.valueOf(downloadedFile));
-                callback.onSuccess(downloadedFile);
+                
+                // 获取目录中最新的文件
+                File latestFile = getLatestFileInDirectory(filePath);
+                if (latestFile != null && latestFile.exists()) {
+                    Bitmap bitmap = BitmapFactory.decodeFile(latestFile.getAbsolutePath());
+                    addChatMessage(Constant.OWNER_BOT, bitmap);
+                    try {
+                        callback.onSuccess(latestFile);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    callback.onFailure("No files found in directory: " + filePath);
+                }
             }
         });
     }
@@ -4758,5 +4851,46 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             Log.e(TAG, "Capture interrupted", e);
             return null;
         }
+    }
+
+    /**
+     * 获取目录中创建时间最新的文件
+     * @param directoryPath 目录路径
+     * @return 最新的文件，如果目录不存在或没有文件则返回null
+     */
+    private File getLatestFileInDirectory(String directoryPath) {
+        File directory = new File(directoryPath);
+        
+        // 检查路径是否存在且是目录
+        if (!directory.exists() || !directory.isDirectory()) {
+            Log.e(TAG, "Directory does not exist or is not a directory: " + directoryPath);
+            return null;
+        }
+        
+        // 获取目录中的所有文件（不包括子目录）
+        File[] files = directory.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.isFile();
+            }
+        });
+        
+        if (files == null || files.length == 0) {
+            Log.e(TAG, "No files found in directory: " + directoryPath);
+            return null;
+        }
+        
+        // 按最后修改时间排序，找到最新的文件
+        File latestFile = files[0];
+        for (File file : files) {
+            if (file.lastModified() > latestFile.lastModified()) {
+                latestFile = file;
+            }
+        }
+        
+        Log.d(TAG, "Latest file found: " + latestFile.getAbsolutePath() + 
+                   ", modified: " + new Date(latestFile.lastModified()));
+        
+        return latestFile;
     }
 }

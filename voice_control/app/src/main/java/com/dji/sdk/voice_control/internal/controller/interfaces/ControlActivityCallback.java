@@ -59,5 +59,6 @@ public interface ControlActivityCallback {
 
     void CaptureDjiImage(ControlActivity.CaptureImageCallback callback);
 
+    File CaptureImage();
 }
 

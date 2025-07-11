@@ -25,6 +25,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import dji.sdk.flightcontroller.FlightController;
 
@@ -135,93 +137,114 @@ public class yoloDepthEstimation {
         new Thread(new Runnable() {
             @Override
             public void run() {
+                //                    /**
+//                     * 测试用代码图片
+//                     */
+//                    Resources res = callback.mgetResources();
+//                    Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth1);
+//                    File frame1File = callback.saveBitmapAsFile(bitmap,"frame1.jpg");
+
+                // 真实图片
+                final File[] FisrtImage = {null};
+                final CountDownLatch latch = new CountDownLatch(1);
+
+                callback.CaptureDjiImage(new ControlActivity.CaptureImageCallback() {
+                    @Override
+                    public void onSuccess(File imageFile) throws IOException {
+                        // TODO Auto-generated method stub
+                        FisrtImage[0] = imageFile;
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        // TODO Auto-generated method stub
+                        runOnUiThread(() -> {
+                            callback.addChatMessage(Constant.OWNER_BOT, "获取图像失败: " + error);
+                        });
+                        latch.countDown();
+                    }
+                });
+
                 try {
-                    /**
-                     * 测试用代码图片
-                     */
-                    Resources res = callback.mgetResources();
-                    Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth1);
-                    File frame1File = callback.saveBitmapAsFile(bitmap,"frame1.jpg");
-
-//                    // // 真实图片
-//                    final File[] FisrtImage = {null};
-//                    callback.CaptureDjiImage(new ControlActivity.CaptureImageCallback() {
-//                        @Override
-//                        public void onSuccess(File imageFile) {
-//                            // TODO Auto-generated method stub
-//                            FisrtImage[0] = imageFile;
-//                        }
-//
-//                        @Override
-//                        public void onFailure(String error) {
-//                            // TODO Auto-generated method stub
-//                            throw new UnsupportedOperationException("Unimplemented method 'onFailure'");
-//                        }
-//                    });
-//                     Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage[0].getAbsolutePath());
-//                     File frame1File = callback.saveBitmapAsFile(bitmap,"frame1.jpg");
-                    
-                    // 使用新的目标检测接口
-                    JsonObject detectResp = networkClient.detectTarget(frame1File, classType);
-                    
-                    // 解析响应
-                    JsonArray bbox2d = detectResp.getAsJsonArray("bbox_2d");
-                    String label = detectResp.has("label") && !detectResp.get("label").isJsonNull() ? 
-                                  detectResp.get("label").getAsString() : "unknown";
-                    String subLabel = detectResp.has("sub_label") && !detectResp.get("sub_label").isJsonNull() ? 
-                                     detectResp.get("sub_label").getAsString() : null;
-                    
-                    if (bbox2d != null && bbox2d.size() >= 4) {
-                        int x1 = bbox2d.get(0).getAsInt();
-                        int y1 = bbox2d.get(1).getAsInt();
-                        int x2 = bbox2d.get(2).getAsInt();
-                        int y2 = bbox2d.get(3).getAsInt();
-                        
-                        // 清空之前的列表
-                        detectedObjectsList.clear();
-                        
-                        // 格式化 box 信息
-                        String boxStr = String.format("[x1=%d, y1=%d, x2=%d, y2=%d]", x1, y1, x2, y2);
-                        String displayMessage = String.format("检测到目标: %s\n边界框: %s\n标签: %s", 
-                                classType, boxStr, label);
-                        if (subLabel != null) {
-                            displayMessage += "\n子标签: " + subLabel;
-                        }
-
-                        String finalDisplayMessage = displayMessage;
+                    // 等待图像捕获完成，最多等待10秒
+                    boolean completed = latch.await(20, TimeUnit.SECONDS);
+                    if (!completed) {
                         runOnUiThread(() -> {
-                            callback.addChatMessage(Constant.OWNER_BOT, finalDisplayMessage);
-                        });
-                        
-                        // 裁剪图像
-                        Bitmap croppedBitmap = imageUtil.cropBitmap(bitmap, x1, y1, x2, y2);
-                        
-                        // 创建标注图像 (简单的在原图上绘制边界框)
-                        annotatedBitmap = createAnnotatedBitmap(bitmap, x1, y1, x2, y2, label);
-                        
-                        // 创建 DetectedObject 对象并添加到列表
-                        // 使用label作为id，因为新API没有返回id字段
-                        DetectedObject obj = new DetectedObject(label, x1, y1, x2-x1, y2-y1, 1.0, label, croppedBitmap);
-                        detectedObjectsList.add(obj);
-                        
-                        // 显示检测到的目标图像
-                        runOnUiThread(() -> {
-                            callback.addChatMessage(Constant.OWNER_HUMAN, croppedBitmap);
-                        });
-                        
-                        // 弹出选择对话框
-                        runOnUiThread(() -> {
-                            callback.showSelectObjectDialogForDepthEstimation();
-                        });
-                    } else {
-                        runOnUiThread(() -> {
-                            callback.addChatMessage(Constant.OWNER_BOT, "未检测到目标: " + classType);
+                            callback.addChatMessage(Constant.OWNER_BOT, "获取图像超时");
                         });
                     }
-                    
-                } catch (IOException e) {
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     runOnUiThread(() -> {
-                        callback.addChatMessage(Constant.OWNER_BOT, "目标检测失败: " + e.getMessage());
+                        callback.addChatMessage(Constant.OWNER_BOT, "获取图像被中断: " + e.getMessage());
+                    });
+                }
+                // 使用新的目标检测接口
+                JsonObject detectResp = null;
+                try {
+                    detectResp = networkClient.detectTarget(FisrtImage[0], classType);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+                Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage[0].getAbsolutePath());
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
+                });
+
+                // 解析响应
+                JsonArray bbox2d = detectResp.getAsJsonArray("bbox_2d");
+                String label = detectResp.has("label") && !detectResp.get("label").isJsonNull() ?
+                        detectResp.get("label").getAsString() : "unknown";
+                String subLabel = detectResp.has("sub_label") && !detectResp.get("sub_label").isJsonNull() ?
+                        detectResp.get("sub_label").getAsString() : null;
+
+                if (bbox2d != null && bbox2d.size() >= 4) {
+                    int x1 = bbox2d.get(0).getAsInt();
+                    int y1 = bbox2d.get(1).getAsInt();
+                    int x2 = bbox2d.get(2).getAsInt();
+                    int y2 = bbox2d.get(3).getAsInt();
+
+                    // 清空之前的列表
+                    detectedObjectsList.clear();
+
+                    // 格式化 box 信息
+                    String boxStr = String.format("[x1=%d, y1=%d, x2=%d, y2=%d]", x1, y1, x2, y2);
+                    String displayMessage = String.format("检测到目标: %s\n边界框: %s\n标签: %s",
+                            classType, boxStr, label);
+                    if (subLabel != null) {
+                        displayMessage += "\n子标签: " + subLabel;
+                    }
+
+                    String finalDisplayMessage = displayMessage;
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, finalDisplayMessage);
+                    });
+
+                    // 裁剪图像
+                    Bitmap croppedBitmap = imageUtil.cropBitmap(bitmap, x1, y1, x2, y2);
+
+                    // 创建标注图像 (简单的在原图上绘制边界框)
+                    annotatedBitmap = createAnnotatedBitmap(bitmap, x1, y1, x2, y2, label);
+
+                    // 创建 DetectedObject 对象并添加到列表
+                    // 使用label作为id，因为新API没有返回id字段
+                    DetectedObject obj = new DetectedObject(label, x1, y1, x2-x1, y2-y1, 1.0, label, croppedBitmap);
+                    detectedObjectsList.add(obj);
+
+                    // 显示检测到的目标图像
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_HUMAN, croppedBitmap);
+                    });
+
+                    // 弹出选择对话框
+                    runOnUiThread(() -> {
+                        callback.showSelectObjectDialogForDepthEstimation();
+                    });
+                } else {
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "未检测到目标: " + classType);
                     });
                 }
             }
@@ -276,7 +299,7 @@ public class yoloDepthEstimation {
                     
                     // 清空之前的姿态数据
                     cameraPoses.clear();
-//                    mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+                    // mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                     
                     // 1. 获取当前姿态和图像
                     CameraPose currentPose = captureCurrentPose("current");
@@ -300,8 +323,8 @@ public class yoloDepthEstimation {
                         callback.addChatMessage(Constant.OWNER_BOT, "已获取右转20°图像");
                     });
                     
-//                    // 4. 回复原状
-//                    rotateToOriginalPosition();
+                    // // 4. 回复原状
+                    // rotateToOriginalPosition();
                     
                     runOnUiThread(() -> {
                         callback.addChatMessage(Constant.OWNER_BOT, "已回复原始姿态");
@@ -347,20 +370,19 @@ public class yoloDepthEstimation {
         double gimbalPitch = 0.0;
         double gimbalRoll = 0.0;
 
-//        gimbalControl = new gimbalControl();
+        gimbalControl = new gimbalControl();
         
-        if (mFlightController != null) {
+        if (mCI.mFlightController != null) {
             try {
-                if (mFlightController.getState() != null && mFlightController.getState().getAircraftLocation() != null) {
-                    altitude = mFlightController.getState().getAircraftLocation().getAltitude();
-                    latitude = mFlightController.getState().getAircraftLocation().getLatitude();
-                    longitude = mFlightController.getState().getAircraftLocation().getLongitude();
+                if (mCI.mFlightController.getState() != null && mCI.mFlightController.getState().getAircraftLocation() != null) {
+                    altitude = mCI.mFlightController.getState().getAircraftLocation().getAltitude();
+                    latitude = mCI.mFlightController.getState().getAircraftLocation().getLatitude();
+                    longitude = mCI.mFlightController.getState().getAircraftLocation().getLongitude();
 
-                    droneYaw = mFlightController.getState().getAttitude().yaw;
-                    dronePitch = mFlightController.getState().getAttitude().pitch;
-                    droneRoll = mFlightController.getState().getAttitude().roll;
+                    droneYaw = mCI.mFlightController.getState().getAttitude().yaw;
+                    dronePitch = mCI.mFlightController.getState().getAttitude().pitch;
+                    droneRoll = mCI.mFlightController.getState().getAttitude().roll;
 
-                    
                 }
                 if(gimbalControl!= null){
                     gimbalYaw = gimbalControl.getyaw();
@@ -382,40 +404,70 @@ public class yoloDepthEstimation {
         //
         File imageFile = null;
         
-        // 获取图像（这里使用测试图像，实际应用中需要从相机获取）
-        if(suffix == "current"){
-            Resources res = callback.mgetResources();
-            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth1);
-            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
-        } else if (suffix == "left_10") {
-            Resources res = callback.mgetResources();
-            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth2);
-            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
-        } else {
-            Resources res = callback.mgetResources();
-            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth3);
-            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
+//        // 获取图像（这里使用测试图像，实际应用中需要从相机获取）
+//        if(suffix == "current"){
+//            Resources res = callback.mgetResources();
+//            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth1);
+//            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
+//        } else if (suffix == "left_10") {
+//            Resources res = callback.mgetResources();
+//            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth2);
+//            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
+//        } else {
+//            Resources res = callback.mgetResources();
+//            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth3);
+//            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
+//        }
+
+        // 真实图片
+        final File[] FisrtImage = {null};
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        callback.CaptureDjiImage(new ControlActivity.CaptureImageCallback() {
+            @Override
+            public void onSuccess(File imageFile) throws IOException {
+                // TODO Auto-generated method stub
+                FisrtImage[0] = imageFile;
+                latch.countDown();
+
+            }
+
+            @Override
+            public void onFailure(String error) {
+                // TODO Auto-generated method stub
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "获取图像失败: " + error);
+                });
+                latch.countDown();
+            }
+        });
+
+        try {
+            // 等待图像捕获完成，最多等待10秒
+            boolean completed = latch.await(20, TimeUnit.SECONDS);
+            if (!completed) {
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "获取图像超时");
+                });
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_BOT, "获取图像被中断: " + e.getMessage());
+            });
         }
 
-//        // // 真实图片
-//        final File[] FisrtImage = {null};
-//        callback.CaptureDjiImage(new ControlActivity.CaptureImageCallback() {
-//            @Override
-//            public void onSuccess(File imageFile) {
-//                // TODO Auto-generated method stub
-//                FisrtImage[0] = imageFile;
-//            }
-//
-//            @Override
-//            public void onFailure(String error) {
-//                // TODO Auto-generated method stub
-//                throw new UnsupportedOperationException("Unimplemented method 'onFailure'");
-//            }
+        Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage[0].getAbsolutePath());
+        runOnUiThread(() -> {
+            callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
+        });
+//        runOnUiThread(() -> {
+//            callback.addChatMessage(Constant.OWNER_BOT, "当前姿态" + droneYaw + " " + dronePitch + " " + droneRoll + " " +
+//            "云台姿态" + gimbalYaw + " " + gimbalPitch + " " + gimbalRoll + " " +
+//            "高度" + altitude + " " + "经度" + latitude + " " + "纬度" + longitude);
 //        });
-//        Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage[0].getAbsolutePath());
-//        imageFile = callback.saveBitmapAsFile(bitmap,"frame1.jpg");
-        
-        return new CameraPose(x0, y0, f, droneYaw, dronePitch, droneRoll, altitude, latitude, longitude, imageFile);
+
+        return new CameraPose(x0, y0, f, droneYaw, dronePitch, droneRoll, altitude, latitude, longitude, FisrtImage[0]);
     }
 
     /**
@@ -423,12 +475,12 @@ public class yoloDepthEstimation {
      */
     private void rotateAndCapture(float degrees, String suffix) {
         try {
-//            // 执行旋转
-//            if (degrees > 0) {
-//                mSingletonVirtualStickExecutor.mTurn(304, (int)degrees); // 右转
-//            } else {
-//                mSingletonVirtualStickExecutor.mTurn(303, (int)Math.abs(degrees)); // 左转
-//            }
+            // // 执行旋转
+            // if (degrees > 0) {
+            //     mSingletonVirtualStickExecutor.mTurn(304, (int)degrees); // 右转
+            // } else {
+            //     mSingletonVirtualStickExecutor.mTurn(303, (int)Math.abs(degrees)); // 左转
+            // }
 //
             // 等待旋转完成
             Thread.sleep(3000);
