@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import dji.sdk.flightcontroller.FlightController;
+import android.content.Context;
 
 //TODO:1. 
 public class yoloDepthEstimation {
@@ -38,21 +39,30 @@ public class yoloDepthEstimation {
         public float x0;
         public float yo;
         public float f;
-        public double yaw;
-        public double pitch;
-        public double roll;
+        public double droneYaw;
+        public double dronePitch;
+        public double droneRoll;
+        public double cameraYaw;
+        public double cameraPitch;
+        public double cameraRoll;
         public double altitude;
         public double latitude;
         public double longitude;
         public File imageFile;
         
-        public CameraPose(float x0, float yo, float f, double yaw, double pitch, double roll, float altitude, double latitude, double longitude, File imageFile) {
+        public CameraPose(float x0, float yo, float f, 
+                         double droneYaw, double dronePitch, double droneRoll,
+                         double cameraYaw, double cameraPitch, double cameraRoll,
+                         float altitude, double latitude, double longitude, File imageFile) {
             this.x0 = x0;
             this.yo = yo;
             this.f = f;
-            this.yaw = yaw;
-            this.pitch = pitch;
-            this.roll = roll;
+            this.droneYaw = droneYaw;
+            this.dronePitch = dronePitch;
+            this.droneRoll = droneRoll;
+            this.cameraYaw = cameraYaw;
+            this.cameraPitch = cameraPitch;
+            this.cameraRoll = cameraRoll;
             this.altitude = altitude;
             this.latitude = latitude;
             this.longitude = longitude;
@@ -299,7 +309,7 @@ public class yoloDepthEstimation {
                     
                     // 清空之前的姿态数据
                     cameraPoses.clear();
-                    // mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
+                    mSingletonVirtualStickExecutor = MyVirtualStickExecutor.getUniqueInstance();
                     
                     // 1. 获取当前姿态和图像
                     CameraPose currentPose = captureCurrentPose("current");
@@ -324,7 +334,7 @@ public class yoloDepthEstimation {
                     });
                     
                     // // 4. 回复原状
-                    // rotateToOriginalPosition();
+                    rotateToOriginalPosition();
                     
                     runOnUiThread(() -> {
                         callback.addChatMessage(Constant.OWNER_BOT, "已回复原始姿态");
@@ -351,7 +361,7 @@ public class yoloDepthEstimation {
     /**
      * 获取当前姿态和图像
      */
-    private CameraPose captureCurrentPose(String suffix) {
+    public CameraPose captureCurrentPose(String suffix) {
         // 获取当前姿态信息，如果 flightController 为 null，使用默认值
         float altitude = 0.0f;
         double latitude = 0.0;
@@ -461,13 +471,59 @@ public class yoloDepthEstimation {
         runOnUiThread(() -> {
             callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
         });
-//        runOnUiThread(() -> {
-//            callback.addChatMessage(Constant.OWNER_BOT, "当前姿态" + droneYaw + " " + dronePitch + " " + droneRoll + " " +
-//            "云台姿态" + gimbalYaw + " " + gimbalPitch + " " + gimbalRoll + " " +
-//            "高度" + altitude + " " + "经度" + latitude + " " + "纬度" + longitude);
-//        });
+        double finalLatitude = latitude;
+        double finalDroneYaw = droneYaw;
+        double finalDronePitch = dronePitch;
+        double finalDroneRoll = droneRoll;
+        double finalGimbalYaw = gimbalYaw;
+        double finalGimbalPitch = gimbalPitch;
+        double finalGimbalRoll = gimbalRoll;
+        float finalAltitude = altitude;
+        double finalLongitude = longitude;
+        runOnUiThread(() -> {
+           String statusInfo = "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
+                   "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
+                   "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude;
+           callback.addChatMessage(Constant.OWNER_BOT, statusInfo);
 
-        return new CameraPose(x0, y0, f, droneYaw, dronePitch, droneRoll, altitude, latitude, longitude, FisrtImage[0]);
+    //                   callback.addChatMessage(Constant.OWNER_BOT, "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
+    //        "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
+    //        "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude);
+    //    });
+
+
+           // 保存到txt文件
+           try {
+               Context context = callback.getContext();
+               java.io.File dir = new java.io.File(context.getExternalFilesDir(null), "yolo_status");
+               if (!dir.exists()) dir.mkdirs();
+               String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(new java.util.Date());
+               java.io.File txtFile = new java.io.File(dir, "status_" + timestamp + ".txt");
+               java.io.FileWriter writer = new java.io.FileWriter(txtFile);
+               writer.write(statusInfo);
+               writer.close();
+               callback.addChatMessage(Constant.OWNER_BOT, "姿态信息已保存: " + txtFile.getAbsolutePath());
+
+                // 保存图片文件
+                if (FisrtImage[0] != null && FisrtImage[0].exists()) {
+                    java.io.File imgFile = new java.io.File(dir, "image_" + timestamp + ".jpg");
+                    java.io.FileInputStream in = new java.io.FileInputStream(FisrtImage[0]);
+                    java.io.FileOutputStream out = new java.io.FileOutputStream(imgFile);
+                    byte[] buffer = new byte[4096];
+                    int len;
+                    while ((len = in.read(buffer)) > 0) {
+                        out.write(buffer, 0, len);
+                    }
+                    in.close();
+                    out.close();
+                    callback.addChatMessage(Constant.OWNER_BOT, "图像已保存: " + imgFile.getAbsolutePath());
+                }
+           } catch (Exception e) {
+               callback.addChatMessage(Constant.OWNER_BOT, "保存姿态信息或图片失败: " + e.getMessage());
+           }
+        });
+
+        return new CameraPose(x0, y0, f, droneYaw, dronePitch, droneRoll, gimbalYaw, gimbalPitch, gimbalRoll, altitude, latitude, longitude, FisrtImage[0]);
     }
 
     /**
@@ -475,12 +531,12 @@ public class yoloDepthEstimation {
      */
     private void rotateAndCapture(float degrees, String suffix) {
         try {
-            // // 执行旋转
-            // if (degrees > 0) {
-            //     mSingletonVirtualStickExecutor.mTurn(304, (int)degrees); // 右转
-            // } else {
-            //     mSingletonVirtualStickExecutor.mTurn(303, (int)Math.abs(degrees)); // 左转
-            // }
+             // 执行旋转
+             if (degrees > 0) {
+                 mSingletonVirtualStickExecutor.mTurn(304, (int)degrees); // 右转
+             } else {
+                 mSingletonVirtualStickExecutor.mTurn(303, (int)Math.abs(degrees)); // 左转
+             }
 //
             // 等待旋转完成
             Thread.sleep(3000);
@@ -727,24 +783,26 @@ public class yoloDepthEstimation {
      * 构建相机参数JSON字符串
      */
     private String buildCameraParameters(CameraPose pose) {
-        // 将大地坐标转换为空间直角坐标
-        double[] xyz = blhtoxyz(pose.longitude, pose.latitude, pose.altitude);
-
-        // 将轴角yaw, pitch, roll转换为四元数
-        double[] quaternion = eulerToQuaternion(pose.yaw, pose.pitch, pose.roll);
-        
         JsonObject params = new JsonObject();
-        params.addProperty("x0", pose.x0); // 图像中心x坐标
-        params.addProperty("y0", pose.yo); // 图像中心y坐标
-        params.addProperty("f", pose.f); // 焦距
-        params.addProperty("xs", xyz[0]); // 空间直角坐标X
-        params.addProperty("ys", xyz[1]); // 空间直角坐标Y
-        params.addProperty("zs", xyz[2]); // 空间直角坐标Z
-        params.addProperty("rotation_type", "quaternion");
-        params.addProperty("qw", quaternion[0]); // 四元数
-        params.addProperty("qx", quaternion[1]); // 四元数
-        params.addProperty("qy", quaternion[2]); // 四元数
-        params.addProperty("qz", quaternion[3]); // 四元数
+        
+        // 添加位置信息
+        params.addProperty("B", pose.latitude);  // 纬度 (度)
+        params.addProperty("L", pose.longitude); // 经度 (度)
+        params.addProperty("H", pose.altitude);  // 高程 (米)
+        
+        // 添加相机欧拉角
+        JsonObject eulerCamera = new JsonObject();
+        eulerCamera.addProperty("roll", pose.cameraRoll);   // 相机横滚角 (度)
+        eulerCamera.addProperty("pitch", pose.cameraPitch); // 相机俯仰角 (度)
+        eulerCamera.addProperty("yaw", pose.cameraYaw);     // 相机偏航角 (度)
+        params.add("eular_camera", eulerCamera);
+        
+        // 添加无人机欧拉角
+        JsonObject eulerDrone = new JsonObject();
+        eulerDrone.addProperty("roll", pose.droneRoll);   // 无人机横滚角 (度)
+        eulerDrone.addProperty("pitch", pose.dronePitch); // 无人机俯仰角 (度)
+        eulerDrone.addProperty("yaw", pose.droneYaw);     // 无人机偏航角 (度)
+        params.add("eular_drone", eulerDrone);
         
         return params.toString();
     }

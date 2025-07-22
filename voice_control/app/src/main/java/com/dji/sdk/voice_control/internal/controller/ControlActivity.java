@@ -1116,7 +1116,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         Button test_control = findViewById(R.id.test_control);
         Button stop_cycle = findViewById(R.id.stop_cycle);
         Button stop_agent_button = findViewById(R.id.stop_agent_button);
-        Button ActionTarget = findViewById(R.id.Action_Target);
+        Button LocationSave = findViewById(R.id.location_save);
         ToggleButton is_Gpt_Serve = findViewById(R.id.is_GPT_Serve);
         Button stop_button = findViewById(R.id.stop_button);
         Button land_buttion = findViewById(R.id.land_button);
@@ -1238,8 +1238,8 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
         stop_cycle.setOnClickListener(v -> {
             llmAgentCycle.stopHotpointMission();
         });
-        ActionTarget.setOnClickListener(v -> {
-            targetCollectionAgent.startMission();
+        LocationSave.setOnClickListener(v -> {
+            depthEstimation.captureCurrentPose("current");
         });
         takeoff_buttion.setOnClickListener(v -> {
             mCI.mTakeoff();

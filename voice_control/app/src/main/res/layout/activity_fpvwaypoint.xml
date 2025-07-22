@@ -342,14 +342,14 @@
                 android:textSize="12sp" />
 
             <Button
-                android:id="@+id/Action_Target"
+                android:id="@+id/location_save"
                 android:layout_width="0dp"
                 android:layout_height="36dp"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:background="@drawable/round_btn"
-                android:text="动作库Agent"
+                android:text="保存当前姿态"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
 
