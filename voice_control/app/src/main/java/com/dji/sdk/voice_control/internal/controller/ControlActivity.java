@@ -1239,7 +1239,7 @@ public class ControlActivity extends AppCompatActivity implements OnMapClickList
             llmAgentCycle.stopHotpointMission();
         });
         LocationSave.setOnClickListener(v -> {
-            depthEstimation.captureCurrentPose("current");
+            depthEstimation.captureCurrentPoseAsync("current");
         });
         takeoff_buttion.setOnClickListener(v -> {
             mCI.mTakeoff();

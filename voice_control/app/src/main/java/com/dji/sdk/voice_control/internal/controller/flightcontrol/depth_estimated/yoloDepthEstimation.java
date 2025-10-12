@@ -30,6 +30,8 @@ import java.util.concurrent.TimeUnit;
 
 import dji.sdk.flightcontroller.FlightController;
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 
 //TODO:1. 
 public class yoloDepthEstimation {
@@ -358,6 +360,189 @@ public class yoloDepthEstimation {
         }).start();
     }
 
+
+    /**
+     * 姿态和图像获取接口
+     */
+    public interface CapturePoseCallback {
+        void onSuccess(CameraPose pose);
+    }
+
+    /**
+     * 获取当前姿态和图像
+     */
+    public void captureCurrentPoseAsync(String suffix) {
+        new Thread(()->{
+            // 获取当前姿态信息，如果 flightController 为 null，使用默认值
+            float altitude = 0.0f;
+            double latitude = 0.0;
+            double longitude = 0.0;
+            float x0 = 0.0f;
+            float y0 = 0.0f;
+            float f = 0.0f;
+            float fi = 0.0f;
+            float omg = 0.0f;
+            float kappa = 0.0f;
+
+            double droneYaw = 0.0;
+            double dronePitch = 0.0;
+            double droneRoll = 0.0;
+            double gimbalYaw = 0.0;
+            double gimbalPitch = 0.0;
+            double gimbalRoll = 0.0;
+
+
+
+            File imageFile = null;
+
+//        // 获取图像（这里使用测试图像，实际应用中需要从相机获取）
+//        if(suffix == "current"){
+//            Resources res = callback.mgetResources();
+//            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth1);
+//            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
+//        } else if (suffix == "left_10") {
+//            Resources res = callback.mgetResources();
+//            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth2);
+//            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
+//        } else {
+//            Resources res = callback.mgetResources();
+//            Bitmap bitmap = BitmapFactory.decodeResource(res, R.drawable.depth3);
+//            imageFile = callback.saveBitmapAsFile(bitmap, "depth_" + suffix + ".jpg");
+//        }
+
+            // 真实图片
+            final File[] FisrtImage = {null};
+            final CountDownLatch latch = new CountDownLatch(1);
+
+            callback.CaptureDjiImage(new ControlActivity.CaptureImageCallback() {
+                @Override
+                public void onSuccess(File imageFile) throws IOException {
+                    // TODO Auto-generated method stub
+                    FisrtImage[0] = imageFile;
+                    latch.countDown();
+
+
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    // TODO Auto-generated method stub
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "获取图像失败: " + error);
+                    });
+                    latch.countDown();
+                }
+            });
+
+            try {
+                // 等待图像捕获完成，最多等待10秒
+                boolean completed = latch.await(20, TimeUnit.SECONDS);
+                if (!completed) {
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "获取图像超时");
+                    });
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "获取图像被中断: " + e.getMessage());
+                });
+            }
+
+            Bitmap bitmap = BitmapFactory.decodeFile(FisrtImage[0].getAbsolutePath());
+            runOnUiThread(() -> {
+                callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
+            });
+
+            //云台控制器实例化
+            gimbalControl = new gimbalControl();
+
+            //获取无人机的状态信息和无人机云台信息
+            if (mCI.mFlightController != null) {
+                try {
+                    if (mCI.mFlightController.getState() != null && mCI.mFlightController.getState().getAircraftLocation() != null) {
+                        altitude = mCI.mFlightController.getState().getAircraftLocation().getAltitude();
+                        latitude = mCI.mFlightController.getState().getAircraftLocation().getLatitude();
+                        longitude = mCI.mFlightController.getState().getAircraftLocation().getLongitude();
+
+                        droneYaw = mCI.mFlightController.getState().getAttitude().yaw;
+                        dronePitch = mCI.mFlightController.getState().getAttitude().pitch;
+                        droneRoll = mCI.mFlightController.getState().getAttitude().roll;
+
+                    }
+                    if(gimbalControl!= null){
+                        gimbalYaw = gimbalControl.getyaw();
+                        gimbalPitch = gimbalControl.getPitch();
+                        gimbalRoll = gimbalControl.getRoll();
+                    }
+                } catch (Exception e) {
+                    // 如果获取姿态信息失败，使用默认值
+                    runOnUiThread(() -> {
+                        callback.addChatMessage(Constant.OWNER_BOT, "获取姿态信息失败，使用默认值: " + e.getMessage());
+                    });
+                }
+            } else {
+                runOnUiThread(() -> {
+                    callback.addChatMessage(Constant.OWNER_BOT, "FlightController 为 null，使用默认姿态值");
+                });
+            }
+
+
+            double finalLatitude = latitude;
+            double finalDroneYaw = droneYaw;
+            double finalDronePitch = dronePitch;
+            double finalDroneRoll = droneRoll;
+            double finalGimbalYaw = gimbalYaw;
+            double finalGimbalPitch = gimbalPitch;
+            double finalGimbalRoll = gimbalRoll;
+            float finalAltitude = altitude;
+            double finalLongitude = longitude;
+            runOnUiThread(() -> {
+                String statusInfo = "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
+                        "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
+                        "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude;
+                callback.addChatMessage(Constant.OWNER_BOT, statusInfo);
+
+                //                   callback.addChatMessage(Constant.OWNER_BOT, "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
+                //        "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
+                //        "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude);
+                //    });
+
+
+                // 保存到txt文件
+                try {
+                    Context context = callback.getContext();
+                    java.io.File dir = new java.io.File(context.getExternalFilesDir(null), "yolo_status");
+                    if (!dir.exists()) dir.mkdirs();
+                    String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(new java.util.Date());
+                    java.io.File txtFile = new java.io.File(dir, "status_" + timestamp + ".txt");
+                    java.io.FileWriter writer = new java.io.FileWriter(txtFile);
+                    writer.write(statusInfo);
+                    writer.close();
+                    callback.addChatMessage(Constant.OWNER_BOT, "姿态信息已保存: " + txtFile.getAbsolutePath());
+
+                    // 保存图片文件
+                    if (FisrtImage[0] != null && FisrtImage[0].exists()) {
+                        java.io.File imgFile = new java.io.File(dir, "image_" + timestamp + ".jpg");
+                        java.io.FileInputStream in = new java.io.FileInputStream(FisrtImage[0]);
+                        java.io.FileOutputStream out = new java.io.FileOutputStream(imgFile);
+                        byte[] buffer = new byte[4096];
+                        int len;
+                        while ((len = in.read(buffer)) > 0) {
+                            out.write(buffer, 0, len);
+                        }
+                        in.close();
+                        out.close();
+                        callback.addChatMessage(Constant.OWNER_BOT, "图像已保存: " + imgFile.getAbsolutePath());
+                    }
+                } catch (Exception e) {
+                    callback.addChatMessage(Constant.OWNER_BOT, "保存姿态信息或图片失败: " + e.getMessage());
+                }
+            });
+            CameraPose result = new CameraPose(x0, y0, f, droneYaw, dronePitch, droneRoll, gimbalYaw, gimbalPitch, gimbalRoll, altitude, latitude, longitude, FisrtImage[0]);
+        }).start();
+    }
+
     /**
      * 获取当前姿态和图像
      */
@@ -380,8 +565,10 @@ public class yoloDepthEstimation {
         double gimbalPitch = 0.0;
         double gimbalRoll = 0.0;
 
+        //云台控制器实例化
         gimbalControl = new gimbalControl();
-        
+
+        //获取无人机的状态信息和无人机云台信息
         if (mCI.mFlightController != null) {
             try {
                 if (mCI.mFlightController.getState() != null && mCI.mFlightController.getState().getAircraftLocation() != null) {
@@ -411,9 +598,8 @@ public class yoloDepthEstimation {
             });
         }
 
-        //
         File imageFile = null;
-        
+
 //        // 获取图像（这里使用测试图像，实际应用中需要从相机获取）
 //        if(suffix == "current"){
 //            Resources res = callback.mgetResources();
@@ -471,6 +657,8 @@ public class yoloDepthEstimation {
         runOnUiThread(() -> {
             callback.addChatMessage(Constant.OWNER_HUMAN, bitmap);
         });
+
+
         double finalLatitude = latitude;
         double finalDroneYaw = droneYaw;
         double finalDronePitch = dronePitch;
@@ -481,28 +669,28 @@ public class yoloDepthEstimation {
         float finalAltitude = altitude;
         double finalLongitude = longitude;
         runOnUiThread(() -> {
-           String statusInfo = "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
-                   "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
-                   "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude;
-           callback.addChatMessage(Constant.OWNER_BOT, statusInfo);
+            String statusInfo = "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
+                    "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
+                    "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude;
+            callback.addChatMessage(Constant.OWNER_BOT, statusInfo);
 
-    //                   callback.addChatMessage(Constant.OWNER_BOT, "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
-    //        "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
-    //        "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude);
-    //    });
+            //                   callback.addChatMessage(Constant.OWNER_BOT, "当前姿态" + finalDroneYaw + " " + finalDronePitch + " " + finalDroneRoll + " " +
+            //        "云台姿态" + finalGimbalYaw + " " + finalGimbalPitch + " " + finalGimbalRoll + " " +
+            //        "高度" + finalAltitude + " " + "经度" + finalLatitude + " " + "纬度" + finalLongitude);
+            //    });
 
 
-           // 保存到txt文件
-           try {
-               Context context = callback.getContext();
-               java.io.File dir = new java.io.File(context.getExternalFilesDir(null), "yolo_status");
-               if (!dir.exists()) dir.mkdirs();
-               String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(new java.util.Date());
-               java.io.File txtFile = new java.io.File(dir, "status_" + timestamp + ".txt");
-               java.io.FileWriter writer = new java.io.FileWriter(txtFile);
-               writer.write(statusInfo);
-               writer.close();
-               callback.addChatMessage(Constant.OWNER_BOT, "姿态信息已保存: " + txtFile.getAbsolutePath());
+            // 保存到txt文件
+            try {
+                Context context = callback.getContext();
+                java.io.File dir = new java.io.File(context.getExternalFilesDir(null), "yolo_status");
+                if (!dir.exists()) dir.mkdirs();
+                String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(new java.util.Date());
+                java.io.File txtFile = new java.io.File(dir, "status_" + timestamp + ".txt");
+                java.io.FileWriter writer = new java.io.FileWriter(txtFile);
+                writer.write(statusInfo);
+                writer.close();
+                callback.addChatMessage(Constant.OWNER_BOT, "姿态信息已保存: " + txtFile.getAbsolutePath());
 
                 // 保存图片文件
                 if (FisrtImage[0] != null && FisrtImage[0].exists()) {
@@ -518,9 +706,9 @@ public class yoloDepthEstimation {
                     out.close();
                     callback.addChatMessage(Constant.OWNER_BOT, "图像已保存: " + imgFile.getAbsolutePath());
                 }
-           } catch (Exception e) {
-               callback.addChatMessage(Constant.OWNER_BOT, "保存姿态信息或图片失败: " + e.getMessage());
-           }
+            } catch (Exception e) {
+                callback.addChatMessage(Constant.OWNER_BOT, "保存姿态信息或图片失败: " + e.getMessage());
+            }
         });
 
         return new CameraPose(x0, y0, f, droneYaw, dronePitch, droneRoll, gimbalYaw, gimbalPitch, gimbalRoll, altitude, latitude, longitude, FisrtImage[0]);
